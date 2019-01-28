@@ -16,6 +16,7 @@ import java.sql.DriverPropertyInfo
 import java.util.Properties
 import java.util.logging.Logger
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object driver { module =>
 
@@ -42,7 +43,7 @@ object driver { module =>
       final def apply[A](fa: DriverOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Driver => A): F[A]
+      def raw[A](f: Env[Driver] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: DriverIO[A], f: Throwable => DriverIO[A]): F[A]
@@ -51,6 +52,7 @@ object driver { module =>
       def bracketCase[A, B](acquire: DriverIO[A])(use: A => DriverIO[B])(release: (A, ExitCase[Throwable]) => DriverIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: DriverIO[A]): F[A]
+      def liftE[G[_]](env: Env[Driver] => G ~> DriverIO): F[G ~> DriverIO]
 
       // Driver
       def acceptsURL(a: String): F[Boolean]
@@ -64,7 +66,7 @@ object driver { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Driver => A) extends DriverOp[A] {
+    final case class Raw[A](f: Env[Driver] => A) extends DriverOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends DriverOp[A] {
@@ -90,6 +92,9 @@ object driver { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: DriverIO[A]) extends DriverOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[Driver] => G ~> DriverIO) extends DriverOp[G ~> DriverIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // Driver-specific operations.
@@ -121,7 +126,7 @@ object driver { module =>
   // Smart constructors for operations common to all algebras.
   val unit: DriverIO[Unit] = FF.pure[DriverOp, Unit](())
   def pure[A](a: A): DriverIO[A] = FF.pure[DriverOp, A](a)
-  def raw[A](f: Driver => A): DriverIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[Driver] => A): DriverIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DriverOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): DriverIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: DriverIO[A], f: Throwable => DriverIO[A]): DriverIO[A] = FF.liftF[DriverOp, A](HandleErrorWith(fa, f))
@@ -131,6 +136,7 @@ object driver { module =>
   def bracketCase[A, B](acquire: DriverIO[A])(use: A => DriverIO[B])(release: (A, ExitCase[Throwable]) => DriverIO[Unit]): DriverIO[B] = FF.liftF[DriverOp, B](BracketCase(acquire, use, release))
   val shift: DriverIO[Unit] = FF.liftF[DriverOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: DriverIO[A]) = FF.liftF[DriverOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[Driver] => F ~> DriverIO) = FF.liftF[DriverOp, F ~> DriverIO](LiftE(env))
 
   // Smart constructors for Driver-specific operations.
   def acceptsURL(a: String): DriverIO[Boolean] = FF.liftF(AcceptsURL(a))

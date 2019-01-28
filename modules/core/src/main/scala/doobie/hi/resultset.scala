@@ -76,7 +76,6 @@ object resultset {
   def get[A: Read]: ResultSetIO[A] =
     get(1)
 
-
   /**
    * Consumes the remainder of the resultset, reading each row as a value of type `A` and
    * accumulating them in a standard library collection via `CanBuildFrom`.
@@ -84,11 +83,13 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def build[F[_], A](implicit F: FactoryCompat[A, F[A]], A: Read[A]): ResultSetIO[F[A]] =
-    FRS.raw { rs =>
-      val b = F.newBuilder
-      while (rs.next)
-        b += A.unsafeGet(rs, 1)
-      b.result()
+    FRS.raw { e =>
+      e.unsafeTrace(s"HRS.build ${Read[A].gets.map(_._1.typeStack.head.getOrElse("«unknown»")).mkString("(", ", ", ")")}") { _ =>
+        val b = F.newBuilder
+        while (e.jdbc.next)
+          b += A.unsafeGet(e.jdbc, 1)
+        b.result()
+      }
     }
 
   /**
@@ -100,11 +101,13 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def buildMap[F[_], A, B](f: A => B)(implicit F: FactoryCompat[B, F[B]], A: Read[A]): ResultSetIO[F[B]] =
-    FRS.raw { rs =>
-      val b = F.newBuilder
-      while (rs.next)
-        b += f(A.unsafeGet(rs, 1))
-      b.result()
+    FRS.raw { e =>
+      e.unsafeTrace(s"HRS.buildMap ${Read[A].gets.map(_._1.typeStack.head.getOrElse("«unknown»")).mkString("(", ", ", ")")}") { _ =>
+        val b = F.newBuilder
+        while (e.jdbc.next)
+          b += f(A.unsafeGet(e.jdbc, 1))
+        b.result()
+      }
     }
 
   /**
@@ -172,14 +175,16 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def getNextChunkV[A](chunkSize: Int)(implicit A: Read[A]): ResultSetIO[Vector[A]] =
-    FRS.raw { rs =>
-      var n = chunkSize
-      val b = Vector.newBuilder[A]
-      while (n > 0 && rs.next) {
-        b += A.unsafeGet(rs, 1)
-        n -= 1
+    FRS.raw { e =>
+      e.unsafeTrace(s"HRS.getNextChunkV ${Read[A].gets.map(_._1.typeStack.head.getOrElse("«unknown»")).mkString("(", ", ", ")")}") { _ =>
+        var n = chunkSize
+        val b = Vector.newBuilder[A]
+        while (n > 0 && e.jdbc.next) {
+          b += A.unsafeGet(e.jdbc, 1)
+          n -= 1
+        }
+        b.result()
       }
-      b.result()
     }
 
   /**

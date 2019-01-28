@@ -15,7 +15,7 @@ def fs2CoreVersion(scalaVersion: String) = CrossVersion.partialVersion(scalaVers
 lazy val h2Version            = "1.4.197"
 lazy val hikariVersion        = "3.3.0"
 lazy val kindProjectorVersion = "0.9.9"
-lazy val monixVersion         = "3.0.0-RC2"
+lazy val monixVersion         = "3.0.0-RC3"
 lazy val postGisVersion       = "2.3.0"
 lazy val postgresVersion      = "42.2.5"
 lazy val refinedVersion       = "0.9.4"
@@ -30,6 +30,8 @@ lazy val specs2Version        = "4.3.6"
 lazy val scala211Version      = "2.11.12"
 lazy val scala212Version      = "2.12.8"
 lazy val scala213Version      = "2.13.0-M5"
+lazy val silencerVersion      = "1.3.1"
+lazy val slf4jVersion         = "1.7.25"
 
 // Check bincompat versus this version.
 lazy val binaryCompatibleVersion = "0.6.0"
@@ -100,7 +102,8 @@ lazy val compilerFlags = Seq(
           "-Ywarn-unused:params",              // Warn if a value parameter is unused.
           "-Ywarn-unused:patvars",             // Warn if a variable bound in a pattern is unused.
           "-Ywarn-unused:privates",            // Warn if a private member is unused.
-          "-Ywarn-value-discard"               // Warn when non-Unit expression results are unused.
+          "-Ywarn-value-discard",              // Warn when non-Unit expression results are unused.
+          "-Yrangepos"
         )
     }
   ),
@@ -164,6 +167,8 @@ lazy val commonSettings =
       "-doc-source-url", "https://github.com/tpolecat/doobie/blob/v" + version.value + "€{FILE_PATH}.scala"
     ),
     libraryDependencies ++= Seq(
+      compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion),
+      "com.github.ghik" %% "silencer-lib" % silencerVersion % Provided,
       "org.scalacheck" %% "scalacheck"        % scalaCheckVersion % "test",
       "org.specs2"     %% "specs2-core"       % specs2Version     % "test",
       "org.specs2"     %% "specs2-scalacheck" % specs2Version     % "test"
@@ -289,6 +294,7 @@ lazy val free = project
       "org.typelevel"  %% "cats-core"   % catsVersion,
       "org.typelevel"  %% "cats-free"   % catsVersion,
       "org.typelevel"  %% "cats-effect" % catsEffectVersion,
+      "org.slf4j"      %  "slf4j-api"   % slf4jVersion,
     ),
     freeGen2Dir     := (scalaSource in Compile).value / "doobie" / "free",
     freeGen2Package := "doobie.free",
@@ -327,7 +333,8 @@ lazy val core = project
       scalaOrganization.value %  "scala-reflect" % scalaVersion.value, // required for shapeless macros
       "com.chuusai"           %% "shapeless"     % shapelessVersion,
       "com.lihaoyi"           %% "sourcecode"    % sourcecodeVersion,
-      "com.h2database"        %  "h2"            % h2Version          % "test"
+      "com.h2database"        %  "h2"            % h2Version          % "test",
+      "org.slf4j"             %  "slf4j-simple"  % slf4jVersion       % "test",
     ),
     scalacOptions += "-Yno-predef",
     unmanagedSourceDirectories in Compile += {
@@ -365,7 +372,8 @@ lazy val example = project
   .dependsOn(core, postgres, specs2, scalatest, hikari, h2)
   .settings(
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io"     % fs2CoreVersion(scalaVersion.value)
+      "co.fs2"    %% "fs2-io"       % fs2CoreVersion(scalaVersion.value),
+      "org.slf4j" %  "slf4j-simple" % slf4jVersion,
     )
   )
 

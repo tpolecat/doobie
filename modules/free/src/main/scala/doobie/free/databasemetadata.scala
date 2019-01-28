@@ -16,6 +16,7 @@ import java.sql.DatabaseMetaData
 import java.sql.ResultSet
 import java.sql.RowIdLifetime
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object databasemetadata { module =>
 
@@ -42,7 +43,7 @@ object databasemetadata { module =>
       final def apply[A](fa: DatabaseMetaDataOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: DatabaseMetaData => A): F[A]
+      def raw[A](f: Env[DatabaseMetaData] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A]): F[A]
@@ -51,6 +52,7 @@ object databasemetadata { module =>
       def bracketCase[A, B](acquire: DatabaseMetaDataIO[A])(use: A => DatabaseMetaDataIO[B])(release: (A, ExitCase[Throwable]) => DatabaseMetaDataIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: DatabaseMetaDataIO[A]): F[A]
+      def liftE[G[_]](env: Env[DatabaseMetaData] => G ~> DatabaseMetaDataIO): F[G ~> DatabaseMetaDataIO]
 
       // DatabaseMetaData
       def allProceduresAreCallable: F[Boolean]
@@ -235,7 +237,7 @@ object databasemetadata { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: DatabaseMetaData => A) extends DatabaseMetaDataOp[A] {
+    final case class Raw[A](f: Env[DatabaseMetaData] => A) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends DatabaseMetaDataOp[A] {
@@ -261,6 +263,9 @@ object databasemetadata { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: DatabaseMetaDataIO[A]) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[DatabaseMetaData] => G ~> DatabaseMetaDataIO) extends DatabaseMetaDataOp[G ~> DatabaseMetaDataIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // DatabaseMetaData-specific operations.
@@ -805,7 +810,7 @@ object databasemetadata { module =>
   // Smart constructors for operations common to all algebras.
   val unit: DatabaseMetaDataIO[Unit] = FF.pure[DatabaseMetaDataOp, Unit](())
   def pure[A](a: A): DatabaseMetaDataIO[A] = FF.pure[DatabaseMetaDataOp, A](a)
-  def raw[A](f: DatabaseMetaData => A): DatabaseMetaDataIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[DatabaseMetaData] => A): DatabaseMetaDataIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DatabaseMetaDataOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): DatabaseMetaDataIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] = FF.liftF[DatabaseMetaDataOp, A](HandleErrorWith(fa, f))
@@ -815,6 +820,7 @@ object databasemetadata { module =>
   def bracketCase[A, B](acquire: DatabaseMetaDataIO[A])(use: A => DatabaseMetaDataIO[B])(release: (A, ExitCase[Throwable]) => DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[B] = FF.liftF[DatabaseMetaDataOp, B](BracketCase(acquire, use, release))
   val shift: DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: DatabaseMetaDataIO[A]) = FF.liftF[DatabaseMetaDataOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[DatabaseMetaData] => F ~> DatabaseMetaDataIO) = FF.liftF[DatabaseMetaDataOp, F ~> DatabaseMetaDataIO](LiftE(env))
 
   // Smart constructors for DatabaseMetaData-specific operations.
   val allProceduresAreCallable: DatabaseMetaDataIO[Boolean] = FF.liftF(AllProceduresAreCallable)

@@ -151,8 +151,8 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       else s"""|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret] = sys.error("Not implemented: $mname$ctparams(${cparams.mkString(", ")})")"""
 
     def kleisliImpl: String =
-      if (cargs.isEmpty) s"|    override def $mname = primitive(_.$mname)"
-      else s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
+      if (cargs.isEmpty) s"""|    override def $mname = primitive(_.$mname, "$mname")"""
+      else s"""|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args), "$mname", $args)"""
 
   }
 
@@ -214,6 +214,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |
     |${imports[A].mkString("\n")}
     |
+    |@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
     |@SuppressWarnings(Array("org.wartremover.warts.Overloading"))
     |object $mname { module =>
     |
@@ -240,7 +241,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |      final def apply[A](fa: ${opname}[A]): F[A] = fa.visit(this)
     |
     |      // Common
-    |      def raw[A](f: $sname => A): F[A]
+    |      def raw[A](f: Env[$sname] => A): F[A]
     |      def embed[A](e: Embedded[A]): F[A]
     |      def delay[A](a: () => A): F[A]
     |      def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): F[A]
@@ -249,6 +250,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |      def bracketCase[A, B](acquire: ${ioname}[A])(use: A => ${ioname}[B])(release: (A, ExitCase[Throwable]) => ${ioname}[Unit]): F[B]
     |      def shift: F[Unit]
     |      def evalOn[A](ec: ExecutionContext)(fa: ${ioname}[A]): F[A]
+    |      def liftE[G[_]](env: Env[${sname}] => G ~> ${ioname}): F[G ~> ${ioname}]
     |
     |      // $sname
           ${ctors[A].map(_.visitor).mkString("\n    ")}
@@ -256,7 +258,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |    }
     |
     |    // Common operations for all algebras.
-    |    final case class Raw[A](f: $sname => A) extends ${opname}[A] {
+    |    final case class Raw[A](f: Env[$sname] => A) extends ${opname}[A] {
     |      def visit[F[_]](v: Visitor[F]) = v.raw(f)
     |    }
     |    final case class Embed[A](e: Embedded[A]) extends ${opname}[A] {
@@ -283,6 +285,9 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |    final case class EvalOn[A](ec: ExecutionContext, fa: ${ioname}[A]) extends ${opname}[A] {
     |      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     |    }
+    |    final case class LiftE[G[_]](env: Env[${sname}] => G ~> ${ioname}) extends ${opname}[G ~> ${ioname}] {
+    |      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
+    |    }
     |
     |    // $sname-specific operations.
     |    ${ctors[A].map(_.ctor(opname)).mkString("\n    ")}
@@ -293,7 +298,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |  // Smart constructors for operations common to all algebras.
     |  val unit: ${ioname}[Unit] = FF.pure[${opname}, Unit](())
     |  def pure[A](a: A): ${ioname}[A] = FF.pure[${opname}, A](a)
-    |  def raw[A](f: $sname => A): ${ioname}[A] = FF.liftF(Raw(f))
+    |  def raw[A](f: Env[$sname] => A): ${ioname}[A] = FF.liftF(Raw(f))
     |  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[${opname}, A] = FF.liftF(Embed(ev.embed(j, fa)))
     |  def delay[A](a: => A): ${ioname}[A] = FF.liftF(Delay(() => a))
     |  def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): ${ioname}[A] = FF.liftF[${opname}, A](HandleErrorWith(fa, f))
@@ -303,6 +308,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |  def bracketCase[A, B](acquire: ${ioname}[A])(use: A => ${ioname}[B])(release: (A, ExitCase[Throwable]) => ${ioname}[Unit]): ${ioname}[B] = FF.liftF[${opname}, B](BracketCase(acquire, use, release))
     |  val shift: ${ioname}[Unit] = FF.liftF[${opname}, Unit](Shift)
     |  def evalOn[A](ec: ExecutionContext)(fa: ${ioname}[A]) = FF.liftF[${opname}, A](EvalOn(ec, fa))
+    |  def liftE[F[_]](env: Env[${sname}] => F ~> ${ioname}) = FF.liftF[${opname}, F ~> ${ioname}](LiftE(env))
     |
     |  // Smart constructors for $oname-specific operations.
     |  ${ctors[A].map(_.lifted(ioname)).mkString("\n  ")}
@@ -354,6 +360,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
      |
      |// A pair (J, Free[F, A]) with constructors that tie down J and F.
      |sealed trait Embedded[A]
+     |@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
      |object Embedded {
      |  ${managed.map(ClassTag(_)).map(embed(_)).mkString("\n  ") }
      |}
@@ -371,34 +378,37 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
      val ioname = s"${oname}IO"
      val mname  = oname.toLowerCase
      s"""
-       |  trait ${oname}Interpreter extends ${oname}Op.Visitor[Kleisli[M, $sname, ?]] {
+       |  trait ${oname}Interpreter extends ${oname}Op.Visitor[Kleisli[M, Env[$sname], ?]] {
        |
        |    // common operations delegate to outer interpeter
-       |    override def raw[A](f: $sname => A): Kleisli[M, $sname, A] = outer.raw(f)
-       |    override def embed[A](e: Embedded[A]): Kleisli[M, $sname, A] = outer.embed(e)
-       |    override def delay[A](a: () => A): Kleisli[M, $sname, A] = outer.delay(a)
-       |    override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, $sname, A] = outer.async(k)
+       |    override def raw[A](f: Env[$sname] => A): Kleisli[M, Env[$sname], A] = outer.raw(f)
+       |    override def embed[A](e: Embedded[A]): Kleisli[M, Env[$sname], A] = outer.embed(e)
+       |    override def delay[A](a: () => A): Kleisli[M, Env[$sname], A] = outer.delay(a)
+       |    override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, Env[$sname], A] = outer.async(k)
        |
        |    // for asyncF we must call ourself recursively
-       |    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ${ioname}[Unit]): Kleisli[M, $sname, A] =
+       |    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ${ioname}[Unit]): Kleisli[M, Env[$sname], A] =
        |      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
        |
        |    // for handleErrorWith we must call ourself recursively
-       |    override def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): Kleisli[M, $sname, A] =
+       |    override def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): Kleisli[M, Env[$sname], A] =
        |      Kleisli { j =>
        |        val faʹ = fa.foldMap(this).run(j)
        |        val fʹ  = f.andThen(_.foldMap(this).run(j))
        |        asyncM.handleErrorWith(faʹ)(fʹ)
        |      }
        |
-       |    def bracketCase[A, B](acquire: ${ioname}[A])(use: A => ${ioname}[B])(release: (A, ExitCase[Throwable]) => ${ioname}[Unit]): Kleisli[M, $sname, B] =
+       |    def bracketCase[A, B](acquire: ${ioname}[A])(use: A => ${ioname}[B])(release: (A, ExitCase[Throwable]) => ${ioname}[Unit]): Kleisli[M, Env[$sname], B] =
        |      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
        |
-       |    val shift: Kleisli[M, $sname, Unit] =
+       |    val shift: Kleisli[M, Env[$sname], Unit] =
        |      Kleisli(j => contextShiftM.shift)
        |
-       |    def evalOn[A](ec: ExecutionContext)(fa: $ioname[A]): Kleisli[M, $sname, A] =
+       |    def evalOn[A](ec: ExecutionContext)(fa: $ioname[A]): Kleisli[M, Env[$sname], A] =
        |      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
+       |
+       |    def liftE[G[_]](env: Env[${sname}] => G ~> $ioname): Kleisli[M, Env[${sname}], G ~> $ioname] =
+       |      Kleisli(e => asyncM.pure(env(e)))
        |
        |    // domain-specific operations are implemented in terms of `primitive`
        |${ctors[A].map(_.kleisliImpl).mkString("\n")}
@@ -413,7 +423,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
      val opname = s"${oname}Op"
      val ioname = s"${oname}IO"
      val mname  = oname.toLowerCase
-     s"lazy val ${oname}Interpreter: ${opname} ~> Kleisli[M, $sname, ?] = new ${oname}Interpreter { }"
+     s"lazy val ${oname}Interpreter: ${opname} ~> Kleisli[M, Env[$sname], ?] = new ${oname}Interpreter { }"
    }
 
 
@@ -437,19 +447,19 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |object KleisliInterpreter {
       |
       |  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
-      |  def apply[M[_]](blocking: ExecutionContext)(
+      |  def apply[M[_]](
       |    implicit am: Async[M],
       |             cs: ContextShift[M]
       |  ): KleisliInterpreter[M] =
       |    new KleisliInterpreter[M] {
       |      val asyncM = am
       |      val contextShiftM = cs
-      |      val blockingContext = blocking
       |    }
       |
       |}
       |
       |// Family of interpreters into Kleisli arrows for some monad M.
+      |@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
       |trait KleisliInterpreter[M[_]] { outer =>
       |
       |  implicit val asyncM: Async[M]
@@ -457,19 +467,26 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |  // We need these things in order to provide ContextShift[ConnectionIO] and so on, and also
       |  // to support shifting blocking operations to another pool.
       |  val contextShiftM: ContextShift[M]
-      |  val blockingContext: ExecutionContext
       |
       |  // The ${managed.length} interpreters, with definitions below. These can be overridden to customize behavior.
       |  ${managed.map(interpreterDef).mkString("\n  ")}
       |
       |  // Some methods are common to all interpreters and can be overridden to change behavior globally.
-      |  def primitive[J, A](f: J => A): Kleisli[M, J, A] = Kleisli(a => contextShiftM.evalOn(blockingContext)(asyncM.delay(f(a))))
-      |  def delay[J, A](a: () => A): Kleisli[M, J, A] = Kleisli(_ => asyncM.delay(a()))
-      |  def raw[J, A](f: J => A): Kleisli[M, J, A] = primitive(f)
-      |  def async[J, A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, J, A] = Kleisli(_ => asyncM.async(k))
-      |  def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
+      |  def primitive[J, A](f: J => A, name: String, args: Any*): Kleisli[M, Env[J], A] =
+      |    raw(_.unsafeTrace(s"$$name($${args.mkString(", ")})")(f))
+      |
+      |  def delay[J, A](a: () => A): Kleisli[M, Env[J], A] =
+      |    Kleisli(_ => asyncM.delay(a()))
+      |
+      |  def raw[J, A](f: Env[J] => A): Kleisli[M, Env[J], A] =
+      |    Kleisli(e => contextShiftM.evalOn(e.blockingContext)(asyncM.delay(f(e))))
+      |
+      |  def async[J, A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, Env[J], A] =
+      |    Kleisli(_ => asyncM.async(k))
+      |
+      |  def embed[J, A](e: Embedded[A]): Kleisli[M, Env[J], A] =
       |    e match {
-      |      ${managed.map(_.getSimpleName).map(n => s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))").mkString("\n      ")}
+      |      ${managed.map(_.getSimpleName).map(n => s"case Embedded.${n}(j, fa) => Kleisli(e => fa.foldMap(${n}Interpreter).run(e.copy(jdbc = j)))").mkString("\n      ")}
       |    }
       |
       |  // Interpreters

@@ -27,6 +27,7 @@ import java.sql.Time
 import java.sql.Timestamp
 import java.sql.{ Array => SqlArray }
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object sqlinput { module =>
 
@@ -53,7 +54,7 @@ object sqlinput { module =>
       final def apply[A](fa: SQLInputOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: SQLInput => A): F[A]
+      def raw[A](f: Env[SQLInput] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: SQLInputIO[A], f: Throwable => SQLInputIO[A]): F[A]
@@ -62,6 +63,7 @@ object sqlinput { module =>
       def bracketCase[A, B](acquire: SQLInputIO[A])(use: A => SQLInputIO[B])(release: (A, ExitCase[Throwable]) => SQLInputIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: SQLInputIO[A]): F[A]
+      def liftE[G[_]](env: Env[SQLInput] => G ~> SQLInputIO): F[G ~> SQLInputIO]
 
       // SQLInput
       def readArray: F[SqlArray]
@@ -96,7 +98,7 @@ object sqlinput { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: SQLInput => A) extends SQLInputOp[A] {
+    final case class Raw[A](f: Env[SQLInput] => A) extends SQLInputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends SQLInputOp[A] {
@@ -122,6 +124,9 @@ object sqlinput { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: SQLInputIO[A]) extends SQLInputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[SQLInput] => G ~> SQLInputIO) extends SQLInputOp[G ~> SQLInputIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // SQLInput-specific operations.
@@ -216,7 +221,7 @@ object sqlinput { module =>
   // Smart constructors for operations common to all algebras.
   val unit: SQLInputIO[Unit] = FF.pure[SQLInputOp, Unit](())
   def pure[A](a: A): SQLInputIO[A] = FF.pure[SQLInputOp, A](a)
-  def raw[A](f: SQLInput => A): SQLInputIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[SQLInput] => A): SQLInputIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLInputOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): SQLInputIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: SQLInputIO[A], f: Throwable => SQLInputIO[A]): SQLInputIO[A] = FF.liftF[SQLInputOp, A](HandleErrorWith(fa, f))
@@ -226,6 +231,7 @@ object sqlinput { module =>
   def bracketCase[A, B](acquire: SQLInputIO[A])(use: A => SQLInputIO[B])(release: (A, ExitCase[Throwable]) => SQLInputIO[Unit]): SQLInputIO[B] = FF.liftF[SQLInputOp, B](BracketCase(acquire, use, release))
   val shift: SQLInputIO[Unit] = FF.liftF[SQLInputOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: SQLInputIO[A]) = FF.liftF[SQLInputOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[SQLInput] => F ~> SQLInputIO) = FF.liftF[SQLInputOp, F ~> SQLInputIO](LiftE(env))
 
   // Smart constructors for SQLInput-specific operations.
   val readArray: SQLInputIO[SqlArray] = FF.liftF(ReadArray)

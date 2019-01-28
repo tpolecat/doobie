@@ -6,7 +6,7 @@ package doobie.postgres
 
 import cats.{ ContravariantSemigroupal, Foldable }
 import cats.syntax.foldable._
-
+import com.github.ghik.silencer.silent
 import shapeless.{ HList, HNil, ::, <:!<, Generic, Lazy }
 
 /**
@@ -107,6 +107,7 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
       // control characters or high whitespace characters so these are simply filtered out in the
       // tests. It should accommodate arrays of non-pathological strings but it would be nice to
       // have a complete specification of what's actually happening.
+      @silent // value discarding
       override def unsafeArrayEncode(s: String, sb: StringBuilder) = {
         sb.append('"')
         s.foreach {
@@ -119,38 +120,42 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
     }
 
   //Char
+  @com.github.ghik.silencer.silent // non-unit discard
   implicit val charInstance:    Text[Char]    = instance((n, sb) => sb.append(n.toString))
 
   // Primitive Numerics
-  implicit val intInstance:    Text[Int]    = instance((n, sb) => sb.append(n))
-  implicit val shortInstance:  Text[Short]  = instance((n, sb) => sb.append(n))
-  implicit val longInstance:   Text[Long]   = instance((n, sb) => sb.append(n))
-  implicit val floatInstance:  Text[Float]  = instance((n, sb) => sb.append(n))
-  implicit val doubleInstance: Text[Double] = instance((n, sb) => sb.append(n))
+  @silent /* value discarding */ implicit val intInstance:    Text[Int]    = instance((n, sb) => sb.append(n))
+  @silent /* value discarding */ implicit val shortInstance:  Text[Short]  = instance((n, sb) => sb.append(n))
+  @silent /* value discarding */ implicit val longInstance:   Text[Long]   = instance((n, sb) => sb.append(n))
+  @silent /* value discarding */ implicit val floatInstance:  Text[Float]  = instance((n, sb) => sb.append(n))
+  @silent /* value discarding */ implicit val doubleInstance: Text[Double] = instance((n, sb) => sb.append(n))
 
   // Big Numerics
+  @silent // value discarding
   implicit val bigDecimalInstance: Text[BigDecimal] = instance { (n, sb) => sb.append(n.toString) }
 
   // Boolean
+  @silent // value discarding
   implicit val booleanInstance: Text[Boolean] =
     instance((b, sb) => sb.append(b))
 
   // Date, Time, etc.
 
   // Byte arrays in \\x01A3DD.. format.
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+  @silent // value discarding
   implicit val byteArrayInstance: Text[Array[Byte]] =
     instance { (bs, sb) =>
       sb.append("\\\\x")
       if (bs.length > 0) {
         val hex = BigInt(1, bs).toString(16)
         val pad = bs.length * 2 - hex.length
-        (0 until pad).foreach(a => sb.append("0"))
+        (0 until pad).foreach(_ => sb.append("0"))
         sb.append(hex)
       }
     }
 
   // Any non-option Text can be lifted to Option
+  @silent // value discarding, unused proof term
   implicit def option[A](
     implicit csv: Text[A],
              nope: A <:!< Option[X] forSome { type X }
@@ -186,6 +191,7 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
 trait TextInstances0 extends TextInstances1 { this: Text.type =>
 
   // Iterable and views thereof, as [nested] ARRAY
+  @silent // value discarding
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Var"))
   implicit def iterableInstance[F[_], A](
     implicit ev: Text[A],

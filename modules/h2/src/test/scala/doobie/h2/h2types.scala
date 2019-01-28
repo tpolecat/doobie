@@ -5,8 +5,9 @@
 package doobie.h2
 
 import cats.effect.{ ContextShift, IO }
+import com.github.ghik.silencer.silent
 import doobie._, doobie.implicits._
-import doobie.h2._, doobie.h2.implicits._
+import doobie.h2.implicits._
 import java.util.UUID
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
@@ -63,8 +64,8 @@ object h2typesspec extends Specification {
   testInOut[Short]("SMALLINT", 123)
   testInOut[Long]("BIGINT", 123)
   testInOut[BigDecimal]("DECIMAL", 123.45)
-  testInOut[java.sql.Time]("TIME", new java.sql.Time(3,4,5))
-  testInOut[java.sql.Date]("DATE", new java.sql.Date(4,5,6))
+  testInOut[java.sql.Time]("TIME", new java.sql.Time(3,4,5): @silent)
+  testInOut[java.sql.Date]("DATE", new java.sql.Date(4,5,6): @silent)
   testInOut[java.time.LocalDate]("DATE", java.time.LocalDate.of(4,5,6))
   testInOut[java.sql.Timestamp]("TIMESTAMP", new java.sql.Timestamp(System.currentTimeMillis))
   testInOut[java.time.Instant]("TIMESTAMP", java.time.Instant.now)

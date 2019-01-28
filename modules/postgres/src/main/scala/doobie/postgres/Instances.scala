@@ -134,7 +134,7 @@ trait Instances {
 
 
   private def enumPartialMeta(name: String): Meta[String] =
-    Meta.basic[String](
+    Meta.Basic.many[String](
       NonEmptyListOf(JdbcType.Other, JdbcType.VarChar), // https://github.com/tpolecat/doobie/issues/303
       NonEmptyListOf(JdbcType.Other, JdbcType.VarChar),
       Nil,

@@ -8,6 +8,7 @@ import cats._
 import cats.arrow.Profunctor
 import cats.data.NonEmptyList
 import cats.implicits._
+import com.github.ghik.silencer.silent
 import cats.effect.syntax.bracket._
 import doobie._
 import doobie.implicits.AsyncPreparedStatementIO
@@ -35,12 +36,14 @@ object query {
     protected implicit val read: Read[B]
 
     // LogHandler is protected for now.
+    @silent // deprecation
     protected val logHandler: LogHandler
 
     private val now: PreparedStatementIO[Long] =
       FPS.delay(System.nanoTime)
 
     // Equivalent to HPS.executeQuery(k) but with logging
+    @silent // deprecation
     private def executeQuery[T](a: A, k: ResultSetIO[T]): PreparedStatementIO[T] = {
       val args = write.toList(a)
       def diff(a: Long, b: Long) = FiniteDuration((a - b).abs, NANOSECONDS)
@@ -206,6 +209,7 @@ object query {
      * most common way to construct a `Query` is via the `sql` interpolator.
      * @group Constructors
      */
+    @silent // deprecation
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def apply[A, B](sql0: String, pos0: Option[Pos] = None, logHandler0: LogHandler = LogHandler.nop)(implicit A: Write[A], B: Read[B]): Query[A, B] =
       new Query[A, B] {
@@ -344,9 +348,10 @@ object query {
      * `sql`interpolator.
      * @group Constructors
      */
-     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
-     def apply[A: Read](sql: String, pos: Option[Pos] = None, logHandler: LogHandler = LogHandler.nop): Query0[A] =
-       Query[Unit, A](sql, pos, logHandler).toQuery0(())
+    @silent // deprecation
+    @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+    def apply[A: Read](sql: String, pos: Option[Pos] = None, logHandler: LogHandler = LogHandler.nop): Query0[A] =
+      Query[Unit, A](sql, pos, logHandler).toQuery0(())
 
     /** @group Typeclass Instances */
     implicit val queryFunctor: Functor[Query0] =

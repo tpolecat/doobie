@@ -54,7 +54,7 @@ final class Read[A](
     new Read(gets ++ ff.gets, (rs, n) => ff.unsafeGet(rs, n + length)(unsafeGet(rs, n)))
 
   def get(n: Int): ResultSetIO[A] =
-    FRS.raw(unsafeGet(_, n))
+    FRS.raw(e => unsafeGet(e.jdbc, n))
 
 }
 

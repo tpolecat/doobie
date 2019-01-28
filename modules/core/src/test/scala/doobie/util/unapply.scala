@@ -5,7 +5,6 @@
 package doobie
 package util
 
-import shapeless._, shapeless.test._
 import org.specs2.mutable.Specification
 
 import cats.Monad

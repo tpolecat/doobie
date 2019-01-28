@@ -16,9 +16,9 @@ import scala.reflect.runtime.universe.TypeTag
 trait PgisInstances {
 
   // PostGIS outer types
-  implicit val PGgeometryType = Meta.other[PGgeometry]("geometry")
-  implicit val PGbox3dType    = Meta.other[PGbox3d]("box3d")
-  implicit val PGbox2dType    = Meta.other[PGbox2d]("box2d")
+  implicit val PGgeometryType = Meta.Advanced.other[PGgeometry]("geometry")
+  implicit val PGbox3dType    = Meta.Advanced.other[PGbox3d]("box3d")
+  implicit val PGbox2dType    = Meta.Advanced.other[PGbox2d]("box2d")
 
   // Constructor for geometry types via the `Geometry` member of PGgeometry
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

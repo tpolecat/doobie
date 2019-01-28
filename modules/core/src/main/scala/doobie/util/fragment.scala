@@ -7,7 +7,7 @@ package doobie.util
 import cats._
 import cats.data.Chain
 import cats.implicits._
-
+import com.github.ghik.silencer.silent
 import doobie._, doobie.implicits._
 import doobie.util.pos.Pos
 import doobie.util.param.Param.Elem
@@ -94,6 +94,7 @@ object fragment {
     def stripMargin: Fragment = stripMargin('|')
 
     /** Construct a [[Query0]] from this fragment, with asserted row type `B`. */
+    @silent // deprecation
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def query[B: Read](implicit h: LogHandler = LogHandler.nop): Query0[B] =
       queryWithLogHandler(h)
@@ -102,15 +103,18 @@ object fragment {
      * Construct a [[Query0]] from this fragment, with asserted row type `B` and the given
      * `LogHandler`.
      */
+    @silent // deprecation
     def queryWithLogHandler[B](h: LogHandler)(implicit cb: Read[B]): Query0[B] =
       Query[elems.type, B](sql, pos, h).toQuery0(elems)
 
     /** Construct an [[Update0]] from this fragment. */
+    @silent // deprecation
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def update(implicit h: LogHandler = LogHandler.nop): Update0 =
       updateWithLogHandler(h)
 
     /** Construct an [[Update0]] from this fragment with the given `LogHandler`. */
+    @silent // deprecation
     def updateWithLogHandler(h: LogHandler): Update0 =
       Update[elems.type](sql, pos, h).toUpdate0(elems)
 

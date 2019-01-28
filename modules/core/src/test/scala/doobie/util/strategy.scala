@@ -4,13 +4,11 @@
 
 package doobie.util
 
-import cats.Monad
 import cats.effect.{ Async, ContextShift, IO }
 import cats.implicits._
 import doobie._, doobie.implicits._
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
-import scala.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Var"))
 object strategyspec extends Specification {
@@ -64,7 +62,7 @@ object strategyspec extends Specification {
   }
 
   def xa(i: KleisliInterpreter[IO]) =
-    Transactor.interpret.set(baseXa, i.ConnectionInterpreter)
+    Transactor.interpreter.set(baseXa, i.ConnectionInterpreter)
 
   "Connection configuration and safety" >> {
 

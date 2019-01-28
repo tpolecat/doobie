@@ -17,6 +17,7 @@ import java.lang.String
 import java.sql.Clob
 import java.sql.NClob
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object nclob { module =>
 
@@ -43,7 +44,7 @@ object nclob { module =>
       final def apply[A](fa: NClobOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: NClob => A): F[A]
+      def raw[A](f: Env[NClob] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: NClobIO[A], f: Throwable => NClobIO[A]): F[A]
@@ -52,6 +53,7 @@ object nclob { module =>
       def bracketCase[A, B](acquire: NClobIO[A])(use: A => NClobIO[B])(release: (A, ExitCase[Throwable]) => NClobIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: NClobIO[A]): F[A]
+      def liftE[G[_]](env: Env[NClob] => G ~> NClobIO): F[G ~> NClobIO]
 
       // NClob
       def free: F[Unit]
@@ -71,7 +73,7 @@ object nclob { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: NClob => A) extends NClobOp[A] {
+    final case class Raw[A](f: Env[NClob] => A) extends NClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends NClobOp[A] {
@@ -97,6 +99,9 @@ object nclob { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: NClobIO[A]) extends NClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[NClob] => G ~> NClobIO) extends NClobOp[G ~> NClobIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // NClob-specific operations.
@@ -146,7 +151,7 @@ object nclob { module =>
   // Smart constructors for operations common to all algebras.
   val unit: NClobIO[Unit] = FF.pure[NClobOp, Unit](())
   def pure[A](a: A): NClobIO[A] = FF.pure[NClobOp, A](a)
-  def raw[A](f: NClob => A): NClobIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[NClob] => A): NClobIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[NClobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): NClobIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: NClobIO[A], f: Throwable => NClobIO[A]): NClobIO[A] = FF.liftF[NClobOp, A](HandleErrorWith(fa, f))
@@ -156,6 +161,7 @@ object nclob { module =>
   def bracketCase[A, B](acquire: NClobIO[A])(use: A => NClobIO[B])(release: (A, ExitCase[Throwable]) => NClobIO[Unit]): NClobIO[B] = FF.liftF[NClobOp, B](BracketCase(acquire, use, release))
   val shift: NClobIO[Unit] = FF.liftF[NClobOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: NClobIO[A]) = FF.liftF[NClobOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[NClob] => F ~> NClobIO) = FF.liftF[NClobOp, F ~> NClobIO](LiftE(env))
 
   // Smart constructors for NClob-specific operations.
   val free: NClobIO[Unit] = FF.liftF(Free)

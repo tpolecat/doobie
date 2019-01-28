@@ -28,14 +28,14 @@ object GenericStream extends IOApp {
     "org.wartremover.warts.NonUnitStatements"
   ))
   def getNextChunkGeneric(chunkSize: Int): ResultSetIO[Seq[Row]] =
-    FRS.raw { rs =>
-      val md = rs.getMetaData
+    FRS.raw { e =>
+      val md = e.jdbc.getMetaData
       val ks = (1 to md.getColumnCount).map(md.getColumnLabel).toList
       var n = chunkSize
       val b = Vector.newBuilder[Row]
-      while (n > 0 && rs.next) {
+      while (n > 0 && e.jdbc.next) {
         val mb = Map.newBuilder[String, Any]
-        ks.foreach(k => mb += (k -> rs.getObject(k)))
+        ks.foreach(k => mb += (k -> e.jdbc.getObject(k)))
         b += mb.result()
         n -= 1
       }

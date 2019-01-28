@@ -9,6 +9,7 @@ import scala.concurrent.duration.{ FiniteDuration => FD }
 import scala.Predef.augmentString
 
 /** A module of types and instances for logged statements. */
+@deprecated("Manage logging by swapping out the logger associated with your Transactor prior to calling `transact`.", "0.7.0")
 object log {
 
   /**
@@ -16,6 +17,7 @@ object log {
    * argument type of the SQL input parameters (this is typically an `HList`).
    * @group Events
    */
+  @deprecated("Manage logging by swapping out the logger associated with your Transactor prior to calling `transact`.", "0.7.0")
   sealed abstract class LogEvent extends Product with Serializable {
 
     /** The complete SQL string as seen by JDBC. */
@@ -34,6 +36,7 @@ object log {
    * A sink for `LogEvent`s.
    * @group Handlers
    */
+  @deprecated("Manage logging by swapping out the logger associated with your Transactor prior to calling `transact`.", "0.7.0")
   final case class LogHandler(unsafeRun: LogEvent => Unit)
 
   /**
@@ -46,6 +49,7 @@ object log {
      * A do-nothing `LogHandler`.
      * @group Constructors
      */
+    @deprecated("Manage logging by swapping out the logger associated with your Transactor prior to calling `transact`.", "0.7.0")
     val nop: LogHandler =
       LogHandler(_ => ())
 
@@ -54,6 +58,7 @@ object log {
      * purposes and is not intended for production use.
      * @group Constructors
      */
+    @deprecated("Manage logging by swapping out the logger associated with your Transactor prior to calling `transact`.", "0.7.0")
     val jdkLogHandler: LogHandler = {
       val jdkLogger = Logger.getLogger(getClass.getName)
       LogHandler {

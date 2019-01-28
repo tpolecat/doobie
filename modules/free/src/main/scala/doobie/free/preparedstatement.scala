@@ -34,6 +34,7 @@ import java.sql.Timestamp
 import java.sql.{ Array => SqlArray }
 import java.util.Calendar
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object preparedstatement { module =>
 
@@ -60,7 +61,7 @@ object preparedstatement { module =>
       final def apply[A](fa: PreparedStatementOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PreparedStatement => A): F[A]
+      def raw[A](f: Env[PreparedStatement] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: PreparedStatementIO[A], f: Throwable => PreparedStatementIO[A]): F[A]
@@ -69,6 +70,7 @@ object preparedstatement { module =>
       def bracketCase[A, B](acquire: PreparedStatementIO[A])(use: A => PreparedStatementIO[B])(release: (A, ExitCase[Throwable]) => PreparedStatementIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: PreparedStatementIO[A]): F[A]
+      def liftE[G[_]](env: Env[PreparedStatement] => G ~> PreparedStatementIO): F[G ~> PreparedStatementIO]
 
       // PreparedStatement
       def addBatch: F[Unit]
@@ -185,7 +187,7 @@ object preparedstatement { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PreparedStatement => A) extends PreparedStatementOp[A] {
+    final case class Raw[A](f: Env[PreparedStatement] => A) extends PreparedStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends PreparedStatementOp[A] {
@@ -211,6 +213,9 @@ object preparedstatement { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: PreparedStatementIO[A]) extends PreparedStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[PreparedStatement] => G ~> PreparedStatementIO) extends PreparedStatementOp[G ~> PreparedStatementIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // PreparedStatement-specific operations.
@@ -551,7 +556,7 @@ object preparedstatement { module =>
   // Smart constructors for operations common to all algebras.
   val unit: PreparedStatementIO[Unit] = FF.pure[PreparedStatementOp, Unit](())
   def pure[A](a: A): PreparedStatementIO[A] = FF.pure[PreparedStatementOp, A](a)
-  def raw[A](f: PreparedStatement => A): PreparedStatementIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[PreparedStatement] => A): PreparedStatementIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[PreparedStatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): PreparedStatementIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: PreparedStatementIO[A], f: Throwable => PreparedStatementIO[A]): PreparedStatementIO[A] = FF.liftF[PreparedStatementOp, A](HandleErrorWith(fa, f))
@@ -561,6 +566,7 @@ object preparedstatement { module =>
   def bracketCase[A, B](acquire: PreparedStatementIO[A])(use: A => PreparedStatementIO[B])(release: (A, ExitCase[Throwable]) => PreparedStatementIO[Unit]): PreparedStatementIO[B] = FF.liftF[PreparedStatementOp, B](BracketCase(acquire, use, release))
   val shift: PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: PreparedStatementIO[A]) = FF.liftF[PreparedStatementOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[PreparedStatement] => F ~> PreparedStatementIO) = FF.liftF[PreparedStatementOp, F ~> PreparedStatementIO](LiftE(env))
 
   // Smart constructors for PreparedStatement-specific operations.
   val addBatch: PreparedStatementIO[Unit] = FF.liftF(AddBatch)

@@ -16,6 +16,7 @@ import java.sql.ResultSet
 import java.sql.SQLWarning
 import java.sql.Statement
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object statement { module =>
 
@@ -42,7 +43,7 @@ object statement { module =>
       final def apply[A](fa: StatementOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Statement => A): F[A]
+      def raw[A](f: Env[Statement] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: StatementIO[A], f: Throwable => StatementIO[A]): F[A]
@@ -51,6 +52,7 @@ object statement { module =>
       def bracketCase[A, B](acquire: StatementIO[A])(use: A => StatementIO[B])(release: (A, ExitCase[Throwable]) => StatementIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: StatementIO[A]): F[A]
+      def liftE[G[_]](env: Env[Statement] => G ~> StatementIO): F[G ~> StatementIO]
 
       // Statement
       def addBatch(a: String): F[Unit]
@@ -109,7 +111,7 @@ object statement { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Statement => A) extends StatementOp[A] {
+    final case class Raw[A](f: Env[Statement] => A) extends StatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends StatementOp[A] {
@@ -135,6 +137,9 @@ object statement { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: StatementIO[A]) extends StatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[Statement] => G ~> StatementIO) extends StatementOp[G ~> StatementIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // Statement-specific operations.
@@ -301,7 +306,7 @@ object statement { module =>
   // Smart constructors for operations common to all algebras.
   val unit: StatementIO[Unit] = FF.pure[StatementOp, Unit](())
   def pure[A](a: A): StatementIO[A] = FF.pure[StatementOp, A](a)
-  def raw[A](f: Statement => A): StatementIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[Statement] => A): StatementIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[StatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): StatementIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: StatementIO[A], f: Throwable => StatementIO[A]): StatementIO[A] = FF.liftF[StatementOp, A](HandleErrorWith(fa, f))
@@ -311,6 +316,7 @@ object statement { module =>
   def bracketCase[A, B](acquire: StatementIO[A])(use: A => StatementIO[B])(release: (A, ExitCase[Throwable]) => StatementIO[Unit]): StatementIO[B] = FF.liftF[StatementOp, B](BracketCase(acquire, use, release))
   val shift: StatementIO[Unit] = FF.liftF[StatementOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: StatementIO[A]) = FF.liftF[StatementOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[Statement] => F ~> StatementIO) = FF.liftF[StatementOp, F ~> StatementIO](LiftE(env))
 
   // Smart constructors for Statement-specific operations.
   def addBatch(a: String): StatementIO[Unit] = FF.liftF(AddBatch(a))

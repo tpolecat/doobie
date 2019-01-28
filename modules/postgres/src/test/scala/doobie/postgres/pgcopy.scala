@@ -6,7 +6,6 @@ package doobie.postgres
 
 import cats.effect.{ ContextShift, IO, Sync }
 import doobie._, doobie.implicits._
-import doobie.postgres._, doobie.postgres.implicits._
 import java.io.ByteArrayOutputStream
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext

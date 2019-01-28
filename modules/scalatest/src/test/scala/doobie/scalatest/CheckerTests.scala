@@ -6,7 +6,6 @@ package doobie.scalatest
 
 import cats.effect.{ ContextShift, IO }
 import doobie._, doobie.implicits._
-import doobie.scalatest._
 import org.scalatest._
 import scala.concurrent.ExecutionContext
 

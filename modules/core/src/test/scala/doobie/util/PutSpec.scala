@@ -5,8 +5,8 @@
 package doobie.util
 
 import cats.effect.{ ContextShift, IO }
-import doobie._, doobie.implicits._
-import doobie.enum.JdbcType.{ Array => _, _ }
+import doobie._
+import doobie.enum.JdbcType.{ Array => _ }
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
 import shapeless.test._

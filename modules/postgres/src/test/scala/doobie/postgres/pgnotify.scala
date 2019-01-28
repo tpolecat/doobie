@@ -7,7 +7,6 @@ package doobie.postgres
 import cats.effect.{ IO, ContextShift, Sync }
 import cats.implicits._
 import doobie._, doobie.implicits._
-import doobie.postgres._, doobie.postgres.implicits._
 import org.postgresql.PGNotification
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext

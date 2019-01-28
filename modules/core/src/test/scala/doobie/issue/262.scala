@@ -4,8 +4,6 @@
 
 package doobie.issue
 
-import cats.Monad
-import cats.implicits._
 import cats.effect.{ Async, ContextShift, IO }
 import doobie._, doobie.implicits._
 import org.specs2.mutable.Specification
@@ -28,7 +26,7 @@ object `262` extends Specification {
 
     override lazy val PreparedStatementInterpreter =
       new PreparedStatementInterpreter {
-        override def getMetaData = primitive(_ => null)
+        override def getMetaData = primitive(_ => null, "getMetaData")
       }
 
   }
@@ -41,7 +39,7 @@ object `262` extends Specification {
 
   // A transactor that uses our interpreter above
   val xa: Transactor[IO] =
-    Transactor.interpret.set(baseXa, Interp.ConnectionInterpreter)
+    Transactor.interpreter.set(baseXa, Interp.ConnectionInterpreter)
 
   "getColumnJdbcMeta" should {
     "handle null metadata" in {

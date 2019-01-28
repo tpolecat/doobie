@@ -8,20 +8,26 @@ import cats.~>
 import cats.data.Kleisli
 import org.postgresql.{ PGConnection, PGNotification }
 import doobie._, doobie.implicits._
-import doobie.postgres.free.KleisliInterpreter
+import doobie.postgres.free.{ Env, KleisliInterpreter }
 
 /** Module of safe `PGConnectionIO` operations lifted into `ConnectionIO`. */
 object connection {
 
   // An intepreter for lifting PGConnectionIO into ConnectionIO
-  val defaultInterpreter: PFPC.PGConnectionOp ~> Kleisli[ConnectionIO, PGConnection, ?] =
+  val defaultInterpreter: PFPC.PGConnectionOp ~> Kleisli[ConnectionIO, Env[PGConnection], ?] =
     KleisliInterpreter[ConnectionIO].PGConnectionInterpreter
 
   val pgGetBackendPID: ConnectionIO[Int] =
     pgGetConnection(PFPC.getBackendPID)
 
   def pgGetConnection[A](k: PGConnectionIO[A]): ConnectionIO[A] =
-    FC.unwrap(classOf[PGConnection]).flatMap(k.foldMap(defaultInterpreter).run)
+    FC.liftE[PGConnectionIO] { env =>
+      λ[PGConnectionIO ~> ConnectionIO] { pg =>
+        pg.foldMap(defaultInterpreter).run(env.map(_.unwrap(classOf[PGConnection])))
+      }
+    } flatMap { interp =>
+      interp(k)
+    }
 
   def pgGetCopyAPI[A](k: CopyManagerIO[A]): ConnectionIO[A] =
     pgGetConnection(PHPC.getCopyAPI(k))

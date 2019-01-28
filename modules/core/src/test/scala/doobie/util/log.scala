@@ -6,13 +6,15 @@ package doobie.util
 
 import cats.implicits._
 import cats.effect.{ ContextShift, IO }
+import com.github.ghik.silencer.silent
 import doobie._, doobie.implicits._
 import doobie.util.log.{ LogEvent, Success, ProcessingFailure }
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
 import shapeless._
 
-@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Var"))
+@silent // deprecation
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.DefaultArguments", "org.wartremover.warts.Var"))
 object logspec extends Specification {
 
   implicit def contextShift: ContextShift[IO] =
@@ -24,7 +26,6 @@ object logspec extends Specification {
     "sa", ""
   )
 
-  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   def eventForUniqueQuery[A: Write](sql: String, arg: A = HNil : HNil): LogEvent = {
     var result  = null : LogEvent
     val handler = LogHandler(result = _)
@@ -33,7 +34,6 @@ object logspec extends Specification {
     result
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   def eventForUniqueUpdate[A: Write](sql: String, arg: A = HNil : HNil): LogEvent = {
     var result  = null : LogEvent
     val handler = LogHandler(result = _)

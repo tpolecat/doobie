@@ -13,6 +13,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.sql.Blob
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object blob { module =>
 
@@ -39,7 +40,7 @@ object blob { module =>
       final def apply[A](fa: BlobOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Blob => A): F[A]
+      def raw[A](f: Env[Blob] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: BlobIO[A], f: Throwable => BlobIO[A]): F[A]
@@ -48,6 +49,7 @@ object blob { module =>
       def bracketCase[A, B](acquire: BlobIO[A])(use: A => BlobIO[B])(release: (A, ExitCase[Throwable]) => BlobIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: BlobIO[A]): F[A]
+      def liftE[G[_]](env: Env[Blob] => G ~> BlobIO): F[G ~> BlobIO]
 
       // Blob
       def free: F[Unit]
@@ -65,7 +67,7 @@ object blob { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Blob => A) extends BlobOp[A] {
+    final case class Raw[A](f: Env[Blob] => A) extends BlobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends BlobOp[A] {
@@ -91,6 +93,9 @@ object blob { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: BlobIO[A]) extends BlobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[Blob] => G ~> BlobIO) extends BlobOp[G ~> BlobIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // Blob-specific operations.
@@ -134,7 +139,7 @@ object blob { module =>
   // Smart constructors for operations common to all algebras.
   val unit: BlobIO[Unit] = FF.pure[BlobOp, Unit](())
   def pure[A](a: A): BlobIO[A] = FF.pure[BlobOp, A](a)
-  def raw[A](f: Blob => A): BlobIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[Blob] => A): BlobIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[BlobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): BlobIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: BlobIO[A], f: Throwable => BlobIO[A]): BlobIO[A] = FF.liftF[BlobOp, A](HandleErrorWith(fa, f))
@@ -144,6 +149,7 @@ object blob { module =>
   def bracketCase[A, B](acquire: BlobIO[A])(use: A => BlobIO[B])(release: (A, ExitCase[Throwable]) => BlobIO[Unit]): BlobIO[B] = FF.liftF[BlobOp, B](BracketCase(acquire, use, release))
   val shift: BlobIO[Unit] = FF.liftF[BlobOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: BlobIO[A]) = FF.liftF[BlobOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[Blob] => F ~> BlobIO) = FF.liftF[BlobOp, F ~> BlobIO](LiftE(env))
 
   // Smart constructors for Blob-specific operations.
   val free: BlobIO[Unit] = FF.liftF(Free)

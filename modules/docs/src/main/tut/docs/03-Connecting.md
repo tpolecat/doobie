@@ -125,30 +125,6 @@ val result = valuesList.transact(xa)
 result.unsafeRunSync.foreach(println)
 ```
 
-### Diving Deeper
-
-All of the **doobie** monads are implemented via `Free` and have no operational semantics; we can only "run" a **doobie** program by transforming `FooIO` (for some carrier type `java.sql.Foo`) to a monad that actually has some meaning.
-
-Out of the box **doobie** provides an interpreter from its free monads to `Kleisli[M, Foo, ?]` given `Async[M]`.
-
-```tut
-import cats.~>
-import cats.data.Kleisli
-import doobie.free.connection.ConnectionOp
-import java.sql.Connection
-
-val interpreter = KleisliInterpreter[IO](ExecutionContext.global).ConnectionInterpreter
-val kleisli = program1.foldMap(interpreter)
-val io = IO(null: java.sql.Connection) >>= kleisli.run
-io.unsafeRunSync // sneaky; program1 never looks at the connection
-```
-
-So the interpreter above is used to transform a `ConnectionIO[A]` program into a `Kleisli[IO, Connection, A]`. Then we construct an `IO[Connection]` (returning `null`) and bind it through the `Kleisli`, yielding our `IO[Int]`. This of course only works because `program1` is a pure value that does not look at the connection.
-
-The `Transactor` that we defined at the beginning of this chapter is basically a utility that allows us to do the same as above using `program1.transact(xa)`.
-
-There is a bit more going on when calling `transact` (we add commit/rollback handling and ensure that the connection is closed in all cases) but fundamentally it's just a natural transformation and a bind.
-
 #### Using Your Own Target Monad
 
 As mentioned earlier, you can use any monad `M[_]` given `cats.effect.Async[M]`. For example, here we use [Monix](https://monix.io/) `Task`.

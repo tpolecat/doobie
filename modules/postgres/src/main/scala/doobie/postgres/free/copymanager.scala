@@ -5,8 +5,9 @@
 package doobie.postgres.free
 
 import cats.~>
-import cats.effect.{ Async, ExitCase }
+import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import scala.concurrent.ExecutionContext
 
 import java.io.InputStream
 import java.io.OutputStream
@@ -18,6 +19,7 @@ import org.postgresql.copy.{ CopyIn => PGCopyIn }
 import org.postgresql.copy.{ CopyManager => PGCopyManager }
 import org.postgresql.copy.{ CopyOut => PGCopyOut }
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object copymanager { module =>
 
@@ -44,13 +46,16 @@ object copymanager { module =>
       final def apply[A](fa: CopyManagerOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGCopyManager => A): F[A]
+      def raw[A](f: Env[PGCopyManager] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A]): F[A]
       def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
       def asyncF[A](k: (Either[Throwable, A] => Unit) => CopyManagerIO[Unit]): F[A]
       def bracketCase[A, B](acquire: CopyManagerIO[A])(use: A => CopyManagerIO[B])(release: (A, ExitCase[Throwable]) => CopyManagerIO[Unit]): F[B]
+      def shift: F[Unit]
+      def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]): F[A]
+      def liftE[G[_]](env: Env[PGCopyManager] => G ~> CopyManagerIO): F[G ~> CopyManagerIO]
 
       // PGCopyManager
       def copyDual(a: String): F[PGCopyDual]
@@ -66,7 +71,7 @@ object copymanager { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGCopyManager => A) extends CopyManagerOp[A] {
+    final case class Raw[A](f: Env[PGCopyManager] => A) extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends CopyManagerOp[A] {
@@ -86,6 +91,15 @@ object copymanager { module =>
     }
     final case class BracketCase[A, B](acquire: CopyManagerIO[A], use: A => CopyManagerIO[B], release: (A, ExitCase[Throwable]) => CopyManagerIO[Unit]) extends CopyManagerOp[B] {
       def visit[F[_]](v: Visitor[F]) = v.bracketCase(acquire)(use)(release)
+    }
+    final case object Shift extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.shift
+    }
+    final case class EvalOn[A](ec: ExecutionContext, fa: CopyManagerIO[A]) extends CopyManagerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[PGCopyManager] => G ~> CopyManagerIO) extends CopyManagerOp[G ~> CopyManagerIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // PGCopyManager-specific operations.
@@ -123,7 +137,7 @@ object copymanager { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CopyManagerIO[Unit] = FF.pure[CopyManagerOp, Unit](())
   def pure[A](a: A): CopyManagerIO[A] = FF.pure[CopyManagerOp, A](a)
-  def raw[A](f: PGCopyManager => A): CopyManagerIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[PGCopyManager] => A): CopyManagerIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyManagerOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CopyManagerIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](HandleErrorWith(fa, f))
@@ -131,6 +145,9 @@ object copymanager { module =>
   def async[A](k: (Either[Throwable, A] => Unit) => Unit): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](Async1(k))
   def asyncF[A](k: (Either[Throwable, A] => Unit) => CopyManagerIO[Unit]): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](AsyncF(k))
   def bracketCase[A, B](acquire: CopyManagerIO[A])(use: A => CopyManagerIO[B])(release: (A, ExitCase[Throwable]) => CopyManagerIO[Unit]): CopyManagerIO[B] = FF.liftF[CopyManagerOp, B](BracketCase(acquire, use, release))
+  val shift: CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](Shift)
+  def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]) = FF.liftF[CopyManagerOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[PGCopyManager] => F ~> CopyManagerIO) = FF.liftF[CopyManagerOp, F ~> CopyManagerIO](LiftE(env))
 
   // Smart constructors for CopyManager-specific operations.
   def copyDual(a: String): CopyManagerIO[PGCopyDual] = FF.liftF(CopyDual(a))
@@ -146,17 +163,23 @@ object copymanager { module =>
   // CopyManagerIO is an Async
   implicit val AsyncCopyManagerIO: Async[CopyManagerIO] =
     new Async[CopyManagerIO] {
-      val M = FF.catsFreeMonadForFree[CopyManagerOp]
+      val asyncM = FF.catsFreeMonadForFree[CopyManagerOp]
       def bracketCase[A, B](acquire: CopyManagerIO[A])(use: A => CopyManagerIO[B])(release: (A, ExitCase[Throwable]) => CopyManagerIO[Unit]): CopyManagerIO[B] = module.bracketCase(acquire)(use)(release)
-      def pure[A](x: A): CopyManagerIO[A] = M.pure(x)
+      def pure[A](x: A): CopyManagerIO[A] = asyncM.pure(x)
       def handleErrorWith[A](fa: CopyManagerIO[A])(f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] = module.handleErrorWith(fa, f)
       def raiseError[A](e: Throwable): CopyManagerIO[A] = module.raiseError(e)
       def async[A](k: (Either[Throwable,A] => Unit) => Unit): CopyManagerIO[A] = module.async(k)
       def asyncF[A](k: (Either[Throwable,A] => Unit) => CopyManagerIO[Unit]): CopyManagerIO[A] = module.asyncF(k)
-      def flatMap[A, B](fa: CopyManagerIO[A])(f: A => CopyManagerIO[B]): CopyManagerIO[B] = M.flatMap(fa)(f)
-      def tailRecM[A, B](a: A)(f: A => CopyManagerIO[Either[A, B]]): CopyManagerIO[B] = M.tailRecM(a)(f)
-      def suspend[A](thunk: => CopyManagerIO[A]): CopyManagerIO[A] = M.flatten(module.delay(thunk))
+      def flatMap[A, B](fa: CopyManagerIO[A])(f: A => CopyManagerIO[B]): CopyManagerIO[B] = asyncM.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => CopyManagerIO[Either[A, B]]): CopyManagerIO[B] = asyncM.tailRecM(a)(f)
+      def suspend[A](thunk: => CopyManagerIO[A]): CopyManagerIO[A] = asyncM.flatten(module.delay(thunk))
     }
 
+  // CopyManagerIO is a ContextShift
+  implicit val ContextShiftCopyManagerIO: ContextShift[CopyManagerIO] =
+    new ContextShift[CopyManagerIO] {
+      def shift: CopyManagerIO[Unit] = module.shift
+      def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]) = module.evalOn(ec)(fa)
+    }
 }
 

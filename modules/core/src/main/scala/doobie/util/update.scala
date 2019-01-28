@@ -6,6 +6,7 @@ package doobie.util
 
 import cats._
 import cats.implicits._
+import com.github.ghik.silencer.silent
 import doobie._
 import doobie.implicits._
 import doobie.util.analysis.Analysis
@@ -40,12 +41,14 @@ object update {
     protected implicit val write: Write[A]
 
     // LogHandler is protected for now.
+    @silent // deprecation
     protected val logHandler: LogHandler
 
     private val now: PreparedStatementIO[Long] =
       FPS.delay(System.nanoTime)
 
     // Equivalent to HPS.executeUpdate(k) but with logging if logHandler is defined
+    @silent // deprecation
     private def executeUpdate[T](a: A): PreparedStatementIO[Int] = {
       val args = write.toList(a)
       def diff(a: Long, b: Long) = FiniteDuration((a - b).abs, NANOSECONDS)
@@ -173,6 +176,7 @@ object update {
      * for construction is the `sql/fr/fr0` interpolators.
      * @group Constructors
      */
+    @silent // deprecation
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def apply[A](sql0: String, pos0: Option[Pos] = None, logHandler0: LogHandler = LogHandler.nop)(
       implicit W: Write[A]

@@ -4,11 +4,8 @@
 
 package doobie.util
 
-import cats.effect.IO
-import doobie._, doobie.implicits._
-import doobie.enum.JdbcType.{ Array => _, _ }
+import doobie.enum.JdbcType.{ Array => _ }
 import org.specs2.mutable.Specification
-import shapeless.test._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Equals"))
 object metaspec extends Specification {

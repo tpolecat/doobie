@@ -16,6 +16,7 @@ import java.io.Writer
 import java.lang.String
 import java.sql.Clob
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object clob { module =>
 
@@ -42,7 +43,7 @@ object clob { module =>
       final def apply[A](fa: ClobOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Clob => A): F[A]
+      def raw[A](f: Env[Clob] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ClobIO[A], f: Throwable => ClobIO[A]): F[A]
@@ -51,6 +52,7 @@ object clob { module =>
       def bracketCase[A, B](acquire: ClobIO[A])(use: A => ClobIO[B])(release: (A, ExitCase[Throwable]) => ClobIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: ClobIO[A]): F[A]
+      def liftE[G[_]](env: Env[Clob] => G ~> ClobIO): F[G ~> ClobIO]
 
       // Clob
       def free: F[Unit]
@@ -70,7 +72,7 @@ object clob { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Clob => A) extends ClobOp[A] {
+    final case class Raw[A](f: Env[Clob] => A) extends ClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends ClobOp[A] {
@@ -96,6 +98,9 @@ object clob { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: ClobIO[A]) extends ClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[Clob] => G ~> ClobIO) extends ClobOp[G ~> ClobIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // Clob-specific operations.
@@ -145,7 +150,7 @@ object clob { module =>
   // Smart constructors for operations common to all algebras.
   val unit: ClobIO[Unit] = FF.pure[ClobOp, Unit](())
   def pure[A](a: A): ClobIO[A] = FF.pure[ClobOp, A](a)
-  def raw[A](f: Clob => A): ClobIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[Clob] => A): ClobIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ClobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ClobIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ClobIO[A], f: Throwable => ClobIO[A]): ClobIO[A] = FF.liftF[ClobOp, A](HandleErrorWith(fa, f))
@@ -155,6 +160,7 @@ object clob { module =>
   def bracketCase[A, B](acquire: ClobIO[A])(use: A => ClobIO[B])(release: (A, ExitCase[Throwable]) => ClobIO[Unit]): ClobIO[B] = FF.liftF[ClobOp, B](BracketCase(acquire, use, release))
   val shift: ClobIO[Unit] = FF.liftF[ClobOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: ClobIO[A]) = FF.liftF[ClobOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[Clob] => F ~> ClobIO) = FF.liftF[ClobOp, F ~> ClobIO](LiftE(env))
 
   // Smart constructors for Clob-specific operations.
   val free: ClobIO[Unit] = FF.liftF(Free)

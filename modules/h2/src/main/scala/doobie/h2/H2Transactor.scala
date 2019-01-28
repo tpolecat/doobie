@@ -6,7 +6,6 @@ package doobie
 package h2
 
 import cats.effect._
-import cats.implicits._
 import org.h2.jdbcx.JdbcConnectionPool
 import scala.concurrent.ExecutionContext
 

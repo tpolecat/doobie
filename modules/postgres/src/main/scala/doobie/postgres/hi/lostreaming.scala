@@ -5,7 +5,6 @@
 package doobie.postgres.hi
 
 import cats.implicits._
-import cats.effect.ContextShift
 import doobie._, doobie.implicits._
 import fs2.Stream
 import fs2.{io => FS2IO}

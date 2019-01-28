@@ -29,6 +29,7 @@ import java.sql.Time
 import java.sql.Timestamp
 import java.sql.{ Array => SqlArray }
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object sqloutput { module =>
 
@@ -55,7 +56,7 @@ object sqloutput { module =>
       final def apply[A](fa: SQLOutputOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: SQLOutput => A): F[A]
+      def raw[A](f: Env[SQLOutput] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: SQLOutputIO[A], f: Throwable => SQLOutputIO[A]): F[A]
@@ -64,6 +65,7 @@ object sqloutput { module =>
       def bracketCase[A, B](acquire: SQLOutputIO[A])(use: A => SQLOutputIO[B])(release: (A, ExitCase[Throwable]) => SQLOutputIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: SQLOutputIO[A]): F[A]
+      def liftE[G[_]](env: Env[SQLOutput] => G ~> SQLOutputIO): F[G ~> SQLOutputIO]
 
       // SQLOutput
       def writeArray(a: SqlArray): F[Unit]
@@ -98,7 +100,7 @@ object sqloutput { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: SQLOutput => A) extends SQLOutputOp[A] {
+    final case class Raw[A](f: Env[SQLOutput] => A) extends SQLOutputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends SQLOutputOp[A] {
@@ -124,6 +126,9 @@ object sqloutput { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: SQLOutputIO[A]) extends SQLOutputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[SQLOutput] => G ~> SQLOutputIO) extends SQLOutputOp[G ~> SQLOutputIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // SQLOutput-specific operations.
@@ -218,7 +223,7 @@ object sqloutput { module =>
   // Smart constructors for operations common to all algebras.
   val unit: SQLOutputIO[Unit] = FF.pure[SQLOutputOp, Unit](())
   def pure[A](a: A): SQLOutputIO[A] = FF.pure[SQLOutputOp, A](a)
-  def raw[A](f: SQLOutput => A): SQLOutputIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[SQLOutput] => A): SQLOutputIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLOutputOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): SQLOutputIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: SQLOutputIO[A], f: Throwable => SQLOutputIO[A]): SQLOutputIO[A] = FF.liftF[SQLOutputOp, A](HandleErrorWith(fa, f))
@@ -228,6 +233,7 @@ object sqloutput { module =>
   def bracketCase[A, B](acquire: SQLOutputIO[A])(use: A => SQLOutputIO[B])(release: (A, ExitCase[Throwable]) => SQLOutputIO[Unit]): SQLOutputIO[B] = FF.liftF[SQLOutputOp, B](BracketCase(acquire, use, release))
   val shift: SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: SQLOutputIO[A]) = FF.liftF[SQLOutputOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[SQLOutput] => F ~> SQLOutputIO) = FF.liftF[SQLOutputOp, F ~> SQLOutputIO](LiftE(env))
 
   // Smart constructors for SQLOutput-specific operations.
   def writeArray(a: SqlArray): SQLOutputIO[Unit] = FF.liftF(WriteArray(a))

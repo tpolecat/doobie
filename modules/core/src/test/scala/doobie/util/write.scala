@@ -5,6 +5,7 @@
 package doobie
 package util
 
+import com.github.ghik.silencer.silent
 import shapeless._, shapeless.record._
 import org.specs2.mutable.Specification
 
@@ -45,6 +46,7 @@ object writespec extends Specification {
 
     "exist for shapeless record types" in {
 
+      @silent // scalac doesn't know this type is used
       type DL = (Double, Long)
       type A  = Record.`'foo -> Int, 'bar -> String, 'baz -> DL, 'quz -> Woozle`.T
 

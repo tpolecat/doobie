@@ -5,14 +5,16 @@
 package doobie.postgres.free
 
 import cats.~>
-import cats.effect.{ Async, ExitCase }
+import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import scala.concurrent.ExecutionContext
 
 import java.lang.String
 import java.sql.ResultSet
 import org.postgresql.fastpath.FastpathArg
 import org.postgresql.fastpath.{ Fastpath => PGFastpath }
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object fastpath { module =>
 
@@ -39,13 +41,16 @@ object fastpath { module =>
       final def apply[A](fa: FastpathOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGFastpath => A): F[A]
+      def raw[A](f: Env[PGFastpath] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: FastpathIO[A], f: Throwable => FastpathIO[A]): F[A]
       def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
       def asyncF[A](k: (Either[Throwable, A] => Unit) => FastpathIO[Unit]): F[A]
       def bracketCase[A, B](acquire: FastpathIO[A])(use: A => FastpathIO[B])(release: (A, ExitCase[Throwable]) => FastpathIO[Unit]): F[B]
+      def shift: F[Unit]
+      def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]): F[A]
+      def liftE[G[_]](env: Env[PGFastpath] => G ~> FastpathIO): F[G ~> FastpathIO]
 
       // PGFastpath
       def addFunction(a: String, b: Int): F[Unit]
@@ -63,7 +68,7 @@ object fastpath { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGFastpath => A) extends FastpathOp[A] {
+    final case class Raw[A](f: Env[PGFastpath] => A) extends FastpathOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends FastpathOp[A] {
@@ -83,6 +88,15 @@ object fastpath { module =>
     }
     final case class BracketCase[A, B](acquire: FastpathIO[A], use: A => FastpathIO[B], release: (A, ExitCase[Throwable]) => FastpathIO[Unit]) extends FastpathOp[B] {
       def visit[F[_]](v: Visitor[F]) = v.bracketCase(acquire)(use)(release)
+    }
+    final case object Shift extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.shift
+    }
+    final case class EvalOn[A](ec: ExecutionContext, fa: FastpathIO[A]) extends FastpathOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[PGFastpath] => G ~> FastpathIO) extends FastpathOp[G ~> FastpathIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // PGFastpath-specific operations.
@@ -126,7 +140,7 @@ object fastpath { module =>
   // Smart constructors for operations common to all algebras.
   val unit: FastpathIO[Unit] = FF.pure[FastpathOp, Unit](())
   def pure[A](a: A): FastpathIO[A] = FF.pure[FastpathOp, A](a)
-  def raw[A](f: PGFastpath => A): FastpathIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[PGFastpath] => A): FastpathIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[FastpathOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): FastpathIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: FastpathIO[A], f: Throwable => FastpathIO[A]): FastpathIO[A] = FF.liftF[FastpathOp, A](HandleErrorWith(fa, f))
@@ -134,6 +148,9 @@ object fastpath { module =>
   def async[A](k: (Either[Throwable, A] => Unit) => Unit): FastpathIO[A] = FF.liftF[FastpathOp, A](Async1(k))
   def asyncF[A](k: (Either[Throwable, A] => Unit) => FastpathIO[Unit]): FastpathIO[A] = FF.liftF[FastpathOp, A](AsyncF(k))
   def bracketCase[A, B](acquire: FastpathIO[A])(use: A => FastpathIO[B])(release: (A, ExitCase[Throwable]) => FastpathIO[Unit]): FastpathIO[B] = FF.liftF[FastpathOp, B](BracketCase(acquire, use, release))
+  val shift: FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](Shift)
+  def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]) = FF.liftF[FastpathOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[PGFastpath] => F ~> FastpathIO) = FF.liftF[FastpathOp, F ~> FastpathIO](LiftE(env))
 
   // Smart constructors for Fastpath-specific operations.
   def addFunction(a: String, b: Int): FastpathIO[Unit] = FF.liftF(AddFunction(a, b))
@@ -151,17 +168,23 @@ object fastpath { module =>
   // FastpathIO is an Async
   implicit val AsyncFastpathIO: Async[FastpathIO] =
     new Async[FastpathIO] {
-      val M = FF.catsFreeMonadForFree[FastpathOp]
+      val asyncM = FF.catsFreeMonadForFree[FastpathOp]
       def bracketCase[A, B](acquire: FastpathIO[A])(use: A => FastpathIO[B])(release: (A, ExitCase[Throwable]) => FastpathIO[Unit]): FastpathIO[B] = module.bracketCase(acquire)(use)(release)
-      def pure[A](x: A): FastpathIO[A] = M.pure(x)
+      def pure[A](x: A): FastpathIO[A] = asyncM.pure(x)
       def handleErrorWith[A](fa: FastpathIO[A])(f: Throwable => FastpathIO[A]): FastpathIO[A] = module.handleErrorWith(fa, f)
       def raiseError[A](e: Throwable): FastpathIO[A] = module.raiseError(e)
       def async[A](k: (Either[Throwable,A] => Unit) => Unit): FastpathIO[A] = module.async(k)
       def asyncF[A](k: (Either[Throwable,A] => Unit) => FastpathIO[Unit]): FastpathIO[A] = module.asyncF(k)
-      def flatMap[A, B](fa: FastpathIO[A])(f: A => FastpathIO[B]): FastpathIO[B] = M.flatMap(fa)(f)
-      def tailRecM[A, B](a: A)(f: A => FastpathIO[Either[A, B]]): FastpathIO[B] = M.tailRecM(a)(f)
-      def suspend[A](thunk: => FastpathIO[A]): FastpathIO[A] = M.flatten(module.delay(thunk))
+      def flatMap[A, B](fa: FastpathIO[A])(f: A => FastpathIO[B]): FastpathIO[B] = asyncM.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => FastpathIO[Either[A, B]]): FastpathIO[B] = asyncM.tailRecM(a)(f)
+      def suspend[A](thunk: => FastpathIO[A]): FastpathIO[A] = asyncM.flatten(module.delay(thunk))
     }
 
+  // FastpathIO is a ContextShift
+  implicit val ContextShiftFastpathIO: ContextShift[FastpathIO] =
+    new ContextShift[FastpathIO] {
+      def shift: FastpathIO[Unit] = module.shift
+      def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]) = module.evalOn(ec)(fa)
+    }
 }
 

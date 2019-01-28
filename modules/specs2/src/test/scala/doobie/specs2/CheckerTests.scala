@@ -6,7 +6,6 @@ package doobie.specs2
 
 import cats.effect.{ ContextShift, IO }
 import doobie._, doobie.implicits._
-import doobie.specs2.imports._
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
 

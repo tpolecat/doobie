@@ -14,6 +14,7 @@ import java.sql.SQLData
 import java.sql.SQLInput
 import java.sql.SQLOutput
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object sqldata { module =>
 
@@ -40,7 +41,7 @@ object sqldata { module =>
       final def apply[A](fa: SQLDataOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: SQLData => A): F[A]
+      def raw[A](f: Env[SQLData] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: SQLDataIO[A], f: Throwable => SQLDataIO[A]): F[A]
@@ -49,6 +50,7 @@ object sqldata { module =>
       def bracketCase[A, B](acquire: SQLDataIO[A])(use: A => SQLDataIO[B])(release: (A, ExitCase[Throwable]) => SQLDataIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: SQLDataIO[A]): F[A]
+      def liftE[G[_]](env: Env[SQLData] => G ~> SQLDataIO): F[G ~> SQLDataIO]
 
       // SQLData
       def getSQLTypeName: F[String]
@@ -58,7 +60,7 @@ object sqldata { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: SQLData => A) extends SQLDataOp[A] {
+    final case class Raw[A](f: Env[SQLData] => A) extends SQLDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends SQLDataOp[A] {
@@ -85,6 +87,9 @@ object sqldata { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: SQLDataIO[A]) extends SQLDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LiftE[G[_]](env: Env[SQLData] => G ~> SQLDataIO) extends SQLDataOp[G ~> SQLDataIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
+    }
 
     // SQLData-specific operations.
     final case object GetSQLTypeName extends SQLDataOp[String] {
@@ -103,7 +108,7 @@ object sqldata { module =>
   // Smart constructors for operations common to all algebras.
   val unit: SQLDataIO[Unit] = FF.pure[SQLDataOp, Unit](())
   def pure[A](a: A): SQLDataIO[A] = FF.pure[SQLDataOp, A](a)
-  def raw[A](f: SQLData => A): SQLDataIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[SQLData] => A): SQLDataIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLDataOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): SQLDataIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: SQLDataIO[A], f: Throwable => SQLDataIO[A]): SQLDataIO[A] = FF.liftF[SQLDataOp, A](HandleErrorWith(fa, f))
@@ -113,6 +118,7 @@ object sqldata { module =>
   def bracketCase[A, B](acquire: SQLDataIO[A])(use: A => SQLDataIO[B])(release: (A, ExitCase[Throwable]) => SQLDataIO[Unit]): SQLDataIO[B] = FF.liftF[SQLDataOp, B](BracketCase(acquire, use, release))
   val shift: SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: SQLDataIO[A]) = FF.liftF[SQLDataOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[SQLData] => F ~> SQLDataIO) = FF.liftF[SQLDataOp, F ~> SQLDataIO](LiftE(env))
 
   // Smart constructors for SQLData-specific operations.
   val getSQLTypeName: SQLDataIO[String] = FF.liftF(GetSQLTypeName)

@@ -6,14 +6,15 @@ This file summarizes **notable** changes for each release, but does not describe
 
 ### <a name="0.7.0"></a>Work in Progress for Version 0.7.0
 
-This is a **compatibility-breaking** release intended to satisfy some lingering issues prior to switching to a tagless encoding.
+0.7 is probably the last version of doobie prior to shifting work to a tagless implementation. This version will be source-compatible for most users but is not binary compatible with 0.6.x or any earlier version.
 
+- Added `TRACE`-level logging for low-level operations, sent to slf4j `Logger` specified via the `logger` member on `Transactor`, by default a logger called `"doobie.transactor"`. If you wish to associate correlation ids or otherwise mess with logging you can do this by swapping out the logger prior to calling `transact`. See `CorrelationId.scala` in the `example` project for an example.
+- Deprecated existing logging machinery.
 - Added support for Scala 2.13.0-M5, many thanks to **Sam Guymer** for setting this up.
 - Replaced `MonadError`-based `guarantee` with `bracket`, which prevents potential resource leakage when using cancelable IO. Thanks **Sam Guymer** for this update.
 - `Fragment` concatenation and derived combinators like `Fragments.in` are now stacksafe, so you can now have gigantic `IN` clauses. This required API changes in `Param`, `Fragment`, `Update[0]` and `Query[0]` but these should not affect most users.
 
 ____
-
 ### <a name="0.6.0"></a>New and Noteworthy for Version 0.6.0
 
 Many thanks to **Arber Shabhasa**, **Bjørn Madsen**, **Chris Davenport**, **Cody Allen**, **Dmitry Polienko**, **Kai(luo) Wang**, **Kevin Walter**, **Mark Canlas**, and **Quang Le Hong** for their contributions to this release.

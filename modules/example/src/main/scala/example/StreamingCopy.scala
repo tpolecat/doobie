@@ -11,8 +11,10 @@ import cats.data._
 import cats.effect._
 import cats.implicits._
 import doobie._
+import doobie.free.Env
 import doobie.implicits._
 import fs2.Stream
+import org.slf4j.LoggerFactory
 
 /**
  * Example of resource-safe transactional database-to-database copy with fs2. If you induce failures
@@ -34,8 +36,8 @@ object StreamingCopy extends IOApp {
   ): Stream[F, B] = {
 
     // Interpret a ConnectionIO into a Kleisli arrow for F via the sink interpreter.
-    def interpS[T](f: ConnectionIO[T]): Connection => F[T] =
-      f.foldMap(sinkXA.interpret).run
+    def interpS[T](f: ConnectionIO[T]): Connection => F[T] = c =>
+      f.foldMap(sinkXA.interpreter).run(Env(c, LoggerFactory.getLogger("example"), sinkXA.blockingContext))
 
     // Open a connection in `F` via the sink transactor. Need patmat due to the existential.
     val open: F[Connection] =

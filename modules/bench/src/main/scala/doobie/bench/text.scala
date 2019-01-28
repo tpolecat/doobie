@@ -30,13 +30,13 @@ class text {
 
   def optimized(n: Int): ConnectionIO[Int] =
     ddl *> HC.prepareStatement("insert into bench_person (name, age) values (?, ?)")(
-      FPS.raw { ps =>
+      FPS.raw { e =>
         people(n).foreach { p =>
-          ps.setString(1, p.name)
-          ps.setInt(2, p.age)
-          ps.addBatch
+          e.jdbc.setString(1, p.name)
+          e.jdbc.setInt(2, p.age)
+          e.jdbc.addBatch
         }
-        ps.executeBatch.sum
+        e.jdbc.executeBatch.sum
       }
     )
 

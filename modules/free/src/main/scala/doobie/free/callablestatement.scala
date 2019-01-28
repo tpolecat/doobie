@@ -35,6 +35,7 @@ import java.sql.{ Array => SqlArray }
 import java.util.Calendar
 import java.util.Map
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object callablestatement { module =>
 
@@ -61,7 +62,7 @@ object callablestatement { module =>
       final def apply[A](fa: CallableStatementOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: CallableStatement => A): F[A]
+      def raw[A](f: Env[CallableStatement] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CallableStatementIO[A], f: Throwable => CallableStatementIO[A]): F[A]
@@ -70,6 +71,7 @@ object callablestatement { module =>
       def bracketCase[A, B](acquire: CallableStatementIO[A])(use: A => CallableStatementIO[B])(release: (A, ExitCase[Throwable]) => CallableStatementIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: CallableStatementIO[A]): F[A]
+      def liftE[G[_]](env: Env[CallableStatement] => G ~> CallableStatementIO): F[G ~> CallableStatementIO]
 
       // CallableStatement
       def addBatch: F[Unit]
@@ -307,7 +309,7 @@ object callablestatement { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: CallableStatement => A) extends CallableStatementOp[A] {
+    final case class Raw[A](f: Env[CallableStatement] => A) extends CallableStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends CallableStatementOp[A] {
@@ -333,6 +335,9 @@ object callablestatement { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: CallableStatementIO[A]) extends CallableStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LiftE[G[_]](env: Env[CallableStatement] => G ~> CallableStatementIO) extends CallableStatementOp[G ~> CallableStatementIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
     }
 
     // CallableStatement-specific operations.
@@ -1036,7 +1041,7 @@ object callablestatement { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CallableStatementIO[Unit] = FF.pure[CallableStatementOp, Unit](())
   def pure[A](a: A): CallableStatementIO[A] = FF.pure[CallableStatementOp, A](a)
-  def raw[A](f: CallableStatement => A): CallableStatementIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[CallableStatement] => A): CallableStatementIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CallableStatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CallableStatementIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CallableStatementIO[A], f: Throwable => CallableStatementIO[A]): CallableStatementIO[A] = FF.liftF[CallableStatementOp, A](HandleErrorWith(fa, f))
@@ -1046,6 +1051,7 @@ object callablestatement { module =>
   def bracketCase[A, B](acquire: CallableStatementIO[A])(use: A => CallableStatementIO[B])(release: (A, ExitCase[Throwable]) => CallableStatementIO[Unit]): CallableStatementIO[B] = FF.liftF[CallableStatementOp, B](BracketCase(acquire, use, release))
   val shift: CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: CallableStatementIO[A]) = FF.liftF[CallableStatementOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[CallableStatement] => F ~> CallableStatementIO) = FF.liftF[CallableStatementOp, F ~> CallableStatementIO](LiftE(env))
 
   // Smart constructors for CallableStatement-specific operations.
   val addBatch: CallableStatementIO[Unit] = FF.liftF(AddBatch)

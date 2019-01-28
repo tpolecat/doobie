@@ -13,8 +13,8 @@ import cats.implicits._
 import cats.{InjectK, ~>}
 import doobie._
 import doobie.free.connection.ConnectionOp
+import doobie.free.Env
 import doobie.implicits._
-import scala.concurrent.ExecutionContext
 import scala.io.StdIn
 
 object coproduct extends IOApp {
@@ -78,11 +78,11 @@ object coproduct extends IOApp {
 
   // Our interpreter must be parameterized over a connection so we can add transaction boundaries
   // before and after.
-  val interp: Cop ~> Kleisli[IO, Connection, ?] =
-    consoleInterp.liftK[Connection] or KleisliInterpreter[IO](ExecutionContext.global).ConnectionInterpreter
+  val interp: Cop ~> Kleisli[IO, Env[Connection], ?] =
+    consoleInterp.liftK[Env[Connection]] or KleisliInterpreter[IO].ConnectionInterpreter
 
   // Our interpreted program
-  val iprog: Kleisli[IO, Connection, Unit] = prog[Cop].foldMap(interp)
+  val iprog: Kleisli[IO, Env[Connection], Unit] = prog[Cop].foldMap(interp)
 
   val xa = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver",

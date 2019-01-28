@@ -13,6 +13,7 @@ import java.lang.String
 import java.sql.Ref
 import java.util.Map
 
+@com.github.ghik.silencer.silent // deprecations, unused variables, etc.
 @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object ref { module =>
 
@@ -39,7 +40,7 @@ object ref { module =>
       final def apply[A](fa: RefOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Ref => A): F[A]
+      def raw[A](f: Env[Ref] => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: RefIO[A], f: Throwable => RefIO[A]): F[A]
@@ -48,6 +49,7 @@ object ref { module =>
       def bracketCase[A, B](acquire: RefIO[A])(use: A => RefIO[B])(release: (A, ExitCase[Throwable]) => RefIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: RefIO[A]): F[A]
+      def liftE[G[_]](env: Env[Ref] => G ~> RefIO): F[G ~> RefIO]
 
       // Ref
       def getBaseTypeName: F[String]
@@ -58,7 +60,7 @@ object ref { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Ref => A) extends RefOp[A] {
+    final case class Raw[A](f: Env[Ref] => A) extends RefOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
     final case class Embed[A](e: Embedded[A]) extends RefOp[A] {
@@ -85,6 +87,9 @@ object ref { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: RefIO[A]) extends RefOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LiftE[G[_]](env: Env[Ref] => G ~> RefIO) extends RefOp[G ~> RefIO] {
+      def visit[F[_]](v: Visitor[F]) = v.liftE(env)
+    }
 
     // Ref-specific operations.
     final case object GetBaseTypeName extends RefOp[String] {
@@ -106,7 +111,7 @@ object ref { module =>
   // Smart constructors for operations common to all algebras.
   val unit: RefIO[Unit] = FF.pure[RefOp, Unit](())
   def pure[A](a: A): RefIO[A] = FF.pure[RefOp, A](a)
-  def raw[A](f: Ref => A): RefIO[A] = FF.liftF(Raw(f))
+  def raw[A](f: Env[Ref] => A): RefIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[RefOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): RefIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: RefIO[A], f: Throwable => RefIO[A]): RefIO[A] = FF.liftF[RefOp, A](HandleErrorWith(fa, f))
@@ -116,6 +121,7 @@ object ref { module =>
   def bracketCase[A, B](acquire: RefIO[A])(use: A => RefIO[B])(release: (A, ExitCase[Throwable]) => RefIO[Unit]): RefIO[B] = FF.liftF[RefOp, B](BracketCase(acquire, use, release))
   val shift: RefIO[Unit] = FF.liftF[RefOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: RefIO[A]) = FF.liftF[RefOp, A](EvalOn(ec, fa))
+  def liftE[F[_]](env: Env[Ref] => F ~> RefIO) = FF.liftF[RefOp, F ~> RefIO](LiftE(env))
 
   // Smart constructors for Ref-specific operations.
   val getBaseTypeName: RefIO[String] = FF.liftF(GetBaseTypeName)
