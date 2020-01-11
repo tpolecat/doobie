@@ -13,8 +13,8 @@ import cats.implicits._
 object fragments {
 
   /** Returns `f IN (fs0, fs1, ...)`. */
-  def in[F[_]: Reducible, A: Put](f: Fragment, fs: F[A]): Fragment =
-    fs.toList.map(a => fr0"$a").foldSmash1(f ++ fr0"IN (", fr",", fr")")
+  def in[F[_]: Reducible, A: Put](f: Fragment, fs: F[A], customValueToFragmentConverter: Option[A => Fragment] = None): Fragment =
+    fs.toList.map(customValueToFragmentConverter.getOrElse((a: A) => fr0"$a")).foldSmash1(f ++ fr0"IN (", fr",", fr")")
 
   /** Returns `f NOT IN (fs0, fs1, ...)`. */
   def notIn[F[_]: Reducible, A: Put](f: Fragment, fs: F[A]): Fragment =

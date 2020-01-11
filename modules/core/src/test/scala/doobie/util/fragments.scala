@@ -34,6 +34,10 @@ class fragmentsspec extends Specification {
       in(fr"foo", nel).query[Unit].sql must_== "foo IN (?, ?, ?) "
     }
 
+    "in with custom value converter" in {
+      in(fr"foo", nel, Some((i: Int) => fr0"CAST($i AS UNSIGNED)")).query[Unit].sql must_== "foo IN (CAST(? AS UNSIGNED), CAST(? AS UNSIGNED), CAST(? AS UNSIGNED)) "
+    }
+
     "notIn" in {
       notIn(fr"foo", nel).query[Unit].sql must_== "foo NOT IN (?, ?, ?) "
     }
