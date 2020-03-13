@@ -49,7 +49,7 @@ And an assortment of other improvements:
 - `Text[Char]` instance was added for Postgres `COPY FROM STDIN`. Thanks **Dermot Haughey**!
 - You can now create a `HikariTransactor` from a `HikariConfig`. Thanks **Yuriy Badalyantc**!
 - Thanks to **Harry Laoulakos** and **Daan Hoogenboezem** for documentation updates!
-- `Fragment` combinators now parenthesize arguments so associativity in Scala is reflected in generated SQL. Thanks **Katrix**!
+- `Fragment` combinators now return parenthesized expressions so associativity in Scala is reflected in generated SQL. `and` and `or` & co. return an `Option[Fragment]`, `None` in case the input list is empty. This ensures that a valid SQL is always produced, i.e. no `... WHERE true AND ( ) `. Thanks **Katrix**!
 
 ____
 
