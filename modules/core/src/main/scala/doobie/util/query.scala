@@ -80,7 +80,7 @@ object query {
     def pos: Option[Pos]
 
     /** Convert this Query to a `Fragment`. */
-    def toFragment(a: A): Fragment =
+    def toFragment(a: A): Fragment[Any] =
       write.toFragment(a, sql)
 
     /**
@@ -295,7 +295,7 @@ object query {
     def analysis: ConnectionIO[Analysis]
 
     /** Convert this Query0 to a `Fragment`. */
-    def toFragment: Fragment
+    def toFragment: Fragment[Any]
 
     /**
      * Program to construct an inspection of the query. Calls `f` with the SQL

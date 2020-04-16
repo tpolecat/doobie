@@ -23,6 +23,7 @@ lazy val specs2Version        = "4.9.2"
 lazy val scala212Version      = "2.12.10"
 lazy val scala213Version      = "2.13.1"
 lazy val slf4jVersion         = "1.7.30"
+lazy val monocleVersion       = "2.0.4"
 
 // These are releases to ignore during MiMa checks
 lazy val botchedReleases = Set("0.8.0", "0.8.1")
@@ -205,8 +206,10 @@ lazy val example = project
   .settings(doobieSettings ++ noPublishSettings)
   .dependsOn(core, postgres, specs2, scalatest, hikari, h2)
   .settings(
+    scalacOptions in Compile +=  "-Ymacro-annotations",
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io"     % fs2Version
+      "co.fs2"                     %% "fs2-io"       % fs2Version,
+      "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
     )
   )
 

@@ -111,7 +111,7 @@ def select(name: Option[String], pop: Option[Int], codes: List[String], limit: L
   val f3 = codes.toNel.map(cs => in(fr"code", cs))
 
   // Our final query
-  val q: Fragment =
+  val q: Fragment[Any] =
     fr"SELECT name, code, population FROM country" ++
     whereAndOpt(f1, f2, f3)                         ++
     fr"LIMIT $limit"

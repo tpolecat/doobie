@@ -10,6 +10,7 @@ import doobie.syntax.SqlInterpolator.SingleFragment
 import doobie.util.Put
 import doobie.util.fragment.{Elem, Fragment}
 import doobie.util.pos.Pos
+import doobie.util.lens.@>
 
 /**
  * String interpolator for SQL literals. An expression of the form `sql".. $a ... $b ..."` with
@@ -18,8 +19,8 @@ import doobie.util.pos.Pos
  */
 final class SqlInterpolator(private val sc: StringContext) extends AnyVal {
 
-  private def mkFragment(parts: List[SingleFragment], token: Boolean, pos: Pos): Fragment = {
-    val last = if (token) Fragment(" ", Nil, None) else Fragment.empty
+  private def mkFragment[R](parts: List[SingleFragment[R]], token: Boolean, pos: Pos): Fragment[R] = {
+    val last = if (token) Fragment[Any](" ", Nil, None) else Fragment.empty
 
     sc.parts.toList
       .map(sql => SingleFragment(Fragment(sql, Nil, Some(pos))))
@@ -34,27 +35,33 @@ final class SqlInterpolator(private val sc: StringContext) extends AnyVal {
    * what you want, and it makes it easier to concatenate fragments because you don't need to
    * think about intervening whitespace. If you do not want this behavior, use `fr0`.
    */
-  def fr(a: SingleFragment*)(implicit pos: Pos) = mkFragment(a.toList, true, pos)
+  def fr[R](a: SingleFragment[R]*)(implicit pos: Pos):Fragment[R] = mkFragment(a.toList, true, pos)
 
   /** Alternative name for the `fr0` interpolator. */
-  def sql(a: SingleFragment*)(implicit pos: Pos) = mkFragment(a.toList, false, pos)
+  def sql[R](a: SingleFragment[R]*)(implicit pos: Pos): Fragment[R] = mkFragment(a.toList, false, pos)
 
   /**
    * Interpolator for a statement fragment that can contain interpolated values. Unlike `fr` no
    * attempt is made to be helpful with respect to whitespace.
    */
-  def fr0(a: SingleFragment*)(implicit pos: Pos) = mkFragment(a.toList, false, pos)
+  def fr0[R](a: SingleFragment[R]*)(implicit pos: Pos): Fragment[R] = mkFragment(a.toList, false, pos)
 
 }
 
 object SqlInterpolator {
-  final case class SingleFragment(fr: Fragment) extends AnyVal
+  final case class SingleFragment[-R](fr: Fragment[R]) extends AnyVal
   object SingleFragment {
-    val empty = SingleFragment(Fragment.empty)
+    val empty: SingleFragment[Any] = SingleFragment(Fragment.empty)
 
-    implicit def fromPut[A](a: A)(implicit put: Put[A]): SingleFragment = SingleFragment(Fragment("?", Elem.Arg(a, put) :: Nil, None))
-    implicit def fromPutOption[A](a: Option[A])(implicit put: Put[A]): SingleFragment = SingleFragment(Fragment("?", Elem.Opt(a, put) :: Nil, None))
-    implicit def fromFragment(fr: Fragment): SingleFragment = SingleFragment(fr)
+    def fromElem[R](elem: Elem[R]):SingleFragment[R] = SingleFragment(Fragment("?", elem :: Nil, None))
+
+    implicit def fromPut[A](a: A)(implicit put: Put[A]): SingleFragment[Any] = fromElem(Elem.Arg(a, put))
+    implicit def fromPutOption[A](a: Option[A])(implicit put: Put[A]): SingleFragment[Any] = fromElem(Elem.Opt(a, put))
+
+    implicit def fromFragment[R](fr: Fragment[R]): SingleFragment[R] = SingleFragment(fr)
+
+    implicit def fromLensPut[R, A](lens: R @> A)(implicit put: Put[A]): SingleFragment[R] = SingleFragment.fromElem(Elem.FunArg(lens.get, put))
+    implicit def fromLensPutOption[R, A](lens: R @> Option[A])(implicit put: Put[A]): SingleFragment[R] = SingleFragment.fromElem(Elem.FunOpt(lens.get, put))
   }
 }
 

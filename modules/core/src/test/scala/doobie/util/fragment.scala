@@ -6,7 +6,9 @@ package doobie.util
 
 import cats.implicits._
 import cats.effect.{ ContextShift, IO }
-import doobie._, doobie.implicits._
+import doobie._
+import doobie.implicits._
+import doobie.util.lens.{ @>, Lens }
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
 import shapeless._
@@ -43,6 +45,61 @@ class fragmentspec extends Specification {
 
     "interpolate fragments properly" in {
       fr"foo ${fr0"bar $a baz"}".query[HNil].sql must_== "foo bar ? baz "
+    }
+
+    object Data {
+      val a:Data @> Int = Lens(_.a, (data, a) => data.copy(a = a))
+      val b:Data @> String = Lens(_.b, (data, b) => data.copy(b = b))
+
+      val ddl: ConnectionIO[Unit] =
+        sql"""
+        CREATE TABLE IF NOT EXISTS data (
+          id   SERIAL,
+          a INT NOT NULL,
+          b VARCHAR NOT NULL
+        )
+        """.update.run.void
+    }
+    case class Data(a:Int, b:String)
+
+    "interpolate lenses" in {
+      val q:Fragment[Data] = sql"insert into data(a, b) values (${Data.a}, ${Data.b})"
+      val u = q.update
+      u.sql must_== "insert into data(a, b) values (?, ?)"
+    }
+
+    "interpolate lenses and values" in {
+      val a = 1
+      val q:Fragment[Data] = sql"insert into data(a, b) values ($a, ${Data.b})"
+      val u = q.update
+      u.sql must_== "insert into data(a, b) values (?, ?)"
+    }
+
+    "interpolate updateMany with lenses" in {
+      val data = List(Data(1, "a"), Data(2, "b"))
+
+      val io = for {
+        _ <- Data.ddl
+        _ <- sql"insert into data(a, b) values (${Data.a}, ${Data.b})".update.updateMany(data)
+        read <- sql"select a, b from data".query[Data].to[List]
+      } yield read
+
+      io.transact(xa).unsafeRunSync must_== data
+    }
+
+    "interpolate updateMany with mix of lenses and values" in {
+      val data = List(Data(2, "a"), Data(2, "b"))
+      val expected = List(Data(1, "a"), Data(1, "b"))
+
+      val a = 1
+
+      val io = for {
+        _ <- Data.ddl
+        _ <- sql"insert into data(a, b) values ($a, ${Data.b})".update.updateMany(data)
+        read <- sql"select a, b from data".query[Data].to[List]
+      } yield read
+
+      io.transact(xa).unsafeRunSync must_== expected
     }
 
     "maintain parameter indexing (in-order)" in {

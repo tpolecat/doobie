@@ -48,9 +48,9 @@ final class Write[A](
    * Given a value of type `A` and an appropriately parameterized SQL string we can construct a
    * `Fragment`. If `sql` is unspecified a comma-separated list of `length` placeholders will be used.
    */
-  def toFragment(a: A, sql: String = List.fill(length)("?").mkString(",")): Fragment = {
-    val elems: List[Elem] = (puts zip toList(a)).map {
-      case ((p: Put[a], NoNulls), a) => Elem.Arg(a.asInstanceOf[a], p)
+  def toFragment(a: A, sql: String = List.fill(length)("?").mkString(",")): Fragment[Any] = {
+    val elems: List[Elem[Any]] = (puts zip toList(a)).map {
+      case ((p: Put[a], NoNulls), a)  => Elem.Arg(a.asInstanceOf[a], p)
       case ((p: Put[a], Nullable), a) => Elem.Opt(a.asInstanceOf[Option[a]], p)
     }
     Fragment(sql, elems, None)

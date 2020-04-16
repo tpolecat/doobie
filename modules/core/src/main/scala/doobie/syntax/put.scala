@@ -10,17 +10,17 @@ import doobie.util.fragment.Elem.{Arg, Opt}
 import doobie.util.pos.Pos
 
 final class PutOps[A : Put](a: A) {
-  def fr(implicit pos: Pos): Fragment = mkFragment("? ", pos)
-  def fr0(implicit pos: Pos): Fragment = mkFragment("?", pos)
+  def fr(implicit pos: Pos): Fragment[Any] = mkFragment("? ", pos)
+  def fr0(implicit pos: Pos): Fragment[Any] = mkFragment("?", pos)
 
-  private def mkFragment(sql: String, pos: Pos) = Fragment(sql, List(Arg(a, Put[A])), Some(pos))
+  private def mkFragment(sql: String, pos: Pos):Fragment[Any] = Fragment(sql, List(Arg(a, Put[A])), Some(pos))
 }
 
 final class OptionPutOps[A : Put](oa: Option[A]) {
-  def fr(implicit pos: Pos): Fragment = mkFragment("? ", pos)
-  def fr0(implicit pos: Pos): Fragment = mkFragment("?", pos)
+  def fr(implicit pos: Pos): Fragment[Any] = mkFragment("? ", pos)
+  def fr0(implicit pos: Pos): Fragment[Any] = mkFragment("?", pos)
 
-  private def mkFragment(sql: String, pos: Pos) = Fragment(sql, List(Opt(oa, Put[A])), Some(pos))
+  private def mkFragment(sql: String, pos: Pos):Fragment[Any] = Fragment(sql, List(Opt(oa, Put[A])), Some(pos))
 }
 
 trait ToPutOps {

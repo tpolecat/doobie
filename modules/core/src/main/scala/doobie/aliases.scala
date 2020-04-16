@@ -21,7 +21,7 @@ trait Types {
   /** @group Type Aliases - Core */ type SqlState                 = doobie.enum.SqlState
   /** @group Type Aliases - Core */ type Transactor[M[_]]         = doobie.util.transactor.Transactor[M]
   /** @group Type Aliases - Core */ type LogHandler               = doobie.util.log.LogHandler
-  /** @group Type Aliases - Core */ type Fragment                 = doobie.util.fragment.Fragment
+  /** @group Type Aliases - Core */ type Fragment[-R]             = doobie.util.fragment.Fragment[R]
   /** @group Type Aliases - Core */ type KleisliInterpreter[F[_]] = doobie.free.KleisliInterpreter[F]
   /** @group Type Aliases - Core */ type DataSourceTransactor[F[_]] = doobie.util.transactor.Transactor.Aux[F, javax.sql.DataSource]
 }

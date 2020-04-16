@@ -1,0 +1,14 @@
+version: '3'
+services:
+  # main instance for testing
+  postgres:
+    image: mdillon/postgis:11
+    volumes:
+      - ./world.sql:/docker-entrypoint-initdb.d/world.sql
+      - ./create.sql:/docker-entrypoint-initdb.d/create.sql
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: world
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust

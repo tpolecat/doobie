@@ -48,7 +48,7 @@ class textspec extends Specification with ScalaCheck {
           | ) ON COMMIT DELETE ROWS
           |""".stripMargin.update.run.void
 
-  val insert: Fragment =
+  val insert: Fragment[Any] =
     sql"""| COPY test (a, b, c, d, e, f, g, h, i, j, k)
           | FROM STDIN
           |""".stripMargin

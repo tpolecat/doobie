@@ -16,7 +16,7 @@ import fs2.text._
 import java.io.StringReader
 import java.io.InputStream
 
-class FragmentOps(f: Fragment) {
+class FragmentOps[R](f: Fragment[R]) {
 
   /**
    * Given a fragment of the form `COPY table (col, ...) FROM STDIN` construct a
@@ -64,7 +64,7 @@ class FragmentOps(f: Fragment) {
 }
 
 trait ToFragmentOps {
-  implicit def toFragmentOps(f: Fragment): FragmentOps =
+  implicit def toFragmentOps[R](f: Fragment[R]): FragmentOps[R] =
     new FragmentOps(f)
 }
 

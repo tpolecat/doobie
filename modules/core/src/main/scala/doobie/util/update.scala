@@ -73,7 +73,7 @@ object update {
     val pos: Option[Pos]
 
     /** Convert this Update to a `Fragment`. */
-    def toFragment(a: A): Fragment =
+    def toFragment(a: A): Fragment[Any] =
       write.toFragment(a, sql)
 
     /**
@@ -169,7 +169,7 @@ object update {
       new Update0 {
         val sql = u.sql
         val pos = u.pos
-        def toFragment: Fragment = u.toFragment(a)
+        def toFragment: Fragment[Any] = u.toFragment(a)
         def analysis = u.analysis
         def run = u.run(a)
         def withGeneratedKeysWithChunkSize[K: Read](columns: String*)(chunkSize: Int) =
@@ -227,7 +227,7 @@ object update {
     val pos: Option[Pos]
 
     /** Convert this Update0 to a `Fragment`. */
-    def toFragment: Fragment
+    def toFragment: Fragment[Any]
 
       /**
      * Program to construct an analysis of this query's SQL statement and asserted parameter types.
