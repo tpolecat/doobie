@@ -151,8 +151,8 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       else s"""|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret] = sys.error("Not implemented: $mname$ctparams(${cparams.mkString(", ")})")"""
 
     def kleisliImpl: String =
-      if (cargs.isEmpty) s"|    override def $mname = primitive(_.$mname)"
-      else s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
+      if (cargs.isEmpty) s"""|    override def $mname = primitive(_.$mname, "$mname")"""
+      else s"""|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args), "$mname", $args)"""
 
   }
 
@@ -212,6 +212,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |import cats.free.{ Free => FF } // alias because some algebras have an op called Free
     |import scala.concurrent.ExecutionContext
     |import com.github.ghik.silencer.silent
+    |import io.chrisdavenport.log4cats.MessageLogger
     |
     |${imports[A].mkString("\n")}
     |
@@ -241,8 +242,10 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |      final def apply[A](fa: ${opname}[A]): F[A] = fa.visit(this)
     |
     |      // Common
-    |      def raw[A](f: $sname => A): F[A]
+    |      def raw[A](message: => String, f: $sname => A): F[A]
     |      def embed[A](e: Embedded[A]): F[A]
+    |
+    |      // Async
     |      def delay[A](a: () => A): F[A]
     |      def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): F[A]
     |      def raiseError[A](e: Throwable): F[A]
@@ -252,14 +255,21 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |      def shift: F[Unit]
     |      def evalOn[A](ec: ExecutionContext)(fa: ${ioname}[A]): F[A]
     |
+    |      // Logger
+    |      def error(message: => String): F[Unit]
+    |      def warn(message: => String): F[Unit]
+    |      def info(message: => String): F[Unit]
+    |      def debug(message: => String): F[Unit]
+    |      def trace(message: => String): F[Unit]
+    |
     |      // $sname
           ${ctors[A].map(_.visitor).mkString("\n    ")}
     |
     |    }
     |
     |    // Common operations for all algebras.
-    |    final case class Raw[A](f: $sname => A) extends ${opname}[A] {
-    |      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    |    final case class Raw[A](message: () => String, f: $sname => A) extends ${opname}[A] {
+    |      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     |    }
     |    final case class Embed[A](e: Embedded[A]) extends ${opname}[A] {
     |      def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -288,7 +298,22 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |    final case class EvalOn[A](ec: ExecutionContext, fa: ${ioname}[A]) extends ${opname}[A] {
     |      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     |    }
-    |
+    |    final case class LogError(message: () => String) extends ${opname}[Unit] {
+    |      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    |    }
+    |    final case class LogWarn(message: () => String) extends ${opname}[Unit] {
+    |      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    |    }
+    |    final case class LogInfo(message: () => String) extends ${opname}[Unit] {
+    |      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    |    }
+    |    final case class LogDebug(message: () => String) extends ${opname}[Unit] {
+    |      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    |    }
+    |    final case class LogTrace(message: () => String) extends ${opname}[Unit] {
+    |      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    |    }
+
     |    // $sname-specific operations.
     |    ${ctors[A].map(_.ctor(opname)).mkString("\n    ")}
     |
@@ -298,7 +323,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |  // Smart constructors for operations common to all algebras.
     |  val unit: ${ioname}[Unit] = FF.pure[${opname}, Unit](())
     |  def pure[A](a: A): ${ioname}[A] = FF.pure[${opname}, A](a)
-    |  def raw[A](f: $sname => A): ${ioname}[A] = FF.liftF(Raw(f))
+    |  def raw[A](message: => String)(f: $sname => A): ${ioname}[A] = FF.liftF(Raw(() => message, f))
     |  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[${opname}, A] = FF.liftF(Embed(ev.embed(j, fa)))
     |  def delay[A](a: => A): ${ioname}[A] = FF.liftF(Delay(() => a))
     |  def handleErrorWith[A](fa: ${ioname}[A], f: Throwable => ${ioname}[A]): ${ioname}[A] = FF.liftF[${opname}, A](HandleErrorWith(fa, f))
@@ -308,6 +333,13 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |  def bracketCase[A, B](acquire: ${ioname}[A])(use: A => ${ioname}[B])(release: (A, ExitCase[Throwable]) => ${ioname}[Unit]): ${ioname}[B] = FF.liftF[${opname}, B](BracketCase(acquire, use, release))
     |  val shift: ${ioname}[Unit] = FF.liftF[${opname}, Unit](Shift)
     |  def evalOn[A](ec: ExecutionContext)(fa: ${ioname}[A]) = FF.liftF[${opname}, A](EvalOn(ec, fa))
+    |
+    |  // Logger
+    |  def error(message: => String): ${ioname}[Unit] = FF.liftF[${opname}, Unit](LogError(() => message))
+    |  def warn(message: => String): ${ioname}[Unit] = FF.liftF[${opname}, Unit](LogWarn(() => message))
+    |  def info(message: => String): ${ioname}[Unit] = FF.liftF[${opname}, Unit](LogInfo(() => message))
+    |  def debug(message: => String): ${ioname}[Unit] = FF.liftF[${opname}, Unit](LogDebug(() => message))
+    |  def trace(message: => String): ${ioname}[Unit] = FF.liftF[${opname}, Unit](LogTrace(() => message))
     |
     |  // Smart constructors for $oname-specific operations.
     |  ${ctors[A].map(_.lifted(ioname)).mkString("\n  ")}
@@ -332,6 +364,16 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
     |    new ContextShift[${ioname}] {
     |      def shift: ${ioname}[Unit] = module.shift
     |      def evalOn[A](ec: ExecutionContext)(fa: ${ioname}[A]) = module.evalOn(ec)(fa)
+    |    }
+    |
+    |  // $ioname is a MessageLogger
+    |  implicit val MessageLogger${ioname}: MessageLogger[${ioname}] =
+    |    new MessageLogger[${ioname}] {
+    |      def error(message: => String): ${ioname}[Unit] =  module.error(message)
+    |      def warn(message: => String): ${ioname}[Unit] = module.warn(message)
+    |      def info(message: => String): ${ioname}[Unit] = module.info(message)
+    |      def debug(message: => String): ${ioname}[Unit] =  module.debug(message)
+    |      def trace(message: => String): ${ioname}[Unit] =  module.trace(message)
     |    }
     |}
     |""".trim.stripMargin
@@ -382,7 +424,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
        |  trait ${oname}Interpreter extends ${oname}Op.Visitor[Kleisli[M, $sname, *]] {
        |
        |    // common operations delegate to outer interpreter
-       |    override def raw[A](f: $sname => A): Kleisli[M, $sname, A] = outer.raw(f)
+       |    override def raw[A](message: => String, f: $sname => A): Kleisli[M, $sname, A] = outer.raw(message, f)
        |    override def embed[A](e: Embedded[A]): Kleisli[M, $sname, A] = outer.embed(e)
        |    override def delay[A](a: () => A): Kleisli[M, $sname, A] = outer.delay(a)
        |    override def raiseError[A](err: Throwable): Kleisli[M, $sname, A] = outer.raiseError(err)
@@ -409,6 +451,13 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
        |    def evalOn[A](ec: ExecutionContext)(fa: $ioname[A]): Kleisli[M, $sname, A] =
        |      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
        |
+       |    // Logger
+       |    def error(message: => String): Kleisli[M, $sname, Unit] = outer.error(message)
+       |    def warn(message: => String): Kleisli[M, $sname, Unit] = outer.warn(message)
+       |    def info(message: => String): Kleisli[M, $sname, Unit] = outer.info(message)
+       |    def debug(message: => String): Kleisli[M, $sname, Unit] = outer.debug(message)
+       |    def trace(message: => String): Kleisli[M, $sname, Unit] = outer.trace(message)
+
        |    // domain-specific operations are implemented in terms of `primitive`
        |${ctors[A].map(_.kleisliImpl).mkString("\n")}
        |
@@ -435,8 +484,11 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |import cats.~>
       |import cats.data.Kleisli
       |import cats.effect.{ Async, Blocker, ContextShift, ExitCase }
+      |import cats.implicits._
       |import scala.concurrent.ExecutionContext
+      |import scala.util.control.NonFatal
       |import com.github.ghik.silencer.silent
+      |import io.chrisdavenport.log4cats.MessageLogger
       |
       |// Types referenced in the JDBC API
       |${managed.map(ClassTag(_)).flatMap(imports(_)).distinct.sorted.mkString("\n") }
@@ -448,10 +500,12 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |
       |  def apply[M[_]](b: Blocker)(
       |    implicit am: Async[M],
-      |             cs: ContextShift[M]
+      |             cs: ContextShift[M],
+      |             lo: MessageLogger[M],
       |  ): KleisliInterpreter[M] =
       |    new KleisliInterpreter[M] {
       |      val asyncM = am
+      |      val loggerM = lo
       |      val contextShiftM = cs
       |      val blocker = b
       |    }
@@ -463,6 +517,7 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |trait KleisliInterpreter[M[_]] { outer =>
       |
       |  implicit val asyncM: Async[M]
+      |  implicit val loggerM: MessageLogger[M]
       |
       |  // We need these things in order to provide ContextShift[ConnectionIO] and so on, and also
       |  // to support shifting blocking operations to another pool.
@@ -473,23 +528,36 @@ class FreeGen2(managed: List[Class[_]], pkg: String, renames: Map[Class[_], Stri
       |  ${managed.map(interpreterDef).mkString("\n  ")}
       |
       |  // Some methods are common to all interpreters and can be overridden to change behavior globally.
-      |  def primitive[J, A](f: J => A): Kleisli[M, J, A] = Kleisli { a =>
+      |  def primitive[J, A](f: J => A, operation: => String, args: Any*): Kleisli[M, J, A] = Kleisli { a =>
       |    // primitive JDBC methods throw exceptions and so do we when reading values
       |    // so catch any non-fatal exceptions and lift them into the effect
-      |    blocker.blockOn[M, A](try {
-      |      asyncM.delay(f(a))
-      |    } catch {
-      |      case scala.util.control.NonFatal(e) => asyncM.raiseError(e)
-      |    })(contextShiftM)
+      |    blocker.blockOn[M, A] {
+      |      import scala.Predef._
+      |
+      |      def logMessage: String =
+      |        s"$${a.getClass.getSimpleName}@$${Integer.toHexString(System.identityHashCode(a))} $${operation}$${if (args.isEmpty) "" else args.mkString("(", ",", ")")}"
+      |
+      |      (asyncM.delay(f(a)) <* loggerM.trace(logMessage)).onError {
+      |        case NonFatal(e) => loggerM.error(doobie.free.ErrorFormatter.format(a, operation, args, e))
+      |      }
+      |
+      |    } (contextShiftM)
       |  }
       |  def delay[J, A](a: () => A): Kleisli[M, J, A] = Kleisli(_ => asyncM.delay(a()))
-      |  def raw[J, A](f: J => A): Kleisli[M, J, A] = primitive(f)
+      |  def raw[J, A](message: => String, f: J => A): Kleisli[M, J, A] = primitive(f, message)
       |  def raiseError[J, A](e: Throwable): Kleisli[M, J, A] = Kleisli(_ => asyncM.raiseError(e))
       |  def async[J, A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, J, A] = Kleisli(_ => asyncM.async(k))
       |  def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
       |    e match {
       |      ${managed.map(_.getSimpleName).map(n => s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))").mkString("\n      ")}
       |    }
+      |
+      |  // Logger
+      |  def error[J](message: => String): Kleisli[M, J, Unit] = Kleisli(_ => loggerM.error(message))
+      |  def warn[J](message: => String): Kleisli[M, J, Unit] = Kleisli(_ => loggerM.warn(message))
+      |  def info[J](message: => String): Kleisli[M, J, Unit] = Kleisli(_ => loggerM.info(message))
+      |  def debug[J](message: => String): Kleisli[M, J, Unit] = Kleisli(_ => loggerM.debug(message))
+      |  def trace[J](message: => String): Kleisli[M, J, Unit] = Kleisli(_ => loggerM.trace(message))
       |
       |  // Interpreters
       |${managed.map(ClassTag(_)).map(interp(_)).mkString("\n")}

@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.Class
 import java.lang.String
@@ -43,8 +44,10 @@ object databasemetadata { module =>
       final def apply[A](fa: DatabaseMetaDataOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: DatabaseMetaData => A): F[A]
+      def raw[A](message: => String, f: DatabaseMetaData => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -53,6 +56,13 @@ object databasemetadata { module =>
       def bracketCase[A, B](acquire: DatabaseMetaDataIO[A])(use: A => DatabaseMetaDataIO[B])(release: (A, ExitCase[Throwable]) => DatabaseMetaDataIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: DatabaseMetaDataIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // DatabaseMetaData
       def allProceduresAreCallable: F[Boolean]
@@ -217,6 +227,7 @@ object databasemetadata { module =>
       def supportsSchemasInProcedureCalls: F[Boolean]
       def supportsSchemasInTableDefinitions: F[Boolean]
       def supportsSelectForUpdate: F[Boolean]
+      def supportsSharding: F[Boolean]
       def supportsStatementPooling: F[Boolean]
       def supportsStoredFunctionsUsingCallSyntax: F[Boolean]
       def supportsStoredProcedures: F[Boolean]
@@ -237,8 +248,8 @@ object databasemetadata { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: DatabaseMetaData => A) extends DatabaseMetaDataOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: DatabaseMetaData => A) extends DatabaseMetaDataOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -266,6 +277,21 @@ object databasemetadata { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: DatabaseMetaDataIO[A]) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends DatabaseMetaDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends DatabaseMetaDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends DatabaseMetaDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends DatabaseMetaDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends DatabaseMetaDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // DatabaseMetaData-specific operations.
@@ -755,6 +781,9 @@ object databasemetadata { module =>
     final case object SupportsSelectForUpdate extends DatabaseMetaDataOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.supportsSelectForUpdate
     }
+    final case object SupportsSharding extends DatabaseMetaDataOp[Boolean] {
+      def visit[F[_]](v: Visitor[F]) = v.supportsSharding
+    }
     final case object SupportsStatementPooling extends DatabaseMetaDataOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.supportsStatementPooling
     }
@@ -810,7 +839,7 @@ object databasemetadata { module =>
   // Smart constructors for operations common to all algebras.
   val unit: DatabaseMetaDataIO[Unit] = FF.pure[DatabaseMetaDataOp, Unit](())
   def pure[A](a: A): DatabaseMetaDataIO[A] = FF.pure[DatabaseMetaDataOp, A](a)
-  def raw[A](f: DatabaseMetaData => A): DatabaseMetaDataIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: DatabaseMetaData => A): DatabaseMetaDataIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DatabaseMetaDataOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): DatabaseMetaDataIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] = FF.liftF[DatabaseMetaDataOp, A](HandleErrorWith(fa, f))
@@ -820,6 +849,13 @@ object databasemetadata { module =>
   def bracketCase[A, B](acquire: DatabaseMetaDataIO[A])(use: A => DatabaseMetaDataIO[B])(release: (A, ExitCase[Throwable]) => DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[B] = FF.liftF[DatabaseMetaDataOp, B](BracketCase(acquire, use, release))
   val shift: DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: DatabaseMetaDataIO[A]) = FF.liftF[DatabaseMetaDataOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](LogError(() => message))
+  def warn(message: => String): DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](LogWarn(() => message))
+  def info(message: => String): DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](LogInfo(() => message))
+  def debug(message: => String): DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](LogDebug(() => message))
+  def trace(message: => String): DatabaseMetaDataIO[Unit] = FF.liftF[DatabaseMetaDataOp, Unit](LogTrace(() => message))
 
   // Smart constructors for DatabaseMetaData-specific operations.
   val allProceduresAreCallable: DatabaseMetaDataIO[Boolean] = FF.liftF(AllProceduresAreCallable)
@@ -984,6 +1020,7 @@ object databasemetadata { module =>
   val supportsSchemasInProcedureCalls: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInProcedureCalls)
   val supportsSchemasInTableDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInTableDefinitions)
   val supportsSelectForUpdate: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSelectForUpdate)
+  val supportsSharding: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSharding)
   val supportsStatementPooling: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStatementPooling)
   val supportsStoredFunctionsUsingCallSyntax: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStoredFunctionsUsingCallSyntax)
   val supportsStoredProcedures: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStoredProcedures)
@@ -1021,6 +1058,16 @@ object databasemetadata { module =>
     new ContextShift[DatabaseMetaDataIO] {
       def shift: DatabaseMetaDataIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: DatabaseMetaDataIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // DatabaseMetaDataIO is a MessageLogger
+  implicit val MessageLoggerDatabaseMetaDataIO: MessageLogger[DatabaseMetaDataIO] =
+    new MessageLogger[DatabaseMetaDataIO] {
+      def error(message: => String): DatabaseMetaDataIO[Unit] =  module.error(message)
+      def warn(message: => String): DatabaseMetaDataIO[Unit] = module.warn(message)
+      def info(message: => String): DatabaseMetaDataIO[Unit] = module.info(message)
+      def debug(message: => String): DatabaseMetaDataIO[Unit] =  module.debug(message)
+      def trace(message: => String): DatabaseMetaDataIO[Unit] =  module.trace(message)
     }
 }
 

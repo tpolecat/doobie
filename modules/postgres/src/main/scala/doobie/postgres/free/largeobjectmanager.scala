@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import org.postgresql.largeobject.LargeObject
 import org.postgresql.largeobject.LargeObjectManager
@@ -39,8 +40,10 @@ object largeobjectmanager { module =>
       final def apply[A](fa: LargeObjectManagerOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: LargeObjectManager => A): F[A]
+      def raw[A](message: => String, f: LargeObjectManager => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: LargeObjectManagerIO[A], f: Throwable => LargeObjectManagerIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -49,6 +52,13 @@ object largeobjectmanager { module =>
       def bracketCase[A, B](acquire: LargeObjectManagerIO[A])(use: A => LargeObjectManagerIO[B])(release: (A, ExitCase[Throwable]) => LargeObjectManagerIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: LargeObjectManagerIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // LargeObjectManager
       def create: F[Int]
@@ -71,8 +81,8 @@ object largeobjectmanager { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: LargeObjectManager => A) extends LargeObjectManagerOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: LargeObjectManager => A) extends LargeObjectManagerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends LargeObjectManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -100,6 +110,21 @@ object largeobjectmanager { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: LargeObjectManagerIO[A]) extends LargeObjectManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends LargeObjectManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends LargeObjectManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends LargeObjectManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends LargeObjectManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends LargeObjectManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // LargeObjectManager-specific operations.
@@ -158,7 +183,7 @@ object largeobjectmanager { module =>
   // Smart constructors for operations common to all algebras.
   val unit: LargeObjectManagerIO[Unit] = FF.pure[LargeObjectManagerOp, Unit](())
   def pure[A](a: A): LargeObjectManagerIO[A] = FF.pure[LargeObjectManagerOp, A](a)
-  def raw[A](f: LargeObjectManager => A): LargeObjectManagerIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: LargeObjectManager => A): LargeObjectManagerIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[LargeObjectManagerOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): LargeObjectManagerIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: LargeObjectManagerIO[A], f: Throwable => LargeObjectManagerIO[A]): LargeObjectManagerIO[A] = FF.liftF[LargeObjectManagerOp, A](HandleErrorWith(fa, f))
@@ -168,6 +193,13 @@ object largeobjectmanager { module =>
   def bracketCase[A, B](acquire: LargeObjectManagerIO[A])(use: A => LargeObjectManagerIO[B])(release: (A, ExitCase[Throwable]) => LargeObjectManagerIO[Unit]): LargeObjectManagerIO[B] = FF.liftF[LargeObjectManagerOp, B](BracketCase(acquire, use, release))
   val shift: LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: LargeObjectManagerIO[A]) = FF.liftF[LargeObjectManagerOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](LogError(() => message))
+  def warn(message: => String): LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](LogWarn(() => message))
+  def info(message: => String): LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](LogInfo(() => message))
+  def debug(message: => String): LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](LogDebug(() => message))
+  def trace(message: => String): LargeObjectManagerIO[Unit] = FF.liftF[LargeObjectManagerOp, Unit](LogTrace(() => message))
 
   // Smart constructors for LargeObjectManager-specific operations.
   val create: LargeObjectManagerIO[Int] = FF.liftF(Create)
@@ -207,6 +239,16 @@ object largeobjectmanager { module =>
     new ContextShift[LargeObjectManagerIO] {
       def shift: LargeObjectManagerIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: LargeObjectManagerIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // LargeObjectManagerIO is a MessageLogger
+  implicit val MessageLoggerLargeObjectManagerIO: MessageLogger[LargeObjectManagerIO] =
+    new MessageLogger[LargeObjectManagerIO] {
+      def error(message: => String): LargeObjectManagerIO[Unit] =  module.error(message)
+      def warn(message: => String): LargeObjectManagerIO[Unit] = module.warn(message)
+      def info(message: => String): LargeObjectManagerIO[Unit] = module.info(message)
+      def debug(message: => String): LargeObjectManagerIO[Unit] =  module.debug(message)
+      def trace(message: => String): LargeObjectManagerIO[Unit] =  module.trace(message)
     }
 }
 

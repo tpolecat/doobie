@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.OutputStream
@@ -43,8 +44,10 @@ object clob { module =>
       final def apply[A](fa: ClobOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Clob => A): F[A]
+      def raw[A](message: => String, f: Clob => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ClobIO[A], f: Throwable => ClobIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -53,6 +56,13 @@ object clob { module =>
       def bracketCase[A, B](acquire: ClobIO[A])(use: A => ClobIO[B])(release: (A, ExitCase[Throwable]) => ClobIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: ClobIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // Clob
       def free: F[Unit]
@@ -72,8 +82,8 @@ object clob { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Clob => A) extends ClobOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: Clob => A) extends ClobOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends ClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -101,6 +111,21 @@ object clob { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: ClobIO[A]) extends ClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends ClobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends ClobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends ClobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends ClobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends ClobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // Clob-specific operations.
@@ -150,7 +175,7 @@ object clob { module =>
   // Smart constructors for operations common to all algebras.
   val unit: ClobIO[Unit] = FF.pure[ClobOp, Unit](())
   def pure[A](a: A): ClobIO[A] = FF.pure[ClobOp, A](a)
-  def raw[A](f: Clob => A): ClobIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: Clob => A): ClobIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ClobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ClobIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ClobIO[A], f: Throwable => ClobIO[A]): ClobIO[A] = FF.liftF[ClobOp, A](HandleErrorWith(fa, f))
@@ -160,6 +185,13 @@ object clob { module =>
   def bracketCase[A, B](acquire: ClobIO[A])(use: A => ClobIO[B])(release: (A, ExitCase[Throwable]) => ClobIO[Unit]): ClobIO[B] = FF.liftF[ClobOp, B](BracketCase(acquire, use, release))
   val shift: ClobIO[Unit] = FF.liftF[ClobOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: ClobIO[A]) = FF.liftF[ClobOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): ClobIO[Unit] = FF.liftF[ClobOp, Unit](LogError(() => message))
+  def warn(message: => String): ClobIO[Unit] = FF.liftF[ClobOp, Unit](LogWarn(() => message))
+  def info(message: => String): ClobIO[Unit] = FF.liftF[ClobOp, Unit](LogInfo(() => message))
+  def debug(message: => String): ClobIO[Unit] = FF.liftF[ClobOp, Unit](LogDebug(() => message))
+  def trace(message: => String): ClobIO[Unit] = FF.liftF[ClobOp, Unit](LogTrace(() => message))
 
   // Smart constructors for Clob-specific operations.
   val free: ClobIO[Unit] = FF.liftF(Free)
@@ -196,6 +228,16 @@ object clob { module =>
     new ContextShift[ClobIO] {
       def shift: ClobIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: ClobIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // ClobIO is a MessageLogger
+  implicit val MessageLoggerClobIO: MessageLogger[ClobIO] =
+    new MessageLogger[ClobIO] {
+      def error(message: => String): ClobIO[Unit] =  module.error(message)
+      def warn(message: => String): ClobIO[Unit] = module.warn(message)
+      def info(message: => String): ClobIO[Unit] = module.info(message)
+      def debug(message: => String): ClobIO[Unit] =  module.debug(message)
+      def trace(message: => String): ClobIO[Unit] =  module.trace(message)
     }
 }
 

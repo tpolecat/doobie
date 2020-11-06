@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.Class
 import java.lang.String
@@ -49,8 +50,10 @@ object pgconnection { module =>
       final def apply[A](fa: PGConnectionOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGConnection => A): F[A]
+      def raw[A](message: => String, f: PGConnection => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: PGConnectionIO[A], f: Throwable => PGConnectionIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -60,9 +63,17 @@ object pgconnection { module =>
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: PGConnectionIO[A]): F[A]
 
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
+
       // PGConnection
       def addDataType(a: String, b: Class[_ <: org.postgresql.util.PGobject]): F[Unit]
       def addDataType(a: String, b: String): F[Unit]
+      def cancelQuery: F[Unit]
       def createArrayOf(a: String, b: AnyRef): F[SqlArray]
       def escapeIdentifier(a: String): F[String]
       def escapeLiteral(a: String): F[String]
@@ -86,8 +97,8 @@ object pgconnection { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGConnection => A) extends PGConnectionOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PGConnection => A) extends PGConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends PGConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -116,6 +127,21 @@ object pgconnection { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: PGConnectionIO[A]) extends PGConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // PGConnection-specific operations.
     final case class  AddDataType(a: String, b: Class[_ <: org.postgresql.util.PGobject]) extends PGConnectionOp[Unit] {
@@ -123,6 +149,9 @@ object pgconnection { module =>
     }
     final case class  AddDataType1(a: String, b: String) extends PGConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.addDataType(a, b)
+    }
+    final case object CancelQuery extends PGConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelQuery
     }
     final case class  CreateArrayOf(a: String, b: AnyRef) extends PGConnectionOp[SqlArray] {
       def visit[F[_]](v: Visitor[F]) = v.createArrayOf(a, b)
@@ -188,7 +217,7 @@ object pgconnection { module =>
   // Smart constructors for operations common to all algebras.
   val unit: PGConnectionIO[Unit] = FF.pure[PGConnectionOp, Unit](())
   def pure[A](a: A): PGConnectionIO[A] = FF.pure[PGConnectionOp, A](a)
-  def raw[A](f: PGConnection => A): PGConnectionIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PGConnection => A): PGConnectionIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[PGConnectionOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): PGConnectionIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: PGConnectionIO[A], f: Throwable => PGConnectionIO[A]): PGConnectionIO[A] = FF.liftF[PGConnectionOp, A](HandleErrorWith(fa, f))
@@ -199,9 +228,17 @@ object pgconnection { module =>
   val shift: PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: PGConnectionIO[A]) = FF.liftF[PGConnectionOp, A](EvalOn(ec, fa))
 
+  // Logger
+  def error(message: => String): PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](LogError(() => message))
+  def warn(message: => String): PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](LogWarn(() => message))
+  def info(message: => String): PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](LogInfo(() => message))
+  def debug(message: => String): PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](LogDebug(() => message))
+  def trace(message: => String): PGConnectionIO[Unit] = FF.liftF[PGConnectionOp, Unit](LogTrace(() => message))
+
   // Smart constructors for PGConnection-specific operations.
   def addDataType(a: String, b: Class[_ <: org.postgresql.util.PGobject]): PGConnectionIO[Unit] = FF.liftF(AddDataType(a, b))
   def addDataType(a: String, b: String): PGConnectionIO[Unit] = FF.liftF(AddDataType1(a, b))
+  val cancelQuery: PGConnectionIO[Unit] = FF.liftF(CancelQuery)
   def createArrayOf(a: String, b: AnyRef): PGConnectionIO[SqlArray] = FF.liftF(CreateArrayOf(a, b))
   def escapeIdentifier(a: String): PGConnectionIO[String] = FF.liftF(EscapeIdentifier(a))
   def escapeLiteral(a: String): PGConnectionIO[String] = FF.liftF(EscapeLiteral(a))
@@ -242,6 +279,16 @@ object pgconnection { module =>
     new ContextShift[PGConnectionIO] {
       def shift: PGConnectionIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: PGConnectionIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // PGConnectionIO is a MessageLogger
+  implicit val MessageLoggerPGConnectionIO: MessageLogger[PGConnectionIO] =
+    new MessageLogger[PGConnectionIO] {
+      def error(message: => String): PGConnectionIO[Unit] =  module.error(message)
+      def warn(message: => String): PGConnectionIO[Unit] = module.warn(message)
+      def info(message: => String): PGConnectionIO[Unit] = module.info(message)
+      def debug(message: => String): PGConnectionIO[Unit] =  module.debug(message)
+      def trace(message: => String): PGConnectionIO[Unit] =  module.trace(message)
     }
 }
 

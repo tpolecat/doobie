@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.OutputStream
@@ -40,8 +41,10 @@ object blob { module =>
       final def apply[A](fa: BlobOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Blob => A): F[A]
+      def raw[A](message: => String, f: Blob => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: BlobIO[A], f: Throwable => BlobIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -50,6 +53,13 @@ object blob { module =>
       def bracketCase[A, B](acquire: BlobIO[A])(use: A => BlobIO[B])(release: (A, ExitCase[Throwable]) => BlobIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: BlobIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // Blob
       def free: F[Unit]
@@ -67,8 +77,8 @@ object blob { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Blob => A) extends BlobOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: Blob => A) extends BlobOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends BlobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -96,6 +106,21 @@ object blob { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: BlobIO[A]) extends BlobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends BlobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends BlobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends BlobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends BlobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends BlobOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // Blob-specific operations.
@@ -139,7 +164,7 @@ object blob { module =>
   // Smart constructors for operations common to all algebras.
   val unit: BlobIO[Unit] = FF.pure[BlobOp, Unit](())
   def pure[A](a: A): BlobIO[A] = FF.pure[BlobOp, A](a)
-  def raw[A](f: Blob => A): BlobIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: Blob => A): BlobIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[BlobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): BlobIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: BlobIO[A], f: Throwable => BlobIO[A]): BlobIO[A] = FF.liftF[BlobOp, A](HandleErrorWith(fa, f))
@@ -149,6 +174,13 @@ object blob { module =>
   def bracketCase[A, B](acquire: BlobIO[A])(use: A => BlobIO[B])(release: (A, ExitCase[Throwable]) => BlobIO[Unit]): BlobIO[B] = FF.liftF[BlobOp, B](BracketCase(acquire, use, release))
   val shift: BlobIO[Unit] = FF.liftF[BlobOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: BlobIO[A]) = FF.liftF[BlobOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): BlobIO[Unit] = FF.liftF[BlobOp, Unit](LogError(() => message))
+  def warn(message: => String): BlobIO[Unit] = FF.liftF[BlobOp, Unit](LogWarn(() => message))
+  def info(message: => String): BlobIO[Unit] = FF.liftF[BlobOp, Unit](LogInfo(() => message))
+  def debug(message: => String): BlobIO[Unit] = FF.liftF[BlobOp, Unit](LogDebug(() => message))
+  def trace(message: => String): BlobIO[Unit] = FF.liftF[BlobOp, Unit](LogTrace(() => message))
 
   // Smart constructors for Blob-specific operations.
   val free: BlobIO[Unit] = FF.liftF(Free)
@@ -183,6 +215,16 @@ object blob { module =>
     new ContextShift[BlobIO] {
       def shift: BlobIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: BlobIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // BlobIO is a MessageLogger
+  implicit val MessageLoggerBlobIO: MessageLogger[BlobIO] =
+    new MessageLogger[BlobIO] {
+      def error(message: => String): BlobIO[Unit] =  module.error(message)
+      def warn(message: => String): BlobIO[Unit] = module.warn(message)
+      def info(message: => String): BlobIO[Unit] = module.info(message)
+      def debug(message: => String): BlobIO[Unit] =  module.debug(message)
+      def trace(message: => String): BlobIO[Unit] =  module.trace(message)
     }
 }
 

@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.OutputStream
@@ -19,6 +20,7 @@ import org.postgresql.copy.{ CopyDual => PGCopyDual }
 import org.postgresql.copy.{ CopyIn => PGCopyIn }
 import org.postgresql.copy.{ CopyManager => PGCopyManager }
 import org.postgresql.copy.{ CopyOut => PGCopyOut }
+import org.postgresql.util.ByteStreamWriter
 
 @silent("deprecated")
 object copymanager { module =>
@@ -46,8 +48,10 @@ object copymanager { module =>
       final def apply[A](fa: CopyManagerOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGCopyManager => A): F[A]
+      def raw[A](message: => String, f: PGCopyManager => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -57,9 +61,17 @@ object copymanager { module =>
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]): F[A]
 
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
+
       // PGCopyManager
       def copyDual(a: String): F[PGCopyDual]
       def copyIn(a: String): F[PGCopyIn]
+      def copyIn(a: String, b: ByteStreamWriter): F[Long]
       def copyIn(a: String, b: InputStream): F[Long]
       def copyIn(a: String, b: InputStream, c: Int): F[Long]
       def copyIn(a: String, b: Reader): F[Long]
@@ -71,8 +83,8 @@ object copymanager { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGCopyManager => A) extends CopyManagerOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PGCopyManager => A) extends CopyManagerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -101,6 +113,21 @@ object copymanager { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: CopyManagerIO[A]) extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends CopyManagerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // PGCopyManager-specific operations.
     final case class  CopyDual(a: String) extends CopyManagerOp[PGCopyDual] {
@@ -109,16 +136,19 @@ object copymanager { module =>
     final case class  CopyIn(a: String) extends CopyManagerOp[PGCopyIn] {
       def visit[F[_]](v: Visitor[F]) = v.copyIn(a)
     }
-    final case class  CopyIn1(a: String, b: InputStream) extends CopyManagerOp[Long] {
+    final case class  CopyIn1(a: String, b: ByteStreamWriter) extends CopyManagerOp[Long] {
       def visit[F[_]](v: Visitor[F]) = v.copyIn(a, b)
     }
-    final case class  CopyIn2(a: String, b: InputStream, c: Int) extends CopyManagerOp[Long] {
+    final case class  CopyIn2(a: String, b: InputStream) extends CopyManagerOp[Long] {
+      def visit[F[_]](v: Visitor[F]) = v.copyIn(a, b)
+    }
+    final case class  CopyIn3(a: String, b: InputStream, c: Int) extends CopyManagerOp[Long] {
       def visit[F[_]](v: Visitor[F]) = v.copyIn(a, b, c)
     }
-    final case class  CopyIn3(a: String, b: Reader) extends CopyManagerOp[Long] {
+    final case class  CopyIn4(a: String, b: Reader) extends CopyManagerOp[Long] {
       def visit[F[_]](v: Visitor[F]) = v.copyIn(a, b)
     }
-    final case class  CopyIn4(a: String, b: Reader, c: Int) extends CopyManagerOp[Long] {
+    final case class  CopyIn5(a: String, b: Reader, c: Int) extends CopyManagerOp[Long] {
       def visit[F[_]](v: Visitor[F]) = v.copyIn(a, b, c)
     }
     final case class  CopyOut(a: String) extends CopyManagerOp[PGCopyOut] {
@@ -137,7 +167,7 @@ object copymanager { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CopyManagerIO[Unit] = FF.pure[CopyManagerOp, Unit](())
   def pure[A](a: A): CopyManagerIO[A] = FF.pure[CopyManagerOp, A](a)
-  def raw[A](f: PGCopyManager => A): CopyManagerIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PGCopyManager => A): CopyManagerIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyManagerOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CopyManagerIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](HandleErrorWith(fa, f))
@@ -148,13 +178,21 @@ object copymanager { module =>
   val shift: CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]) = FF.liftF[CopyManagerOp, A](EvalOn(ec, fa))
 
+  // Logger
+  def error(message: => String): CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](LogError(() => message))
+  def warn(message: => String): CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](LogWarn(() => message))
+  def info(message: => String): CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](LogInfo(() => message))
+  def debug(message: => String): CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](LogDebug(() => message))
+  def trace(message: => String): CopyManagerIO[Unit] = FF.liftF[CopyManagerOp, Unit](LogTrace(() => message))
+
   // Smart constructors for CopyManager-specific operations.
   def copyDual(a: String): CopyManagerIO[PGCopyDual] = FF.liftF(CopyDual(a))
   def copyIn(a: String): CopyManagerIO[PGCopyIn] = FF.liftF(CopyIn(a))
-  def copyIn(a: String, b: InputStream): CopyManagerIO[Long] = FF.liftF(CopyIn1(a, b))
-  def copyIn(a: String, b: InputStream, c: Int): CopyManagerIO[Long] = FF.liftF(CopyIn2(a, b, c))
-  def copyIn(a: String, b: Reader): CopyManagerIO[Long] = FF.liftF(CopyIn3(a, b))
-  def copyIn(a: String, b: Reader, c: Int): CopyManagerIO[Long] = FF.liftF(CopyIn4(a, b, c))
+  def copyIn(a: String, b: ByteStreamWriter): CopyManagerIO[Long] = FF.liftF(CopyIn1(a, b))
+  def copyIn(a: String, b: InputStream): CopyManagerIO[Long] = FF.liftF(CopyIn2(a, b))
+  def copyIn(a: String, b: InputStream, c: Int): CopyManagerIO[Long] = FF.liftF(CopyIn3(a, b, c))
+  def copyIn(a: String, b: Reader): CopyManagerIO[Long] = FF.liftF(CopyIn4(a, b))
+  def copyIn(a: String, b: Reader, c: Int): CopyManagerIO[Long] = FF.liftF(CopyIn5(a, b, c))
   def copyOut(a: String): CopyManagerIO[PGCopyOut] = FF.liftF(CopyOut(a))
   def copyOut(a: String, b: OutputStream): CopyManagerIO[Long] = FF.liftF(CopyOut1(a, b))
   def copyOut(a: String, b: Writer): CopyManagerIO[Long] = FF.liftF(CopyOut2(a, b))
@@ -179,6 +217,16 @@ object copymanager { module =>
     new ContextShift[CopyManagerIO] {
       def shift: CopyManagerIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: CopyManagerIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // CopyManagerIO is a MessageLogger
+  implicit val MessageLoggerCopyManagerIO: MessageLogger[CopyManagerIO] =
+    new MessageLogger[CopyManagerIO] {
+      def error(message: => String): CopyManagerIO[Unit] =  module.error(message)
+      def warn(message: => String): CopyManagerIO[Unit] = module.warn(message)
+      def info(message: => String): CopyManagerIO[Unit] = module.info(message)
+      def debug(message: => String): CopyManagerIO[Unit] =  module.debug(message)
+      def trace(message: => String): CopyManagerIO[Unit] =  module.trace(message)
     }
 }
 

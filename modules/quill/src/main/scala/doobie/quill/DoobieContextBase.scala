@@ -40,7 +40,7 @@ trait DoobieContextBase[Dialect <: SqlIdiom, Naming <: NamingStrategy]
     new ContextLogger("DoobieContext")
 
   private def prepareAndLog(sql: String, p: Prepare): PreparedStatementIO[Unit] =
-    FPS.raw(p).flatMap { case (params, _) =>
+    FPS.raw(s"prepareAndLog($sql, $p)")(p).flatMap { case (params, _) =>
       FPS.delay(log.logQuery(sql, params))
     }
 
@@ -112,7 +112,7 @@ trait DoobieContextBase[Dialect <: SqlIdiom, Naming <: NamingStrategy]
     }
 
   private def prepareBatchAndLog(sql: String, p: Prepare): PreparedStatementIO[Unit] =
-    FPS.raw(p) flatMap { case (params, _) =>
+    FPS.raw(s"prepareBatchAndLog($sql, $p)")(p) flatMap { case (params, _) =>
       FPS.delay(log.logBatchItem(sql, params))
     }
 

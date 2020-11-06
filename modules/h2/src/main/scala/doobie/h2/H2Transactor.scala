@@ -8,11 +8,12 @@ package h2
 import cats.effect._
 import org.h2.jdbcx.JdbcConnectionPool
 import scala.concurrent.ExecutionContext
+import io.chrisdavenport.log4cats.Logger
 
 object H2Transactor {
 
   /** Resource yielding a new H2Transactor. */
-  def newH2Transactor[M[_]: Async: ContextShift](
+  def newH2Transactor[M[_]: Async: ContextShift: Logger](
     url:        String,
     user:       String,
     pass:       String,

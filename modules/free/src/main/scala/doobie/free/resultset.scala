@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.Reader
@@ -60,8 +61,10 @@ object resultset { module =>
       final def apply[A](fa: ResultSetOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: ResultSet => A): F[A]
+      def raw[A](message: => String, f: ResultSet => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ResultSetIO[A], f: Throwable => ResultSetIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -70,6 +73,13 @@ object resultset { module =>
       def bracketCase[A, B](acquire: ResultSetIO[A])(use: A => ResultSetIO[B])(release: (A, ExitCase[Throwable]) => ResultSetIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: ResultSetIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // ResultSet
       def absolute(a: Int): F[Boolean]
@@ -271,8 +281,8 @@ object resultset { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: ResultSet => A) extends ResultSetOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: ResultSet => A) extends ResultSetOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends ResultSetOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -300,6 +310,21 @@ object resultset { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: ResultSetIO[A]) extends ResultSetOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends ResultSetOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends ResultSetOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends ResultSetOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends ResultSetOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends ResultSetOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // ResultSet-specific operations.
@@ -895,7 +920,7 @@ object resultset { module =>
   // Smart constructors for operations common to all algebras.
   val unit: ResultSetIO[Unit] = FF.pure[ResultSetOp, Unit](())
   def pure[A](a: A): ResultSetIO[A] = FF.pure[ResultSetOp, A](a)
-  def raw[A](f: ResultSet => A): ResultSetIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: ResultSet => A): ResultSetIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ResultSetOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ResultSetIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ResultSetIO[A], f: Throwable => ResultSetIO[A]): ResultSetIO[A] = FF.liftF[ResultSetOp, A](HandleErrorWith(fa, f))
@@ -905,6 +930,13 @@ object resultset { module =>
   def bracketCase[A, B](acquire: ResultSetIO[A])(use: A => ResultSetIO[B])(release: (A, ExitCase[Throwable]) => ResultSetIO[Unit]): ResultSetIO[B] = FF.liftF[ResultSetOp, B](BracketCase(acquire, use, release))
   val shift: ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: ResultSetIO[A]) = FF.liftF[ResultSetOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](LogError(() => message))
+  def warn(message: => String): ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](LogWarn(() => message))
+  def info(message: => String): ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](LogInfo(() => message))
+  def debug(message: => String): ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](LogDebug(() => message))
+  def trace(message: => String): ResultSetIO[Unit] = FF.liftF[ResultSetOp, Unit](LogTrace(() => message))
 
   // Smart constructors for ResultSet-specific operations.
   def absolute(a: Int): ResultSetIO[Boolean] = FF.liftF(Absolute(a))
@@ -1123,6 +1155,16 @@ object resultset { module =>
     new ContextShift[ResultSetIO] {
       def shift: ResultSetIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: ResultSetIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // ResultSetIO is a MessageLogger
+  implicit val MessageLoggerResultSetIO: MessageLogger[ResultSetIO] =
+    new MessageLogger[ResultSetIO] {
+      def error(message: => String): ResultSetIO[Unit] =  module.error(message)
+      def warn(message: => String): ResultSetIO[Unit] = module.warn(message)
+      def info(message: => String): ResultSetIO[Unit] = module.info(message)
+      def debug(message: => String): ResultSetIO[Unit] =  module.debug(message)
+      def trace(message: => String): ResultSetIO[Unit] =  module.trace(message)
     }
 }
 

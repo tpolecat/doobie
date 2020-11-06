@@ -10,9 +10,15 @@ import cats.implicits._
 import cats.effect.{ IO, IOApp, ExitCode }
 import fs2.Stream
 import doobie._, doobie.implicits._
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 // Example lifted from slick
 object FirstExample extends IOApp {
+
+  // A very loud logger! Comment this out to get the default one (which is quiet)
+  implicit val myLogger: Logger[IO] =
+    Slf4jLogger.getLoggerFromName("loud-logger") // See src/main/resources/simplelogger.properties
 
   // Our data model
   final case class Supplier(id: Int, name: String, street: String, city: String, state: String, zip: String)

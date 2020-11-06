@@ -15,6 +15,9 @@ import org.specs2.mutable.Specification
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import cats.effect.Resource
+import cats.effect.Sync
+import cats.implicits._
 
 
 trait pgconcurrent[F[_]] extends Specification {
@@ -23,39 +26,41 @@ trait pgconcurrent[F[_]] extends Specification {
   implicit def T: Timer[F]
   implicit def contextShift: ContextShift[F]
 
-  def transactor() = {
+  def dataSource: Resource[F, HikariDataSource] =
+    Resource.liftF(Sync[F].delay(    Class.forName("org.postgresql.Driver"))) *>
+    Resource.make(Sync[F].delay(new HikariDataSource))(ds => Sync[F].delay(ds.close()))
 
-    Class.forName("org.postgresql.Driver")
-    val dataSource = new HikariDataSource
-
-    dataSource setJdbcUrl "jdbc:postgresql://localhost:5432/postgres"
-    dataSource setUsername "postgres"
-    dataSource setPassword ""
-    dataSource setMaximumPoolSize 10
-    dataSource setConnectionTimeout 2000
-
-    Transactor.fromDataSource[F](
-      dataSource,
-      ExecutionContext.fromExecutor(Executors.newFixedThreadPool(32)),
-      Blocker.liftExecutorService(Executors.newCachedThreadPool())
-    )
-
-  }
+  def transactor: Resource[F, Transactor[F]] =
+    dataSource.flatMap { dataSource =>
+      Resource.liftF {
+        Sync[F].delay {
+          dataSource setJdbcUrl "jdbc:postgresql://localhost:5432/postgres"
+          dataSource setUsername "postgres"
+          dataSource setPassword ""
+          dataSource setMaximumPoolSize 10
+          dataSource setConnectionTimeout 2000
+          Transactor.fromDataSource[F](
+            dataSource,
+            ExecutionContext.fromExecutor(Executors.newFixedThreadPool(32)),
+            Blocker.liftExecutorService(Executors.newCachedThreadPool())
+          )
+        }
+      }
+    }
 
   "Not leak connections with recursive query streams" in {
+    transactor.use { xa =>
 
-    val xa = transactor()
+      val poll: fs2.Stream[F, Int] =
+        fr"select 1".query[Int].stream.transact(xa) ++ fs2.Stream.eval_(T.sleep(50.millis))
 
-    val poll: fs2.Stream[F, Int] =
-      fr"select 1".query[Int].stream.transact(xa) ++ fs2.Stream.eval_(T.sleep(50.millis))
+     fs2.Stream.emits(List.fill(4)(poll.repeat))
+        .parJoinUnbounded
+        .take(20)
+        .compile
+        .drain
 
-    val pollingStream: F[Unit] = fs2.Stream.emits(List.fill(4)(poll.repeat))
-      .parJoinUnbounded
-      .take(20)
-      .compile
-      .drain
-
-    pollingStream.toIO.unsafeRunSync() must_== (())
+    } .toIO.unsafeRunSync() must_== (())
   }
 
 

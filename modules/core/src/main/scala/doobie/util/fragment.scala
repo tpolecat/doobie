@@ -171,8 +171,8 @@ object fragment {
 
   sealed trait Elem
   object Elem {
-    final case class Arg[A](a: A, p: Put[A]) extends Elem
-    final case class Opt[A](a: Option[A], p: Put[A]) extends Elem
+    final case class Arg[A](a: A, p: Put[A]) extends Elem { override def toString = a.toString }
+    final case class Opt[A](a: Option[A], p: Put[A]) extends Elem { override def toString = a.toString }
   }
 
 }

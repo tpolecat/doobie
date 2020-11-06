@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.String
 import java.sql.Connection
@@ -43,8 +44,10 @@ object driver { module =>
       final def apply[A](fa: DriverOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Driver => A): F[A]
+      def raw[A](message: => String, f: Driver => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: DriverIO[A], f: Throwable => DriverIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -53,6 +56,13 @@ object driver { module =>
       def bracketCase[A, B](acquire: DriverIO[A])(use: A => DriverIO[B])(release: (A, ExitCase[Throwable]) => DriverIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: DriverIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // Driver
       def acceptsURL(a: String): F[Boolean]
@@ -66,8 +76,8 @@ object driver { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Driver => A) extends DriverOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: Driver => A) extends DriverOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends DriverOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -95,6 +105,21 @@ object driver { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: DriverIO[A]) extends DriverOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends DriverOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends DriverOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends DriverOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends DriverOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends DriverOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // Driver-specific operations.
@@ -126,7 +151,7 @@ object driver { module =>
   // Smart constructors for operations common to all algebras.
   val unit: DriverIO[Unit] = FF.pure[DriverOp, Unit](())
   def pure[A](a: A): DriverIO[A] = FF.pure[DriverOp, A](a)
-  def raw[A](f: Driver => A): DriverIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: Driver => A): DriverIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DriverOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): DriverIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: DriverIO[A], f: Throwable => DriverIO[A]): DriverIO[A] = FF.liftF[DriverOp, A](HandleErrorWith(fa, f))
@@ -136,6 +161,13 @@ object driver { module =>
   def bracketCase[A, B](acquire: DriverIO[A])(use: A => DriverIO[B])(release: (A, ExitCase[Throwable]) => DriverIO[Unit]): DriverIO[B] = FF.liftF[DriverOp, B](BracketCase(acquire, use, release))
   val shift: DriverIO[Unit] = FF.liftF[DriverOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: DriverIO[A]) = FF.liftF[DriverOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): DriverIO[Unit] = FF.liftF[DriverOp, Unit](LogError(() => message))
+  def warn(message: => String): DriverIO[Unit] = FF.liftF[DriverOp, Unit](LogWarn(() => message))
+  def info(message: => String): DriverIO[Unit] = FF.liftF[DriverOp, Unit](LogInfo(() => message))
+  def debug(message: => String): DriverIO[Unit] = FF.liftF[DriverOp, Unit](LogDebug(() => message))
+  def trace(message: => String): DriverIO[Unit] = FF.liftF[DriverOp, Unit](LogTrace(() => message))
 
   // Smart constructors for Driver-specific operations.
   def acceptsURL(a: String): DriverIO[Boolean] = FF.liftF(AcceptsURL(a))
@@ -166,6 +198,16 @@ object driver { module =>
     new ContextShift[DriverIO] {
       def shift: DriverIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: DriverIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // DriverIO is a MessageLogger
+  implicit val MessageLoggerDriverIO: MessageLogger[DriverIO] =
+    new MessageLogger[DriverIO] {
+      def error(message: => String): DriverIO[Unit] =  module.error(message)
+      def warn(message: => String): DriverIO[Unit] = module.warn(message)
+      def info(message: => String): DriverIO[Unit] = module.info(message)
+      def debug(message: => String): DriverIO[Unit] =  module.debug(message)
+      def trace(message: => String): DriverIO[Unit] =  module.trace(message)
     }
 }
 

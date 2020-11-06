@@ -8,12 +8,13 @@ package hikari
 import cats.effect._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import scala.concurrent.ExecutionContext
+import doobie.util.DefaultMessageLogger
 
 object HikariTransactor {
 
   /** Construct a `HikariTransactor` from an existing `HikariDatasource`. */
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
-  def apply[M[_]: Async: ContextShift](
+  def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
     hikariDataSource : HikariDataSource,
     connectEC:         ExecutionContext,
     blocker:           Blocker
@@ -27,7 +28,7 @@ object HikariTransactor {
   }
 
   /** Resource yielding an unconfigured `HikariTransactor`. */
-  def initial[M[_]: Async: ContextShift](
+  def initial[M[_]: Async: ContextShift: DefaultMessageLogger](
     connectEC: ExecutionContext,
     blocker: Blocker
   ): Resource[M, HikariTransactor[M]] = {
@@ -36,7 +37,7 @@ object HikariTransactor {
   }
 
   /** Resource yielding a new `HikariTransactor` configured with the given HikariConfig. */
-  def fromHikariConfig[M[_]: Async: ContextShift](
+  def fromHikariConfig[M[_]: Async: ContextShift: DefaultMessageLogger](
     hikariConfig: HikariConfig,
     connectEC: ExecutionContext,
     blocker: Blocker
@@ -46,7 +47,7 @@ object HikariTransactor {
   }
 
   /** Resource yielding a new `HikariTransactor` configured with the given info. */
-  def newHikariTransactor[M[_]: Async: ContextShift](
+  def newHikariTransactor[M[_]: Async: ContextShift: DefaultMessageLogger](
     driverClassName: String,
     url:             String,
     user:            String,

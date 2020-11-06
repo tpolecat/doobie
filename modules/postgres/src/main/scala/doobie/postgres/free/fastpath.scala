@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.String
 import java.sql.ResultSet
@@ -41,8 +42,10 @@ object fastpath { module =>
       final def apply[A](fa: FastpathOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGFastpath => A): F[A]
+      def raw[A](message: => String, f: PGFastpath => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: FastpathIO[A], f: Throwable => FastpathIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -51,6 +54,13 @@ object fastpath { module =>
       def bracketCase[A, B](acquire: FastpathIO[A])(use: A => FastpathIO[B])(release: (A, ExitCase[Throwable]) => FastpathIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // PGFastpath
       def addFunction(a: String, b: Int): F[Unit]
@@ -68,8 +78,8 @@ object fastpath { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGFastpath => A) extends FastpathOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PGFastpath => A) extends FastpathOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends FastpathOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -97,6 +107,21 @@ object fastpath { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: FastpathIO[A]) extends FastpathOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends FastpathOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // PGFastpath-specific operations.
@@ -140,7 +165,7 @@ object fastpath { module =>
   // Smart constructors for operations common to all algebras.
   val unit: FastpathIO[Unit] = FF.pure[FastpathOp, Unit](())
   def pure[A](a: A): FastpathIO[A] = FF.pure[FastpathOp, A](a)
-  def raw[A](f: PGFastpath => A): FastpathIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PGFastpath => A): FastpathIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[FastpathOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): FastpathIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: FastpathIO[A], f: Throwable => FastpathIO[A]): FastpathIO[A] = FF.liftF[FastpathOp, A](HandleErrorWith(fa, f))
@@ -150,6 +175,13 @@ object fastpath { module =>
   def bracketCase[A, B](acquire: FastpathIO[A])(use: A => FastpathIO[B])(release: (A, ExitCase[Throwable]) => FastpathIO[Unit]): FastpathIO[B] = FF.liftF[FastpathOp, B](BracketCase(acquire, use, release))
   val shift: FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]) = FF.liftF[FastpathOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](LogError(() => message))
+  def warn(message: => String): FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](LogWarn(() => message))
+  def info(message: => String): FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](LogInfo(() => message))
+  def debug(message: => String): FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](LogDebug(() => message))
+  def trace(message: => String): FastpathIO[Unit] = FF.liftF[FastpathOp, Unit](LogTrace(() => message))
 
   // Smart constructors for Fastpath-specific operations.
   def addFunction(a: String, b: Int): FastpathIO[Unit] = FF.liftF(AddFunction(a, b))
@@ -184,6 +216,16 @@ object fastpath { module =>
     new ContextShift[FastpathIO] {
       def shift: FastpathIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: FastpathIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // FastpathIO is a MessageLogger
+  implicit val MessageLoggerFastpathIO: MessageLogger[FastpathIO] =
+    new MessageLogger[FastpathIO] {
+      def error(message: => String): FastpathIO[Unit] =  module.error(message)
+      def warn(message: => String): FastpathIO[Unit] = module.warn(message)
+      def info(message: => String): FastpathIO[Unit] = module.info(message)
+      def debug(message: => String): FastpathIO[Unit] =  module.debug(message)
+      def trace(message: => String): FastpathIO[Unit] =  module.trace(message)
     }
 }
 

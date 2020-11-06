@@ -272,9 +272,10 @@ object transactor  {
         def apply[A <: DataSource](
           dataSource: A,
           connectEC:  ExecutionContext,
-          blocker: Blocker
+          blocker:    Blocker
         )(implicit ev: Async[M],
-                   cs: ContextShift[M]
+                   cs: ContextShift[M],
+                   lo: DefaultMessageLogger[M]
         ): Transactor.Aux[M, A] = {
           val connect = (dataSource: A) => {
             val acquire = cs.evalOn(connectEC)(ev.delay(dataSource.getConnection))
@@ -295,7 +296,7 @@ object transactor  {
      * @param blocker for blocking database operations
      * @group Constructors
      */
-    def fromConnection[M[_]: Async: ContextShift](
+    def fromConnection[M[_]: Async: ContextShift: DefaultMessageLogger](
       connection: Connection,
       blocker: Blocker
     ): Transactor.Aux[M, Connection] = {
@@ -337,7 +338,7 @@ object transactor  {
         conn: () => Connection,
         strategy: Strategy,
         blocker: Blocker
-      )(implicit am: Async[M], cs: ContextShift[M]): Transactor.Aux[M, Unit] =
+      )(implicit am: Async[M], cs: ContextShift[M], log: DefaultMessageLogger[M]): Transactor.Aux[M, Unit] =
         Transactor(
           (),
           _ => {
@@ -349,7 +350,7 @@ object transactor  {
           strategy
         )
 
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String,
         blocker: Blocker
@@ -361,13 +362,13 @@ object transactor  {
        * @param driver     the class name of the JDBC driver, like "org.h2.Driver"
        * @param url        a connection URL, specific to your driver
        */
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String
       ): Transactor.Aux[M, Unit] =
         apply(driver, url, defaultBlocker)
 
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String,
         user:   String,
@@ -383,7 +384,7 @@ object transactor  {
        * @param user       database username
        * @param pass       database password
        */
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String,
         user:   String,
@@ -397,7 +398,7 @@ object transactor  {
        * @param url        a connection URL, specific to your driver
        * @param info       a `Properties` containing connection information (see `DriverManager.getConnection`)
        */
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String,
         info:   java.util.Properties,
@@ -411,7 +412,7 @@ object transactor  {
        * @param url        a connection URL, specific to your driver
        * @param info       a `Properties` containing connection information (see `DriverManager.getConnection`)
        */
-      def apply[M[_]: Async: ContextShift](
+      def apply[M[_]: Async: ContextShift: DefaultMessageLogger](
         driver: String,
         url:    String,
         info:   java.util.Properties

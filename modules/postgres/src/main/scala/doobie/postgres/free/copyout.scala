@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import org.postgresql.copy.{ CopyOut => PGCopyOut }
 
@@ -38,8 +39,10 @@ object copyout { module =>
       final def apply[A](fa: CopyOutOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGCopyOut => A): F[A]
+      def raw[A](message: => String, f: PGCopyOut => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CopyOutIO[A], f: Throwable => CopyOutIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -48,6 +51,13 @@ object copyout { module =>
       def bracketCase[A, B](acquire: CopyOutIO[A])(use: A => CopyOutIO[B])(release: (A, ExitCase[Throwable]) => CopyOutIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: CopyOutIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // PGCopyOut
       def cancelCopy: F[Unit]
@@ -62,8 +72,8 @@ object copyout { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGCopyOut => A) extends CopyOutOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PGCopyOut => A) extends CopyOutOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends CopyOutOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -91,6 +101,21 @@ object copyout { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: CopyOutIO[A]) extends CopyOutOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends CopyOutOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends CopyOutOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends CopyOutOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends CopyOutOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends CopyOutOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // PGCopyOut-specific operations.
@@ -125,7 +150,7 @@ object copyout { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CopyOutIO[Unit] = FF.pure[CopyOutOp, Unit](())
   def pure[A](a: A): CopyOutIO[A] = FF.pure[CopyOutOp, A](a)
-  def raw[A](f: PGCopyOut => A): CopyOutIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PGCopyOut => A): CopyOutIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyOutOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CopyOutIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CopyOutIO[A], f: Throwable => CopyOutIO[A]): CopyOutIO[A] = FF.liftF[CopyOutOp, A](HandleErrorWith(fa, f))
@@ -135,6 +160,13 @@ object copyout { module =>
   def bracketCase[A, B](acquire: CopyOutIO[A])(use: A => CopyOutIO[B])(release: (A, ExitCase[Throwable]) => CopyOutIO[Unit]): CopyOutIO[B] = FF.liftF[CopyOutOp, B](BracketCase(acquire, use, release))
   val shift: CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: CopyOutIO[A]) = FF.liftF[CopyOutOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](LogError(() => message))
+  def warn(message: => String): CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](LogWarn(() => message))
+  def info(message: => String): CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](LogInfo(() => message))
+  def debug(message: => String): CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](LogDebug(() => message))
+  def trace(message: => String): CopyOutIO[Unit] = FF.liftF[CopyOutOp, Unit](LogTrace(() => message))
 
   // Smart constructors for CopyOut-specific operations.
   val cancelCopy: CopyOutIO[Unit] = FF.liftF(CancelCopy)
@@ -166,6 +198,16 @@ object copyout { module =>
     new ContextShift[CopyOutIO] {
       def shift: CopyOutIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: CopyOutIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // CopyOutIO is a MessageLogger
+  implicit val MessageLoggerCopyOutIO: MessageLogger[CopyOutIO] =
+    new MessageLogger[CopyOutIO] {
+      def error(message: => String): CopyOutIO[Unit] =  module.error(message)
+      def warn(message: => String): CopyOutIO[Unit] = module.warn(message)
+      def info(message: => String): CopyOutIO[Unit] = module.info(message)
+      def debug(message: => String): CopyOutIO[Unit] =  module.debug(message)
+      def trace(message: => String): CopyOutIO[Unit] =  module.trace(message)
     }
 }
 

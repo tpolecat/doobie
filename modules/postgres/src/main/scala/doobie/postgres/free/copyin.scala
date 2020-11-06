@@ -9,8 +9,10 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import org.postgresql.copy.{ CopyIn => PGCopyIn }
+import org.postgresql.util.ByteStreamWriter
 
 @silent("deprecated")
 object copyin { module =>
@@ -38,8 +40,10 @@ object copyin { module =>
       final def apply[A](fa: CopyInOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PGCopyIn => A): F[A]
+      def raw[A](message: => String, f: PGCopyIn => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CopyInIO[A], f: Throwable => CopyInIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -48,6 +52,13 @@ object copyin { module =>
       def bracketCase[A, B](acquire: CopyInIO[A])(use: A => CopyInIO[B])(release: (A, ExitCase[Throwable]) => CopyInIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: CopyInIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // PGCopyIn
       def cancelCopy: F[Unit]
@@ -59,12 +70,13 @@ object copyin { module =>
       def getHandledRowCount: F[Long]
       def isActive: F[Boolean]
       def writeToCopy(a: Array[Byte], b: Int, c: Int): F[Unit]
+      def writeToCopy(a: ByteStreamWriter): F[Unit]
 
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PGCopyIn => A) extends CopyInOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PGCopyIn => A) extends CopyInOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends CopyInOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -92,6 +104,21 @@ object copyin { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: CopyInIO[A]) extends CopyInOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // PGCopyIn-specific operations.
@@ -122,6 +149,9 @@ object copyin { module =>
     final case class  WriteToCopy(a: Array[Byte], b: Int, c: Int) extends CopyInOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.writeToCopy(a, b, c)
     }
+    final case class  WriteToCopy1(a: ByteStreamWriter) extends CopyInOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.writeToCopy(a)
+    }
 
   }
   import CopyInOp._
@@ -129,7 +159,7 @@ object copyin { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CopyInIO[Unit] = FF.pure[CopyInOp, Unit](())
   def pure[A](a: A): CopyInIO[A] = FF.pure[CopyInOp, A](a)
-  def raw[A](f: PGCopyIn => A): CopyInIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PGCopyIn => A): CopyInIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyInOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CopyInIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CopyInIO[A], f: Throwable => CopyInIO[A]): CopyInIO[A] = FF.liftF[CopyInOp, A](HandleErrorWith(fa, f))
@@ -139,6 +169,13 @@ object copyin { module =>
   def bracketCase[A, B](acquire: CopyInIO[A])(use: A => CopyInIO[B])(release: (A, ExitCase[Throwable]) => CopyInIO[Unit]): CopyInIO[B] = FF.liftF[CopyInOp, B](BracketCase(acquire, use, release))
   val shift: CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: CopyInIO[A]) = FF.liftF[CopyInOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](LogError(() => message))
+  def warn(message: => String): CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](LogWarn(() => message))
+  def info(message: => String): CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](LogInfo(() => message))
+  def debug(message: => String): CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](LogDebug(() => message))
+  def trace(message: => String): CopyInIO[Unit] = FF.liftF[CopyInOp, Unit](LogTrace(() => message))
 
   // Smart constructors for CopyIn-specific operations.
   val cancelCopy: CopyInIO[Unit] = FF.liftF(CancelCopy)
@@ -150,6 +187,7 @@ object copyin { module =>
   val getHandledRowCount: CopyInIO[Long] = FF.liftF(GetHandledRowCount)
   val isActive: CopyInIO[Boolean] = FF.liftF(IsActive)
   def writeToCopy(a: Array[Byte], b: Int, c: Int): CopyInIO[Unit] = FF.liftF(WriteToCopy(a, b, c))
+  def writeToCopy(a: ByteStreamWriter): CopyInIO[Unit] = FF.liftF(WriteToCopy1(a))
 
   // CopyInIO is an Async
   implicit val AsyncCopyInIO: Async[CopyInIO] =
@@ -171,6 +209,16 @@ object copyin { module =>
     new ContextShift[CopyInIO] {
       def shift: CopyInIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: CopyInIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // CopyInIO is a MessageLogger
+  implicit val MessageLoggerCopyInIO: MessageLogger[CopyInIO] =
+    new MessageLogger[CopyInIO] {
+      def error(message: => String): CopyInIO[Unit] =  module.error(message)
+      def warn(message: => String): CopyInIO[Unit] = module.warn(message)
+      def info(message: => String): CopyInIO[Unit] = module.info(message)
+      def debug(message: => String): CopyInIO[Unit] =  module.debug(message)
+      def trace(message: => String): CopyInIO[Unit] =  module.trace(message)
     }
 }
 

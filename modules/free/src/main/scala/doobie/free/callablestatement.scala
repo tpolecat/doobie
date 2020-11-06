@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.Reader
@@ -62,8 +63,10 @@ object callablestatement { module =>
       final def apply[A](fa: CallableStatementOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: CallableStatement => A): F[A]
+      def raw[A](message: => String, f: CallableStatement => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: CallableStatementIO[A], f: Throwable => CallableStatementIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -72,6 +75,13 @@ object callablestatement { module =>
       def bracketCase[A, B](acquire: CallableStatementIO[A])(use: A => CallableStatementIO[B])(release: (A, ExitCase[Throwable]) => CallableStatementIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: CallableStatementIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // CallableStatement
       def addBatch: F[Unit]
@@ -82,6 +92,9 @@ object callablestatement { module =>
       def clearWarnings: F[Unit]
       def close: F[Unit]
       def closeOnCompletion: F[Unit]
+      def enquoteIdentifier(a: String, b: Boolean): F[String]
+      def enquoteLiteral(a: String): F[String]
+      def enquoteNCharLiteral(a: String): F[String]
       def execute: F[Boolean]
       def execute(a: String): F[Boolean]
       def execute(a: String, b: Array[Int]): F[Boolean]
@@ -184,6 +197,7 @@ object callablestatement { module =>
       def isCloseOnCompletion: F[Boolean]
       def isClosed: F[Boolean]
       def isPoolable: F[Boolean]
+      def isSimpleIdentifier(a: String): F[Boolean]
       def isWrapperFor(a: Class[_]): F[Boolean]
       def registerOutParameter(a: Int, b: Int): F[Unit]
       def registerOutParameter(a: Int, b: Int, c: Int): F[Unit]
@@ -309,8 +323,8 @@ object callablestatement { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: CallableStatement => A) extends CallableStatementOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: CallableStatement => A) extends CallableStatementOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends CallableStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -339,6 +353,21 @@ object callablestatement { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: CallableStatementIO[A]) extends CallableStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends CallableStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends CallableStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends CallableStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends CallableStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends CallableStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // CallableStatement-specific operations.
     final case object AddBatch extends CallableStatementOp[Unit] {
@@ -364,6 +393,15 @@ object callablestatement { module =>
     }
     final case object CloseOnCompletion extends CallableStatementOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.closeOnCompletion
+    }
+    final case class  EnquoteIdentifier(a: String, b: Boolean) extends CallableStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteIdentifier(a, b)
+    }
+    final case class  EnquoteLiteral(a: String) extends CallableStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteLiteral(a)
+    }
+    final case class  EnquoteNCharLiteral(a: String) extends CallableStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteNCharLiteral(a)
     }
     final case object Execute extends CallableStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.execute
@@ -670,6 +708,9 @@ object callablestatement { module =>
     }
     final case object IsPoolable extends CallableStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isPoolable
+    }
+    final case class  IsSimpleIdentifier(a: String) extends CallableStatementOp[Boolean] {
+      def visit[F[_]](v: Visitor[F]) = v.isSimpleIdentifier(a)
     }
     final case class  IsWrapperFor(a: Class[_]) extends CallableStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isWrapperFor(a)
@@ -1041,7 +1082,7 @@ object callablestatement { module =>
   // Smart constructors for operations common to all algebras.
   val unit: CallableStatementIO[Unit] = FF.pure[CallableStatementOp, Unit](())
   def pure[A](a: A): CallableStatementIO[A] = FF.pure[CallableStatementOp, A](a)
-  def raw[A](f: CallableStatement => A): CallableStatementIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: CallableStatement => A): CallableStatementIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CallableStatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): CallableStatementIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: CallableStatementIO[A], f: Throwable => CallableStatementIO[A]): CallableStatementIO[A] = FF.liftF[CallableStatementOp, A](HandleErrorWith(fa, f))
@@ -1052,6 +1093,13 @@ object callablestatement { module =>
   val shift: CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: CallableStatementIO[A]) = FF.liftF[CallableStatementOp, A](EvalOn(ec, fa))
 
+  // Logger
+  def error(message: => String): CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](LogError(() => message))
+  def warn(message: => String): CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](LogWarn(() => message))
+  def info(message: => String): CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](LogInfo(() => message))
+  def debug(message: => String): CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](LogDebug(() => message))
+  def trace(message: => String): CallableStatementIO[Unit] = FF.liftF[CallableStatementOp, Unit](LogTrace(() => message))
+
   // Smart constructors for CallableStatement-specific operations.
   val addBatch: CallableStatementIO[Unit] = FF.liftF(AddBatch)
   def addBatch(a: String): CallableStatementIO[Unit] = FF.liftF(AddBatch1(a))
@@ -1061,6 +1109,9 @@ object callablestatement { module =>
   val clearWarnings: CallableStatementIO[Unit] = FF.liftF(ClearWarnings)
   val close: CallableStatementIO[Unit] = FF.liftF(Close)
   val closeOnCompletion: CallableStatementIO[Unit] = FF.liftF(CloseOnCompletion)
+  def enquoteIdentifier(a: String, b: Boolean): CallableStatementIO[String] = FF.liftF(EnquoteIdentifier(a, b))
+  def enquoteLiteral(a: String): CallableStatementIO[String] = FF.liftF(EnquoteLiteral(a))
+  def enquoteNCharLiteral(a: String): CallableStatementIO[String] = FF.liftF(EnquoteNCharLiteral(a))
   val execute: CallableStatementIO[Boolean] = FF.liftF(Execute)
   def execute(a: String): CallableStatementIO[Boolean] = FF.liftF(Execute1(a))
   def execute(a: String, b: Array[Int]): CallableStatementIO[Boolean] = FF.liftF(Execute2(a, b))
@@ -1163,6 +1214,7 @@ object callablestatement { module =>
   val isCloseOnCompletion: CallableStatementIO[Boolean] = FF.liftF(IsCloseOnCompletion)
   val isClosed: CallableStatementIO[Boolean] = FF.liftF(IsClosed)
   val isPoolable: CallableStatementIO[Boolean] = FF.liftF(IsPoolable)
+  def isSimpleIdentifier(a: String): CallableStatementIO[Boolean] = FF.liftF(IsSimpleIdentifier(a))
   def isWrapperFor(a: Class[_]): CallableStatementIO[Boolean] = FF.liftF(IsWrapperFor(a))
   def registerOutParameter(a: Int, b: Int): CallableStatementIO[Unit] = FF.liftF(RegisterOutParameter(a, b))
   def registerOutParameter(a: Int, b: Int, c: Int): CallableStatementIO[Unit] = FF.liftF(RegisterOutParameter1(a, b, c))
@@ -1305,6 +1357,16 @@ object callablestatement { module =>
     new ContextShift[CallableStatementIO] {
       def shift: CallableStatementIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: CallableStatementIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // CallableStatementIO is a MessageLogger
+  implicit val MessageLoggerCallableStatementIO: MessageLogger[CallableStatementIO] =
+    new MessageLogger[CallableStatementIO] {
+      def error(message: => String): CallableStatementIO[Unit] =  module.error(message)
+      def warn(message: => String): CallableStatementIO[Unit] = module.warn(message)
+      def info(message: => String): CallableStatementIO[Unit] = module.info(message)
+      def debug(message: => String): CallableStatementIO[Unit] =  module.debug(message)
+      def trace(message: => String): CallableStatementIO[Unit] =  module.trace(message)
     }
 }
 

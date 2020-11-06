@@ -9,6 +9,7 @@ lazy val fs2Version           = "2.4.4"
 lazy val h2Version            = "1.4.200"
 lazy val hikariVersion        = "3.4.5"
 lazy val kindProjectorVersion = "0.11.0"
+lazy val log4catsVersion      = "1.1.1"
 lazy val monixVersion         = "3.2.2"
 lazy val quillVersion         = "3.6.0-RC3-SNAPSHOT"
 lazy val postGisVersion       = "2.5.0"
@@ -73,7 +74,8 @@ lazy val commonSettings =
     libraryDependencies ++= Seq(
       "org.scalacheck" %% "scalacheck"        % scalaCheckVersion % "test",
       "org.specs2"     %% "specs2-core"       % specs2Version     % "test",
-      "org.specs2"     %% "specs2-scalacheck" % specs2Version     % "test"
+      "org.specs2"     %% "specs2-scalacheck" % specs2Version     % "test",
+      "org.slf4j"      %  "slf4j-simple"      % slf4jVersion      % "test",
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector" % kindProjectorVersion cross CrossVersion.full),
 
@@ -132,10 +134,11 @@ lazy val free = project
     scalacOptions += "-Yno-predef",
     scalacOptions -= "-Xfatal-warnings", // the only reason this project exists
     libraryDependencies ++= Seq(
-      "co.fs2"         %% "fs2-core"    % fs2Version,
-      "org.typelevel"  %% "cats-core"   % catsVersion,
-      "org.typelevel"  %% "cats-free"   % catsVersion,
-      "org.typelevel"  %% "cats-effect" % catsEffectVersion,
+      "co.fs2"            %% "fs2-core"       % fs2Version,
+      "org.typelevel"     %% "cats-core"      % catsVersion,
+      "org.typelevel"     %% "cats-free"      % catsVersion,
+      "org.typelevel"     %% "cats-effect"    % catsEffectVersion,
+      "io.chrisdavenport" %% "log4cats-core"  % log4catsVersion,
     ),
     freeGen2Dir     := (scalaSource in Compile).value / "doobie" / "free",
     freeGen2Package := "doobie.free",
@@ -174,6 +177,7 @@ lazy val core = project
       scalaOrganization.value %  "scala-reflect" % scalaVersion.value, // required for shapeless macros
       "com.chuusai"           %% "shapeless"     % shapelessVersion,
       "com.lihaoyi"           %% "sourcecode"    % sourcecodeVersion,
+      "io.chrisdavenport"     %% "log4cats-slf4j"% log4catsVersion,
       "com.h2database"        %  "h2"            % h2Version % "test",
     ),
 
@@ -213,7 +217,8 @@ lazy val example = project
   .dependsOn(core, postgres, specs2, scalatest, hikari, h2)
   .settings(
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io"     % fs2Version
+      "co.fs2"    %% "fs2-io"       % fs2Version,
+      "org.slf4j" %  "slf4j-simple" % slf4jVersion,
     )
   )
 

@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.String
 import java.sql.SQLData
@@ -41,8 +42,10 @@ object sqldata { module =>
       final def apply[A](fa: SQLDataOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: SQLData => A): F[A]
+      def raw[A](message: => String, f: SQLData => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: SQLDataIO[A], f: Throwable => SQLDataIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -52,6 +55,13 @@ object sqldata { module =>
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: SQLDataIO[A]): F[A]
 
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
+
       // SQLData
       def getSQLTypeName: F[String]
       def readSQL(a: SQLInput, b: String): F[Unit]
@@ -60,8 +70,8 @@ object sqldata { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: SQLData => A) extends SQLDataOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: SQLData => A) extends SQLDataOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends SQLDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -90,6 +100,21 @@ object sqldata { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: SQLDataIO[A]) extends SQLDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends SQLDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends SQLDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends SQLDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends SQLDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends SQLDataOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // SQLData-specific operations.
     final case object GetSQLTypeName extends SQLDataOp[String] {
@@ -108,7 +133,7 @@ object sqldata { module =>
   // Smart constructors for operations common to all algebras.
   val unit: SQLDataIO[Unit] = FF.pure[SQLDataOp, Unit](())
   def pure[A](a: A): SQLDataIO[A] = FF.pure[SQLDataOp, A](a)
-  def raw[A](f: SQLData => A): SQLDataIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: SQLData => A): SQLDataIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLDataOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): SQLDataIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: SQLDataIO[A], f: Throwable => SQLDataIO[A]): SQLDataIO[A] = FF.liftF[SQLDataOp, A](HandleErrorWith(fa, f))
@@ -118,6 +143,13 @@ object sqldata { module =>
   def bracketCase[A, B](acquire: SQLDataIO[A])(use: A => SQLDataIO[B])(release: (A, ExitCase[Throwable]) => SQLDataIO[Unit]): SQLDataIO[B] = FF.liftF[SQLDataOp, B](BracketCase(acquire, use, release))
   val shift: SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: SQLDataIO[A]) = FF.liftF[SQLDataOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](LogError(() => message))
+  def warn(message: => String): SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](LogWarn(() => message))
+  def info(message: => String): SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](LogInfo(() => message))
+  def debug(message: => String): SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](LogDebug(() => message))
+  def trace(message: => String): SQLDataIO[Unit] = FF.liftF[SQLDataOp, Unit](LogTrace(() => message))
 
   // Smart constructors for SQLData-specific operations.
   val getSQLTypeName: SQLDataIO[String] = FF.liftF(GetSQLTypeName)
@@ -144,6 +176,16 @@ object sqldata { module =>
     new ContextShift[SQLDataIO] {
       def shift: SQLDataIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: SQLDataIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // SQLDataIO is a MessageLogger
+  implicit val MessageLoggerSQLDataIO: MessageLogger[SQLDataIO] =
+    new MessageLogger[SQLDataIO] {
+      def error(message: => String): SQLDataIO[Unit] =  module.error(message)
+      def warn(message: => String): SQLDataIO[Unit] = module.warn(message)
+      def info(message: => String): SQLDataIO[Unit] = module.info(message)
+      def debug(message: => String): SQLDataIO[Unit] =  module.debug(message)
+      def trace(message: => String): SQLDataIO[Unit] =  module.trace(message)
     }
 }
 

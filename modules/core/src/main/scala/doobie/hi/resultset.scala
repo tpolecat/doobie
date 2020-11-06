@@ -84,7 +84,7 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def build[F[_], A](implicit F: FactoryCompat[A, F[A]], A: Read[A]): ResultSetIO[F[A]] =
-    FRS.raw { rs =>
+    FRS.raw("build") { rs =>
       val b = F.newBuilder
       while (rs.next)
         b += A.unsafeGet(rs, 1)
@@ -97,7 +97,7 @@ object resultset {
    * @group Results
    */
   def buildPair[F[_, _], A, B](implicit F: FactoryCompat[(A, B), F[A, B]], A: Read[(A, B)]): ResultSetIO[F[A, B]] =
-    FRS.raw { rs =>
+    FRS.raw("buildPair") { rs =>
       val b = F.newBuilder
       while (rs.next)
         b += A.unsafeGet(rs, 1)
@@ -113,7 +113,7 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def buildMap[F[_], A, B](f: A => B)(implicit F: FactoryCompat[B, F[B]], A: Read[A]): ResultSetIO[F[B]] =
-    FRS.raw { rs =>
+    FRS.raw("buildMap") { rs =>
       val b = F.newBuilder
       while (rs.next)
         b += f(A.unsafeGet(rs, 1))
@@ -185,7 +185,7 @@ object resultset {
    */
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def getNextChunkV[A](chunkSize: Int)(implicit A: Read[A]): ResultSetIO[Vector[A]] =
-    FRS.raw { rs =>
+    FRS.raw(s"getNextChunkV($chunkSize)") { rs =>
       var n = chunkSize
       val b = Vector.newBuilder[A]
       while (n > 0 && rs.next) {

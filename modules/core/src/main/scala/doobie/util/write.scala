@@ -23,10 +23,10 @@ final class Write[A](
   lazy val length = puts.length
 
   def set(n: Int, a: A): PreparedStatementIO[Unit] =
-    FPS.raw(unsafeSet(_, n, a))
+    FPS.raw(s"set($n, $a)")(unsafeSet(_, n, a))
 
   def update(n: Int, a: A): ResultSetIO[Unit] =
-    FRS.raw(unsafeUpdate(_, n, a))
+    FRS.raw(s"update($n, $a)")(unsafeUpdate(_, n, a))
 
   def contramap[B](f: B => A): Write[B] =
     new Write(

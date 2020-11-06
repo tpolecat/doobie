@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.String
 import java.sql.Ref
@@ -40,8 +41,10 @@ object ref { module =>
       final def apply[A](fa: RefOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Ref => A): F[A]
+      def raw[A](message: => String, f: Ref => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: RefIO[A], f: Throwable => RefIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -50,6 +53,13 @@ object ref { module =>
       def bracketCase[A, B](acquire: RefIO[A])(use: A => RefIO[B])(release: (A, ExitCase[Throwable]) => RefIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: RefIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // Ref
       def getBaseTypeName: F[String]
@@ -60,8 +70,8 @@ object ref { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Ref => A) extends RefOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: Ref => A) extends RefOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends RefOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -90,6 +100,21 @@ object ref { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: RefIO[A]) extends RefOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends RefOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends RefOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends RefOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends RefOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends RefOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // Ref-specific operations.
     final case object GetBaseTypeName extends RefOp[String] {
@@ -111,7 +136,7 @@ object ref { module =>
   // Smart constructors for operations common to all algebras.
   val unit: RefIO[Unit] = FF.pure[RefOp, Unit](())
   def pure[A](a: A): RefIO[A] = FF.pure[RefOp, A](a)
-  def raw[A](f: Ref => A): RefIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: Ref => A): RefIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[RefOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): RefIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: RefIO[A], f: Throwable => RefIO[A]): RefIO[A] = FF.liftF[RefOp, A](HandleErrorWith(fa, f))
@@ -121,6 +146,13 @@ object ref { module =>
   def bracketCase[A, B](acquire: RefIO[A])(use: A => RefIO[B])(release: (A, ExitCase[Throwable]) => RefIO[Unit]): RefIO[B] = FF.liftF[RefOp, B](BracketCase(acquire, use, release))
   val shift: RefIO[Unit] = FF.liftF[RefOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: RefIO[A]) = FF.liftF[RefOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): RefIO[Unit] = FF.liftF[RefOp, Unit](LogError(() => message))
+  def warn(message: => String): RefIO[Unit] = FF.liftF[RefOp, Unit](LogWarn(() => message))
+  def info(message: => String): RefIO[Unit] = FF.liftF[RefOp, Unit](LogInfo(() => message))
+  def debug(message: => String): RefIO[Unit] = FF.liftF[RefOp, Unit](LogDebug(() => message))
+  def trace(message: => String): RefIO[Unit] = FF.liftF[RefOp, Unit](LogTrace(() => message))
 
   // Smart constructors for Ref-specific operations.
   val getBaseTypeName: RefIO[String] = FF.liftF(GetBaseTypeName)
@@ -148,6 +180,16 @@ object ref { module =>
     new ContextShift[RefIO] {
       def shift: RefIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: RefIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // RefIO is a MessageLogger
+  implicit val MessageLoggerRefIO: MessageLogger[RefIO] =
+    new MessageLogger[RefIO] {
+      def error(message: => String): RefIO[Unit] =  module.error(message)
+      def warn(message: => String): RefIO[Unit] = module.warn(message)
+      def info(message: => String): RefIO[Unit] = module.info(message)
+      def debug(message: => String): RefIO[Unit] =  module.debug(message)
+      def trace(message: => String): RefIO[Unit] =  module.trace(message)
     }
 }
 

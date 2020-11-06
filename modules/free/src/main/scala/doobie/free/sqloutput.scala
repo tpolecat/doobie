@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.Reader
@@ -56,8 +57,10 @@ object sqloutput { module =>
       final def apply[A](fa: SQLOutputOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: SQLOutput => A): F[A]
+      def raw[A](message: => String, f: SQLOutput => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: SQLOutputIO[A], f: Throwable => SQLOutputIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -66,6 +69,13 @@ object sqloutput { module =>
       def bracketCase[A, B](acquire: SQLOutputIO[A])(use: A => SQLOutputIO[B])(release: (A, ExitCase[Throwable]) => SQLOutputIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: SQLOutputIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // SQLOutput
       def writeArray(a: SqlArray): F[Unit]
@@ -100,8 +110,8 @@ object sqloutput { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: SQLOutput => A) extends SQLOutputOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: SQLOutput => A) extends SQLOutputOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends SQLOutputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -129,6 +139,21 @@ object sqloutput { module =>
     }
     final case class EvalOn[A](ec: ExecutionContext, fa: SQLOutputIO[A]) extends SQLOutputOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
+    }
+    final case class LogError(message: () => String) extends SQLOutputOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends SQLOutputOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends SQLOutputOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends SQLOutputOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends SQLOutputOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
     }
 
     // SQLOutput-specific operations.
@@ -223,7 +248,7 @@ object sqloutput { module =>
   // Smart constructors for operations common to all algebras.
   val unit: SQLOutputIO[Unit] = FF.pure[SQLOutputOp, Unit](())
   def pure[A](a: A): SQLOutputIO[A] = FF.pure[SQLOutputOp, A](a)
-  def raw[A](f: SQLOutput => A): SQLOutputIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: SQLOutput => A): SQLOutputIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLOutputOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): SQLOutputIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: SQLOutputIO[A], f: Throwable => SQLOutputIO[A]): SQLOutputIO[A] = FF.liftF[SQLOutputOp, A](HandleErrorWith(fa, f))
@@ -233,6 +258,13 @@ object sqloutput { module =>
   def bracketCase[A, B](acquire: SQLOutputIO[A])(use: A => SQLOutputIO[B])(release: (A, ExitCase[Throwable]) => SQLOutputIO[Unit]): SQLOutputIO[B] = FF.liftF[SQLOutputOp, B](BracketCase(acquire, use, release))
   val shift: SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: SQLOutputIO[A]) = FF.liftF[SQLOutputOp, A](EvalOn(ec, fa))
+
+  // Logger
+  def error(message: => String): SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](LogError(() => message))
+  def warn(message: => String): SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](LogWarn(() => message))
+  def info(message: => String): SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](LogInfo(() => message))
+  def debug(message: => String): SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](LogDebug(() => message))
+  def trace(message: => String): SQLOutputIO[Unit] = FF.liftF[SQLOutputOp, Unit](LogTrace(() => message))
 
   // Smart constructors for SQLOutput-specific operations.
   def writeArray(a: SqlArray): SQLOutputIO[Unit] = FF.liftF(WriteArray(a))
@@ -284,6 +316,16 @@ object sqloutput { module =>
     new ContextShift[SQLOutputIO] {
       def shift: SQLOutputIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: SQLOutputIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // SQLOutputIO is a MessageLogger
+  implicit val MessageLoggerSQLOutputIO: MessageLogger[SQLOutputIO] =
+    new MessageLogger[SQLOutputIO] {
+      def error(message: => String): SQLOutputIO[Unit] =  module.error(message)
+      def warn(message: => String): SQLOutputIO[Unit] = module.warn(message)
+      def info(message: => String): SQLOutputIO[Unit] = module.info(message)
+      def debug(message: => String): SQLOutputIO[Unit] =  module.debug(message)
+      def trace(message: => String): SQLOutputIO[Unit] =  module.trace(message)
     }
 }
 

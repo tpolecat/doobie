@@ -14,6 +14,7 @@ import cats.{InjectK, ~>}
 import doobie._
 import doobie.free.connection.ConnectionOp
 import doobie.implicits._
+import doobie.util.DefaultMessageLogger._
 import scala.concurrent.ExecutionContext
 import scala.io.StdIn
 

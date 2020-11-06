@@ -9,6 +9,8 @@ import doobie._, doobie.implicits._
 import org.specs2.mutable.Specification
 import scala.concurrent.ExecutionContext
 import Predef._
+import io.chrisdavenport.log4cats.MessageLogger
+import doobie.util.DefaultMessageLogger
 
 
 class `262` extends Specification {
@@ -21,12 +23,13 @@ class `262` extends Specification {
     val asyncM = Async[IO]
     val blocker = Blocker.liftExecutionContext(ExecutionContext.global)
     val contextShiftM = contextShift
+    val loggerM: MessageLogger[IO] = DefaultMessageLogger[IO]
 
     val M = implicitly[Async[IO]]
 
     override lazy val PreparedStatementInterpreter =
       new PreparedStatementInterpreter {
-        override def getMetaData = primitive(_ => null)
+        override def getMetaData = primitive(_ => null, "getMetaData")
       }
 
   }

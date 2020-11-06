@@ -9,6 +9,7 @@ import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
 import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.io.InputStream
 import java.io.Reader
@@ -61,8 +62,10 @@ object preparedstatement { module =>
       final def apply[A](fa: PreparedStatementOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: PreparedStatement => A): F[A]
+      def raw[A](message: => String, f: PreparedStatement => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: PreparedStatementIO[A], f: Throwable => PreparedStatementIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -71,6 +74,13 @@ object preparedstatement { module =>
       def bracketCase[A, B](acquire: PreparedStatementIO[A])(use: A => PreparedStatementIO[B])(release: (A, ExitCase[Throwable]) => PreparedStatementIO[Unit]): F[B]
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: PreparedStatementIO[A]): F[A]
+
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
 
       // PreparedStatement
       def addBatch: F[Unit]
@@ -81,6 +91,9 @@ object preparedstatement { module =>
       def clearWarnings: F[Unit]
       def close: F[Unit]
       def closeOnCompletion: F[Unit]
+      def enquoteIdentifier(a: String, b: Boolean): F[String]
+      def enquoteLiteral(a: String): F[String]
+      def enquoteNCharLiteral(a: String): F[String]
       def execute: F[Boolean]
       def execute(a: String): F[Boolean]
       def execute(a: String, b: Array[Int]): F[Boolean]
@@ -122,6 +135,7 @@ object preparedstatement { module =>
       def isCloseOnCompletion: F[Boolean]
       def isClosed: F[Boolean]
       def isPoolable: F[Boolean]
+      def isSimpleIdentifier(a: String): F[Boolean]
       def isWrapperFor(a: Class[_]): F[Boolean]
       def setArray(a: Int, b: SqlArray): F[Unit]
       def setAsciiStream(a: Int, b: InputStream): F[Unit]
@@ -187,8 +201,8 @@ object preparedstatement { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: PreparedStatement => A) extends PreparedStatementOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: PreparedStatement => A) extends PreparedStatementOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends PreparedStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -217,6 +231,21 @@ object preparedstatement { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: PreparedStatementIO[A]) extends PreparedStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends PreparedStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends PreparedStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends PreparedStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends PreparedStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends PreparedStatementOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // PreparedStatement-specific operations.
     final case object AddBatch extends PreparedStatementOp[Unit] {
@@ -242,6 +271,15 @@ object preparedstatement { module =>
     }
     final case object CloseOnCompletion extends PreparedStatementOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.closeOnCompletion
+    }
+    final case class  EnquoteIdentifier(a: String, b: Boolean) extends PreparedStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteIdentifier(a, b)
+    }
+    final case class  EnquoteLiteral(a: String) extends PreparedStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteLiteral(a)
+    }
+    final case class  EnquoteNCharLiteral(a: String) extends PreparedStatementOp[String] {
+      def visit[F[_]](v: Visitor[F]) = v.enquoteNCharLiteral(a)
     }
     final case object Execute extends PreparedStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.execute
@@ -365,6 +403,9 @@ object preparedstatement { module =>
     }
     final case object IsPoolable extends PreparedStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isPoolable
+    }
+    final case class  IsSimpleIdentifier(a: String) extends PreparedStatementOp[Boolean] {
+      def visit[F[_]](v: Visitor[F]) = v.isSimpleIdentifier(a)
     }
     final case class  IsWrapperFor(a: Class[_]) extends PreparedStatementOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isWrapperFor(a)
@@ -556,7 +597,7 @@ object preparedstatement { module =>
   // Smart constructors for operations common to all algebras.
   val unit: PreparedStatementIO[Unit] = FF.pure[PreparedStatementOp, Unit](())
   def pure[A](a: A): PreparedStatementIO[A] = FF.pure[PreparedStatementOp, A](a)
-  def raw[A](f: PreparedStatement => A): PreparedStatementIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: PreparedStatement => A): PreparedStatementIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[PreparedStatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): PreparedStatementIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: PreparedStatementIO[A], f: Throwable => PreparedStatementIO[A]): PreparedStatementIO[A] = FF.liftF[PreparedStatementOp, A](HandleErrorWith(fa, f))
@@ -567,6 +608,13 @@ object preparedstatement { module =>
   val shift: PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: PreparedStatementIO[A]) = FF.liftF[PreparedStatementOp, A](EvalOn(ec, fa))
 
+  // Logger
+  def error(message: => String): PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](LogError(() => message))
+  def warn(message: => String): PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](LogWarn(() => message))
+  def info(message: => String): PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](LogInfo(() => message))
+  def debug(message: => String): PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](LogDebug(() => message))
+  def trace(message: => String): PreparedStatementIO[Unit] = FF.liftF[PreparedStatementOp, Unit](LogTrace(() => message))
+
   // Smart constructors for PreparedStatement-specific operations.
   val addBatch: PreparedStatementIO[Unit] = FF.liftF(AddBatch)
   def addBatch(a: String): PreparedStatementIO[Unit] = FF.liftF(AddBatch1(a))
@@ -576,6 +624,9 @@ object preparedstatement { module =>
   val clearWarnings: PreparedStatementIO[Unit] = FF.liftF(ClearWarnings)
   val close: PreparedStatementIO[Unit] = FF.liftF(Close)
   val closeOnCompletion: PreparedStatementIO[Unit] = FF.liftF(CloseOnCompletion)
+  def enquoteIdentifier(a: String, b: Boolean): PreparedStatementIO[String] = FF.liftF(EnquoteIdentifier(a, b))
+  def enquoteLiteral(a: String): PreparedStatementIO[String] = FF.liftF(EnquoteLiteral(a))
+  def enquoteNCharLiteral(a: String): PreparedStatementIO[String] = FF.liftF(EnquoteNCharLiteral(a))
   val execute: PreparedStatementIO[Boolean] = FF.liftF(Execute)
   def execute(a: String): PreparedStatementIO[Boolean] = FF.liftF(Execute1(a))
   def execute(a: String, b: Array[Int]): PreparedStatementIO[Boolean] = FF.liftF(Execute2(a, b))
@@ -617,6 +668,7 @@ object preparedstatement { module =>
   val isCloseOnCompletion: PreparedStatementIO[Boolean] = FF.liftF(IsCloseOnCompletion)
   val isClosed: PreparedStatementIO[Boolean] = FF.liftF(IsClosed)
   val isPoolable: PreparedStatementIO[Boolean] = FF.liftF(IsPoolable)
+  def isSimpleIdentifier(a: String): PreparedStatementIO[Boolean] = FF.liftF(IsSimpleIdentifier(a))
   def isWrapperFor(a: Class[_]): PreparedStatementIO[Boolean] = FF.liftF(IsWrapperFor(a))
   def setArray(a: Int, b: SqlArray): PreparedStatementIO[Unit] = FF.liftF(SetArray(a, b))
   def setAsciiStream(a: Int, b: InputStream): PreparedStatementIO[Unit] = FF.liftF(SetAsciiStream(a, b))
@@ -699,6 +751,16 @@ object preparedstatement { module =>
     new ContextShift[PreparedStatementIO] {
       def shift: PreparedStatementIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: PreparedStatementIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // PreparedStatementIO is a MessageLogger
+  implicit val MessageLoggerPreparedStatementIO: MessageLogger[PreparedStatementIO] =
+    new MessageLogger[PreparedStatementIO] {
+      def error(message: => String): PreparedStatementIO[Unit] =  module.error(message)
+      def warn(message: => String): PreparedStatementIO[Unit] = module.warn(message)
+      def info(message: => String): PreparedStatementIO[Unit] = module.info(message)
+      def debug(message: => String): PreparedStatementIO[Unit] =  module.debug(message)
+      def trace(message: => String): PreparedStatementIO[Unit] =  module.trace(message)
     }
 }
 

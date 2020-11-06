@@ -28,7 +28,7 @@ object GenericStream extends IOApp {
     "org.wartremover.warts.NonUnitStatements"
   ))
   def getNextChunkGeneric(chunkSize: Int): ResultSetIO[Seq[Row]] =
-    FRS.raw { rs =>
+    FRS.raw(s"getNextChunkGeneric($chunkSize)") { rs =>
       val md = rs.getMetaData
       val ks = (1 to md.getColumnCount).map(md.getColumnLabel).toList
       var n = chunkSize

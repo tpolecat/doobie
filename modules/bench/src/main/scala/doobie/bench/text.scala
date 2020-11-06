@@ -32,7 +32,7 @@ class text {
 
   def optimized(n: Int): ConnectionIO[Int] =
     ddl *> HC.prepareStatement("insert into bench_person (name, age) values (?, ?)")(
-      FPS.raw { ps =>
+      FPS.raw(s"optimized($n)") { ps =>
         people(n).foreach { p =>
           ps.setString(1, p.name)
           ps.setInt(2, p.age)

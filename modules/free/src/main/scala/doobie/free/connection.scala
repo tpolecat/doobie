@@ -8,6 +8,8 @@ import cats.~>
 import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 import scala.concurrent.ExecutionContext
+import com.github.ghik.silencer.silent
+import io.chrisdavenport.log4cats.MessageLogger
 
 import java.lang.Class
 import java.lang.String
@@ -21,6 +23,7 @@ import java.sql.PreparedStatement
 import java.sql.SQLWarning
 import java.sql.SQLXML
 import java.sql.Savepoint
+import java.sql.ShardingKey
 import java.sql.Statement
 import java.sql.Struct
 import java.sql.{ Array => SqlArray }
@@ -28,7 +31,7 @@ import java.util.Map
 import java.util.Properties
 import java.util.concurrent.Executor
 
-@SuppressWarnings(Array("org.wartremover.warts.Overloading"))
+@silent("deprecated")
 object connection { module =>
 
   // Algebra of operations for Connection. Each accepts a visitor as an alternative to pattern-matching.
@@ -54,8 +57,10 @@ object connection { module =>
       final def apply[A](fa: ConnectionOp[A]): F[A] = fa.visit(this)
 
       // Common
-      def raw[A](f: Connection => A): F[A]
+      def raw[A](message: => String, f: Connection => A): F[A]
       def embed[A](e: Embedded[A]): F[A]
+
+      // Async
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): F[A]
       def raiseError[A](e: Throwable): F[A]
@@ -65,8 +70,16 @@ object connection { module =>
       def shift: F[Unit]
       def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]): F[A]
 
+      // Logger
+      def error(message: => String): F[Unit]
+      def warn(message: => String): F[Unit]
+      def info(message: => String): F[Unit]
+      def debug(message: => String): F[Unit]
+      def trace(message: => String): F[Unit]
+
       // Connection
       def abort(a: Executor): F[Unit]
+      def beginRequest: F[Unit]
       def clearWarnings: F[Unit]
       def close: F[Unit]
       def commit: F[Unit]
@@ -79,6 +92,7 @@ object connection { module =>
       def createStatement(a: Int, b: Int): F[Statement]
       def createStatement(a: Int, b: Int, c: Int): F[Statement]
       def createStruct(a: String, b: Array[AnyRef]): F[Struct]
+      def endRequest: F[Unit]
       def getAutoCommit: F[Boolean]
       def getCatalog: F[String]
       def getClientInfo: F[Properties]
@@ -117,6 +131,10 @@ object connection { module =>
       def setSavepoint: F[Savepoint]
       def setSavepoint(a: String): F[Savepoint]
       def setSchema(a: String): F[Unit]
+      def setShardingKey(a: ShardingKey): F[Unit]
+      def setShardingKey(a: ShardingKey, b: ShardingKey): F[Unit]
+      def setShardingKeyIfValid(a: ShardingKey, b: Int): F[Boolean]
+      def setShardingKeyIfValid(a: ShardingKey, b: ShardingKey, c: Int): F[Boolean]
       def setTransactionIsolation(a: Int): F[Unit]
       def setTypeMap(a: Map[String, Class[_]]): F[Unit]
       def unwrap[T](a: Class[T]): F[T]
@@ -124,8 +142,8 @@ object connection { module =>
     }
 
     // Common operations for all algebras.
-    final case class Raw[A](f: Connection => A) extends ConnectionOp[A] {
-      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    final case class Raw[A](message: () => String, f: Connection => A) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.raw(message(), f)
     }
     final case class Embed[A](e: Embedded[A]) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
@@ -154,10 +172,28 @@ object connection { module =>
     final case class EvalOn[A](ec: ExecutionContext, fa: ConnectionIO[A]) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
+    final case class LogError(message: () => String) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.error(message()): F[Unit]
+    }
+    final case class LogWarn(message: () => String) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.warn(message()): F[Unit]
+    }
+    final case class LogInfo(message: () => String) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.info(message()): F[Unit]
+    }
+    final case class LogDebug(message: () => String) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.debug(message()): F[Unit]
+    }
+    final case class LogTrace(message: () => String) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.trace(message()): F[Unit]
+    }
 
     // Connection-specific operations.
     final case class  Abort(a: Executor) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.abort(a)
+    }
+    final case object BeginRequest extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.beginRequest
     }
     final case object ClearWarnings extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.clearWarnings
@@ -194,6 +230,9 @@ object connection { module =>
     }
     final case class  CreateStruct(a: String, b: Array[AnyRef]) extends ConnectionOp[Struct] {
       def visit[F[_]](v: Visitor[F]) = v.createStruct(a, b)
+    }
+    final case object EndRequest extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.endRequest
     }
     final case object GetAutoCommit extends ConnectionOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.getAutoCommit
@@ -309,6 +348,18 @@ object connection { module =>
     final case class  SetSchema(a: String) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setSchema(a)
     }
+    final case class  SetShardingKey(a: ShardingKey) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.setShardingKey(a)
+    }
+    final case class  SetShardingKey1(a: ShardingKey, b: ShardingKey) extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.setShardingKey(a, b)
+    }
+    final case class  SetShardingKeyIfValid(a: ShardingKey, b: Int) extends ConnectionOp[Boolean] {
+      def visit[F[_]](v: Visitor[F]) = v.setShardingKeyIfValid(a, b)
+    }
+    final case class  SetShardingKeyIfValid1(a: ShardingKey, b: ShardingKey, c: Int) extends ConnectionOp[Boolean] {
+      def visit[F[_]](v: Visitor[F]) = v.setShardingKeyIfValid(a, b, c)
+    }
     final case class  SetTransactionIsolation(a: Int) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setTransactionIsolation(a)
     }
@@ -325,7 +376,7 @@ object connection { module =>
   // Smart constructors for operations common to all algebras.
   val unit: ConnectionIO[Unit] = FF.pure[ConnectionOp, Unit](())
   def pure[A](a: A): ConnectionIO[A] = FF.pure[ConnectionOp, A](a)
-  def raw[A](f: Connection => A): ConnectionIO[A] = FF.liftF(Raw(f))
+  def raw[A](message: => String)(f: Connection => A): ConnectionIO[A] = FF.liftF(Raw(() => message, f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ConnectionIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): ConnectionIO[A] = FF.liftF[ConnectionOp, A](HandleErrorWith(fa, f))
@@ -336,8 +387,16 @@ object connection { module =>
   val shift: ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](Shift)
   def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]) = FF.liftF[ConnectionOp, A](EvalOn(ec, fa))
 
+  // Logger
+  def error(message: => String): ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](LogError(() => message))
+  def warn(message: => String): ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](LogWarn(() => message))
+  def info(message: => String): ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](LogInfo(() => message))
+  def debug(message: => String): ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](LogDebug(() => message))
+  def trace(message: => String): ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](LogTrace(() => message))
+
   // Smart constructors for Connection-specific operations.
   def abort(a: Executor): ConnectionIO[Unit] = FF.liftF(Abort(a))
+  val beginRequest: ConnectionIO[Unit] = FF.liftF(BeginRequest)
   val clearWarnings: ConnectionIO[Unit] = FF.liftF(ClearWarnings)
   val close: ConnectionIO[Unit] = FF.liftF(Close)
   val commit: ConnectionIO[Unit] = FF.liftF(Commit)
@@ -350,6 +409,7 @@ object connection { module =>
   def createStatement(a: Int, b: Int): ConnectionIO[Statement] = FF.liftF(CreateStatement1(a, b))
   def createStatement(a: Int, b: Int, c: Int): ConnectionIO[Statement] = FF.liftF(CreateStatement2(a, b, c))
   def createStruct(a: String, b: Array[AnyRef]): ConnectionIO[Struct] = FF.liftF(CreateStruct(a, b))
+  val endRequest: ConnectionIO[Unit] = FF.liftF(EndRequest)
   val getAutoCommit: ConnectionIO[Boolean] = FF.liftF(GetAutoCommit)
   val getCatalog: ConnectionIO[String] = FF.liftF(GetCatalog)
   val getClientInfo: ConnectionIO[Properties] = FF.liftF(GetClientInfo)
@@ -388,6 +448,10 @@ object connection { module =>
   val setSavepoint: ConnectionIO[Savepoint] = FF.liftF(SetSavepoint)
   def setSavepoint(a: String): ConnectionIO[Savepoint] = FF.liftF(SetSavepoint1(a))
   def setSchema(a: String): ConnectionIO[Unit] = FF.liftF(SetSchema(a))
+  def setShardingKey(a: ShardingKey): ConnectionIO[Unit] = FF.liftF(SetShardingKey(a))
+  def setShardingKey(a: ShardingKey, b: ShardingKey): ConnectionIO[Unit] = FF.liftF(SetShardingKey1(a, b))
+  def setShardingKeyIfValid(a: ShardingKey, b: Int): ConnectionIO[Boolean] = FF.liftF(SetShardingKeyIfValid(a, b))
+  def setShardingKeyIfValid(a: ShardingKey, b: ShardingKey, c: Int): ConnectionIO[Boolean] = FF.liftF(SetShardingKeyIfValid1(a, b, c))
   def setTransactionIsolation(a: Int): ConnectionIO[Unit] = FF.liftF(SetTransactionIsolation(a))
   def setTypeMap(a: Map[String, Class[_]]): ConnectionIO[Unit] = FF.liftF(SetTypeMap(a))
   def unwrap[T](a: Class[T]): ConnectionIO[T] = FF.liftF(Unwrap(a))
@@ -412,6 +476,16 @@ object connection { module =>
     new ContextShift[ConnectionIO] {
       def shift: ConnectionIO[Unit] = module.shift
       def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]) = module.evalOn(ec)(fa)
+    }
+
+  // ConnectionIO is a MessageLogger
+  implicit val MessageLoggerConnectionIO: MessageLogger[ConnectionIO] =
+    new MessageLogger[ConnectionIO] {
+      def error(message: => String): ConnectionIO[Unit] =  module.error(message)
+      def warn(message: => String): ConnectionIO[Unit] = module.warn(message)
+      def info(message: => String): ConnectionIO[Unit] = module.info(message)
+      def debug(message: => String): ConnectionIO[Unit] =  module.debug(message)
+      def trace(message: => String): ConnectionIO[Unit] =  module.trace(message)
     }
 }
 
