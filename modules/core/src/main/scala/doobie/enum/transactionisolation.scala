@@ -8,7 +8,7 @@ import doobie.util.invariant._
 
 import java.sql.Connection._
 
-import cats.ApplicativeError
+import cats.{ApplicativeError, Show}
 import cats.kernel.Eq
 import cats.kernel.instances.int._
 
@@ -38,5 +38,17 @@ object TransactionIsolation {
 
   implicit val EqTransactionIsolation: Eq[TransactionIsolation] =
     Eq.by(_.toInt)
+
+  implicit val TransactionIsolationShow: Show[TransactionIsolation] = {
+    case TransactionIsolation.TransactionNone => "TRANSACTION_NONE"
+    case TransactionIsolation.TransactionReadUncommitted =>
+      "TRANSACTION_READ_UNCOMMITTED"
+    case TransactionIsolation.TransactionReadCommitted =>
+      "TRANSACTION_READ_COMMITTED"
+    case TransactionIsolation.TransactionRepeatableRead =>
+      "TRANSACTION_REPEATABLE_READ"
+    case TransactionIsolation.TransactionSerializable =>
+      "TRANSACTION_SERIALIZABLE"
+  }
 
 }

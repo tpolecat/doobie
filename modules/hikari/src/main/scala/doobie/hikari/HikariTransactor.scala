@@ -5,8 +5,14 @@
 package doobie
 package hikari
 
+import java.util.Properties
+import java.util.concurrent.{ScheduledExecutorService, ThreadFactory}
+
 import cats.effect._
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import javax.sql.DataSource
+
 import scala.concurrent.ExecutionContext
 
 object HikariTransactor {
@@ -33,6 +39,39 @@ object HikariTransactor {
   ): Resource[M, HikariTransactor[M]] = {
     createDataSourceResource(new HikariDataSource)
       .map(Transactor.fromDataSource[M](_, connectEC, blocker))
+  }
+
+  /** Resource yielding a new `HikariTransactor` configured with the given Config. */
+  def fromConfig[M[_]: Async: ContextShift](
+    config: Config,
+    connectEC: ExecutionContext,
+    blocker: Blocker,
+    dataSource: Option[DataSource] = None,
+    dataSourceProperties: Option[Properties] = None,
+    healthCheckProperties: Option[Properties] = None,
+    healthCheckRegistry: Option[Object] = None,
+    metricRegistry: Option[Object] = None,
+    metricsTrackerFactory: Option[MetricsTrackerFactory] = None,
+    scheduledExecutor: Option[ScheduledExecutorService] = None,
+    threadFactory: Option[ThreadFactory] = None,
+  ): Resource[M, HikariTransactor[M]] = {
+    Resource
+      .liftF(
+        Config.makeHikariConfig(
+          config,
+          dataSource,
+          dataSourceProperties,
+          healthCheckProperties,
+          healthCheckRegistry,
+          metricRegistry,
+          metricsTrackerFactory,
+          scheduledExecutor,
+          threadFactory
+        )
+      )
+      .flatMap { hikariConfig =>
+        fromHikariConfig(hikariConfig, connectEC, blocker)
+      }
   }
 
   /** Resource yielding a new `HikariTransactor` configured with the given HikariConfig. */
