@@ -42,7 +42,7 @@ lazy val compilerFlags = Seq(
     "-Xfatal-warnings"
   ),
   libraryDependencies ++= Seq(
-    "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
+    "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0"
   )
 )
 
