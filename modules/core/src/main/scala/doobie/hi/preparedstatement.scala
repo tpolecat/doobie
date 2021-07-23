@@ -94,6 +94,10 @@ object preparedstatement {
   def executeUpdateWithUniqueGeneratedKeys[A: Read]: PreparedStatementIO[A] =
     executeUpdate.flatMap(_ => getUniqueGeneratedKeys[A])
 
+  /** @group Execution */
+  def executeUpdateWithOptionallyGeneratedKeys[A: Read]: PreparedStatementIO[Option[A]] =
+    executeUpdate.flatMap(_ => getOptionallyGeneratedKeys[A])
+
  /** @group Execution */
   def executeUpdateWithGeneratedKeys[A: Read](chunkSize: Int): Stream[PreparedStatementIO, A] =
     bracket(FPS.executeUpdate *> FPS.getGeneratedKeys)(FPS.embed(_, FRS.close)).flatMap(unrolled[A](_, chunkSize))
@@ -141,6 +145,10 @@ object preparedstatement {
   /** @group Results */
   def getUniqueGeneratedKeys[A: Read]: PreparedStatementIO[A] =
     getGeneratedKeys(resultset.getUnique[A])
+
+  /** @group Results */
+  def getOptionallyGeneratedKeys[A: Read]: PreparedStatementIO[Option[A]] =
+    getGeneratedKeys(resultset.getOption[A])
 
   /**
    * Compute the parameter `JdbcMeta` list for this `PreparedStatement`.

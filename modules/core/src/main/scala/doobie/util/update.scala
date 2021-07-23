@@ -150,6 +150,16 @@ object update {
       HC.prepareStatementS(sql, columns.toList)(HPS.set(a) *> HPS.executeUpdateWithUniqueGeneratedKeys)
 
     /**
+     * Construct a program that performs the update, yielding an optional set of generated keys of
+     * readable type `K`, identified by the specified columns. Note that not all drivers support
+     * generated keys, and some support only a single key column.
+     *
+     * @group Execution
+     */
+    def withOptionalGeneratedKeys[K: Read](columns: String*)(a: A): ConnectionIO[Option[K]] =
+      HC.prepareStatementS(sql, columns.toList)(HPS.set(a) *> HPS.executeUpdateWithOptionallyGeneratedKeys)
+
+    /**
      * Update is a contravariant functor.
      * @group Transformations
      */
@@ -177,6 +187,8 @@ object update {
         def withUniqueGeneratedKeys[K: Read](columns: String*) =
           u.withUniqueGeneratedKeys(columns: _*)(a)
         def inspect[R](f: (String, PreparedStatementIO[Unit]) => ConnectionIO[R]) = u.inspect(a)(f)
+        def withOptionalGeneratedKeys[K: Read](columns: String*): doobie.ConnectionIO[Option[K]] =
+          u.withOptionalGeneratedKeys(columns: _*)(a)
       }
 
   }
@@ -274,6 +286,14 @@ object update {
      * @group Execution
      */
     def withUniqueGeneratedKeys[K: Read](columns: String*): ConnectionIO[K]
+
+    /**
+     * Construct a program that performs the update, yielding an optional set of generated keys of
+     * readable type `K`, identified by the specified columns. Note that not all drivers support
+     * generated keys, and some support only a single key column.
+     * @group Execution
+     */
+    def withOptionalGeneratedKeys[K: Read](columns: String*): ConnectionIO[Option[K]]
 
   }
 
