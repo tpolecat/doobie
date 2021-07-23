@@ -19,14 +19,13 @@ object fragment {
 
   /**
    * A statement fragment, which may include interpolated values. Fragments can be composed by
-   * concatenation, which maintains the correct offset and mappings for interpolated values. Once
-   * constructed a `Fragment` is opaque; it has no externally observable properties. Fragments are
-   * eventually used to construct a [[Query0]] or [[Update0]].
+   * concatenation, which maintains the correct offset and mappings for interpolated values. 
+   * Fragments are eventually used to construct a [[Query0]] or [[Update0]].
    */
   final class Fragment(
-    protected val sql: String,
-    protected val elems: Chain[Elem],
-    protected val pos: Option[Pos]
+    val sql: String,
+    val elems: Chain[Elem],
+    val pos: Option[Pos]
   ) {
 
     // Unfortunately we need to produce a Write for our list of elems, which is a bit of a grunt
