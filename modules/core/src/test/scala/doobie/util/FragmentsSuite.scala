@@ -44,8 +44,20 @@ class FragmentsSuite extends munit.FunSuite {
     assertEquals(in(fr"foo", NonEmptyList.of((1, true), (2, false))).query[Unit].sql, "foo IN ((?,?), (?,?)) ")
   }
 
+  test("in for three columns") {
+    assertEquals(in(fr"foo", NonEmptyList.of((1, true, "some string"), (2, false, "bar"))).query[Unit].sql, "foo IN ((?,?,?), (?,?,?)) ")
+  }
+
   test("notIn") {
     assertEquals(notIn(fr"foo", nel).query[Unit].sql, "foo NOT IN (?, ?, ?) ")
+  }
+
+  test("notIn for two columns") {
+    assertEquals(notIn(fr"foo", NonEmptyList.of((1, true), (2, false))).query[Unit].sql, "foo NOT IN ((?,?), (?,?)) ")
+  }
+
+  test("notIn for three columns") {
+    assertEquals(notIn(fr"foo", NonEmptyList.of((1, true, "string"), (2, false, "bar"))).query[Unit].sql, "foo NOT IN ((?,?,?), (?,?,?)) ")
   }
 
   test("and (many)") {
