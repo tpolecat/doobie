@@ -75,7 +75,7 @@ lazy val commonSettings =
 
     // Kind Projector (Scala 2 only)
     libraryDependencies ++= Seq(
-      compilerPlugin("org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full),
+      compilerPlugin("org.typelevel" %% "kind-projector" % "0.13.0" cross CrossVersion.full),
     ).filterNot(_ => isDotty.value),
 
     // MUnit
