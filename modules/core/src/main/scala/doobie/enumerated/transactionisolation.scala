@@ -18,11 +18,20 @@ sealed abstract class TransactionIsolation(val toInt: Int) extends Product with 
 /** @group Modules */
 object TransactionIsolation {
 
-  /** @group Values */ case object TransactionNone            extends TransactionIsolation(TRANSACTION_NONE)
-  /** @group Values */ case object TransactionReadUncommitted extends TransactionIsolation(TRANSACTION_READ_UNCOMMITTED)
-  /** @group Values */ case object TransactionReadCommitted   extends TransactionIsolation(TRANSACTION_READ_COMMITTED)
-  /** @group Values */ case object TransactionRepeatableRead  extends TransactionIsolation(TRANSACTION_REPEATABLE_READ)
-  /** @group Values */ case object TransactionSerializable    extends TransactionIsolation(TRANSACTION_SERIALIZABLE)
+  /** @group Values */
+  case object TransactionNone extends TransactionIsolation(TRANSACTION_NONE)
+
+  /** @group Values */
+  case object TransactionReadUncommitted extends TransactionIsolation(TRANSACTION_READ_UNCOMMITTED)
+
+  /** @group Values */
+  case object TransactionReadCommitted extends TransactionIsolation(TRANSACTION_READ_COMMITTED)
+
+  /** @group Values */
+  case object TransactionRepeatableRead extends TransactionIsolation(TRANSACTION_REPEATABLE_READ)
+
+  /** @group Values */
+  case object TransactionSerializable extends TransactionIsolation(TRANSACTION_SERIALIZABLE)
 
   def fromInt(n: Int): Option[TransactionIsolation] =
     Some(n) collect {

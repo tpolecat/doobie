@@ -7,7 +7,6 @@ package util
 
 trait GetSuitePlatform { self: munit.FunSuite =>
 
-  test("Get should be derived for unary products (AnyVal)".ignore) {
-  }
+  test("Get should be derived for unary products (AnyVal)".ignore) {}
 
 }

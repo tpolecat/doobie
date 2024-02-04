@@ -30,7 +30,7 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     assert(compileErrors("Write[(Int, Int, String)]").contains("Cannot find or construct"))
     assert(compileErrors("Write[(Int, (Int, String))]").contains("Cannot find or construct"))
   }
-  
+
   test("Write is not auto derived for case classes") {
     assert(compileErrors("Write[LenStr1]").contains("Cannot find or construct"))
   }

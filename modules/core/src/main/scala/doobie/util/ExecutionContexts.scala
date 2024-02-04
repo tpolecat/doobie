@@ -4,27 +4,27 @@
 
 package doobie.util
 
-import cats.effect.kernel.{ Resource, Sync }
-import java.util.concurrent.{ Executors, ExecutorService }
+import cats.effect.kernel.{Resource, Sync}
+import java.util.concurrent.{Executors, ExecutorService}
 import scala.concurrent.ExecutionContext
 
 object ExecutionContexts {
 
   /** Resource yielding an `ExecutionContext` backed by a fixed-size pool. */
   def fixedThreadPool[F[_]](size: Int)(
-    implicit sf: Sync[F]
+      implicit sf: Sync[F]
   ): Resource[F, ExecutionContext] = {
     val alloc = sf.delay(Executors.newFixedThreadPool(size))
-    val free  = (es: ExecutorService) => sf.delay(es.shutdown())
+    val free = (es: ExecutorService) => sf.delay(es.shutdown())
     Resource.make(alloc)(free).map(ExecutionContext.fromExecutor)
   }
 
   /** Resource yielding an `ExecutionContext` backed by an unbounded thread pool. */
   def cachedThreadPool[F[_]](
-    implicit sf: Sync[F]
+      implicit sf: Sync[F]
   ): Resource[F, ExecutionContext] = {
     val alloc = sf.delay(Executors.newCachedThreadPool)
-    val free  = (es: ExecutorService) => sf.delay(es.shutdown())
+    val free = (es: ExecutorService) => sf.delay(es.shutdown())
     Resource.make(alloc)(free).map(ExecutionContext.fromExecutor)
   }
 

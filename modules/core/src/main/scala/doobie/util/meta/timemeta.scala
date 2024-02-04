@@ -6,9 +6,8 @@ package doobie.util.meta
 
 import doobie.enumerated.JdbcType._
 
-/**
- * Instances for Java time classes that follow the JDBC specification.
- */
+/** Instances for Java time classes that follow the JDBC specification.
+  */
 trait TimeMetaInstances { this: MetaConstructors =>
   import Predef.classOf
 
@@ -40,11 +39,12 @@ trait TimeMetaInstances { this: MetaConstructors =>
 
   /** @group Instances */
   implicit val JavaTimeZoneId: Meta[java.time.ZoneId] = {
-    def parse(str: String) = try {
-      Right(java.time.ZoneId.of(str))
-    } catch {
-      case e: java.time.DateTimeException => Left(e.getMessage)
-    }
+    def parse(str: String) =
+      try {
+        Right(java.time.ZoneId.of(str))
+      } catch {
+        case e: java.time.DateTimeException => Left(e.getMessage)
+      }
 
     Meta[String].tiemap(parse(_))(_.getId)
   }

@@ -16,49 +16,48 @@ import javax.sql.DataSource
 
 import scala.concurrent.duration.Duration
 
-/** Configuration case class, susceptible to PureConfig.
-  * Helps with creating `com.zaxxer.hikari.HikariConfig`,
-  * which in turn is used to create `doobie.hikari.HikariTransactor`.
-  * See the method `HikariTransactor.fromConfigAutoEc` */
+/** Configuration case class, susceptible to PureConfig. Helps with creating `com.zaxxer.hikari.HikariConfig`, which in
+  * turn is used to create `doobie.hikari.HikariTransactor`. See the method `HikariTransactor.fromConfigAutoEc`
+  */
 final case class Config(
-  jdbcUrl: String,
-  catalog: Option[String] = None,
-  connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
-  idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
-  leakDetectionThreshold: Duration = Duration.Zero,
-  maximumPoolSize: Int = 10,
-  maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
-  minimumIdle: Int = 10,
-  password: Option[String] = None,
-  poolName: Option[String] = None,
-  username: Option[String] = None,
-  validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
-  allowPoolSuspension: Boolean = false,
-  autoCommit: Boolean = true,
-  connectionInitSql: Option[String] = None,
-  connectionTestQuery: Option[String] = None,
-  dataSourceClassName: Option[String] = None,
-  dataSourceJNDI: Option[String] = None,
-  driverClassName: Option[String] = None,
-  initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
-  isolateInternalQueries: Boolean = false,
-  readOnly: Boolean = false,
-  registerMbeans: Boolean = false,
-  schema: Option[String] = None,
-  transactionIsolation: Option[TransactionIsolation] = None,
+    jdbcUrl: String,
+    catalog: Option[String] = None,
+    connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
+    idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
+    leakDetectionThreshold: Duration = Duration.Zero,
+    maximumPoolSize: Int = 10,
+    maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
+    minimumIdle: Int = 10,
+    password: Option[String] = None,
+    poolName: Option[String] = None,
+    username: Option[String] = None,
+    validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
+    allowPoolSuspension: Boolean = false,
+    autoCommit: Boolean = true,
+    connectionInitSql: Option[String] = None,
+    connectionTestQuery: Option[String] = None,
+    dataSourceClassName: Option[String] = None,
+    dataSourceJNDI: Option[String] = None,
+    driverClassName: Option[String] = None,
+    initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
+    isolateInternalQueries: Boolean = false,
+    readOnly: Boolean = false,
+    registerMbeans: Boolean = false,
+    schema: Option[String] = None,
+    transactionIsolation: Option[TransactionIsolation] = None
 )
 
 object Config {
   def makeHikariConfig[F[_]](
-    config: Config,
-    dataSource: Option[DataSource] = None,
-    dataSourceProperties: Option[Properties] = None,
-    healthCheckProperties: Option[Properties] = None,
-    healthCheckRegistry: Option[Object] = None,
-    metricRegistry: Option[Object] = None,
-    metricsTrackerFactory: Option[MetricsTrackerFactory] = None,
-    scheduledExecutor: Option[ScheduledExecutorService] = None,
-    threadFactory: Option[ThreadFactory] = None,
+      config: Config,
+      dataSource: Option[DataSource] = None,
+      dataSourceProperties: Option[Properties] = None,
+      healthCheckProperties: Option[Properties] = None,
+      healthCheckRegistry: Option[Object] = None,
+      metricRegistry: Option[Object] = None,
+      metricsTrackerFactory: Option[MetricsTrackerFactory] = None,
+      scheduledExecutor: Option[ScheduledExecutorService] = None,
+      threadFactory: Option[ThreadFactory] = None
   )(implicit F: Sync[F]): F[HikariConfig] =
     F.delay {
       val c = new HikariConfig()

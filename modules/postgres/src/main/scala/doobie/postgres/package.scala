@@ -5,20 +5,20 @@
 package doobie
 
 package object postgres
-  extends postgres.free.Types
-     with postgres.free.Modules
-     with postgres.hi.Modules {
+    extends postgres.free.Types
+    with postgres.free.Modules
+    with postgres.hi.Modules {
 
   object implicits
-    extends Instances
-       with free.Instances
-       with syntax.ToPostgresMonadErrorOps
-       with syntax.ToFragmentOps
-       with syntax.ToPostgresExplainOps
+      extends Instances
+      with free.Instances
+      with syntax.ToPostgresMonadErrorOps
+      with syntax.ToFragmentOps
+      with syntax.ToPostgresExplainOps
 
   object pgisimplicits
-    extends PgisInstances
+      extends PgisInstances
 
   object pgisgeographyimplicits
-    extends PgisGeographyInstances
+      extends PgisGeographyInstances
 }

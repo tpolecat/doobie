@@ -7,21 +7,21 @@ package doobie.postgres.free
 import doobie.WeakAsync
 
 trait Types {
-  type CopyInIO[A]             = copyin.CopyInIO[A]
-  type CopyManagerIO[A]        = copymanager.CopyManagerIO[A]
-  type CopyOutIO[A]            = copyout.CopyOutIO[A]
-  type LargeObjectIO[A]        = largeobject.LargeObjectIO[A]
+  type CopyInIO[A] = copyin.CopyInIO[A]
+  type CopyManagerIO[A] = copymanager.CopyManagerIO[A]
+  type CopyOutIO[A] = copyout.CopyOutIO[A]
+  type LargeObjectIO[A] = largeobject.LargeObjectIO[A]
   type LargeObjectManagerIO[A] = largeobjectmanager.LargeObjectManagerIO[A]
-  type PGConnectionIO[A]       = pgconnection.PGConnectionIO[A]
+  type PGConnectionIO[A] = pgconnection.PGConnectionIO[A]
 }
 
 trait Modules {
-  lazy val PFCI  = copyin
-  lazy val PFCM  = copymanager
-  lazy val PFCO  = copyout
-  lazy val PFLO  = largeobject
+  lazy val PFCI = copyin
+  lazy val PFCM = copymanager
+  lazy val PFCO = copyout
+  lazy val PFLO = largeobject
   lazy val PFLOM = largeobjectmanager
-  lazy val PFPC  = pgconnection
+  lazy val PFPC = pgconnection
 }
 
 trait Instances {

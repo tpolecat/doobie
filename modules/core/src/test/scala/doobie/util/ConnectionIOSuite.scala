@@ -18,14 +18,14 @@ class ConnectionIOSuite extends munit.FunSuite {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
   test("Semigroup ConnectionIO") {
     val prg = Applicative[ConnectionIO].pure(List(1, 2, 3)) combine Applicative[ConnectionIO].pure(List(4, 5, 6))
-    assertEquals(prg.transact(xa).unsafeRunSync(), List(1,2,3,4,5,6))
+    assertEquals(prg.transact(xa).unsafeRunSync(), List(1, 2, 3, 4, 5, 6))
   }
 
   test("Monoid ConnectionIO") {

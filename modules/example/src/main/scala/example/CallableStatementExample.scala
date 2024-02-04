@@ -4,7 +4,7 @@
 
 package example
 
-import cats.effect.{ IO, IOApp }
+import cats.effect.{IO, IOApp}
 import cats.effect.syntax.monadCancel._
 import cats.syntax.all._
 import doobie._
@@ -30,9 +30,9 @@ object CallableStatementExample extends IOApp.Simple {
   def names(limit: Int): ConnectionIO[List[String]] =
     HC.prepareCall("{ call getCountries(?, ?) }") {
       for {
-        _  <- FCS.setInt(1, limit)
-        _  <- FCS.registerOutParameter(2, Other.toInt)
-        _  <- FCS.execute
+        _ <- FCS.setInt(1, limit)
+        _ <- FCS.registerOutParameter(2, Other.toInt)
+        _ <- FCS.execute
         ns <- FCS.getObject(2).map(_.asInstanceOf[java.sql.ResultSet]).bracket { rs =>
           FCS.embed(rs, HRS.list[String])
         }(FCS.embed(_, FRS.close))
@@ -41,14 +41,18 @@ object CallableStatementExample extends IOApp.Simple {
 
   val xa: Transactor[IO] =
     Transactor.fromDriverManager[IO](
-      driver = "org.postgresql.Driver", url = "jdbc:postgresql:world", user = "postgres", password = "password", logHandler = None
+      driver = "org.postgresql.Driver",
+      url = "jdbc:postgresql:world",
+      user = "postgres",
+      password = "password",
+      logHandler = None
     )
 
   def run: IO[Unit] =
     for {
       _ <- createFunc.transact(xa)
       ns <- names(10).transact(xa)
-      _  <- ns.traverse(s => IO(println(s)))
+      _ <- ns.traverse(s => IO(println(s)))
     } yield ()
 
 }

@@ -4,14 +4,15 @@
 
 package doobie.util
 
-import shapeless.{ HList, HNil, ::, Generic, Lazy, <:!<, OrElse }
-import shapeless.labelled.{ FieldType }
+import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
+import shapeless.labelled.{FieldType}
 
 trait WritePlatform extends LowerPriorityWrite {
 
   implicit def recordWrite[K <: Symbol, H, T <: HList](
-    implicit H: Lazy[Write[H] OrElse MkWrite[H]],
-              T: Lazy[MkWrite[T]]
+      implicit
+      H: Lazy[Write[H] OrElse MkWrite[H]],
+      T: Lazy[MkWrite[T]]
   ): MkWrite[FieldType[K, H] :: T] = {
     val head = H.value.unify
 
@@ -28,8 +29,9 @@ trait WritePlatform extends LowerPriorityWrite {
 trait LowerPriorityWrite extends EvenLowerPriorityWrite {
 
   implicit def product[H, T <: HList](
-    implicit H: Lazy[Write[H] OrElse MkWrite[H]],
-              T: Lazy[MkWrite[T]]
+      implicit
+      H: Lazy[Write[H] OrElse MkWrite[H]],
+      T: Lazy[MkWrite[T]]
   ): MkWrite[H :: T] = {
     val head = H.value.unify
 
@@ -60,9 +62,10 @@ trait EvenLowerPriorityWrite {
     new MkWrite[Option[HNil]](Nil, _ => Nil, (_, _, _) => (), (_, _, _) => ())
 
   implicit def ohcons1[H, T <: HList](
-    implicit H: Lazy[Write[Option[H]] OrElse MkWrite[Option[H]]],
-             T: Lazy[MkWrite[Option[T]]],
-             N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Lazy[Write[Option[H]] OrElse MkWrite[Option[H]]],
+      T: Lazy[MkWrite[Option[T]]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkWrite[Option[H :: T]] = {
     void(N)
     val head = H.value.unify
@@ -80,8 +83,9 @@ trait EvenLowerPriorityWrite {
   }
 
   implicit def ohcons2[H, T <: HList](
-    implicit H: Lazy[Write[Option[H]] OrElse MkWrite[Option[H]]],
-             T: Lazy[MkWrite[Option[T]]]
+      implicit
+      H: Lazy[Write[Option[H]] OrElse MkWrite[Option[H]]],
+      T: Lazy[MkWrite[Option[T]]]
   ): MkWrite[Option[Option[H] :: T]] = {
     val head = H.value.unify
 
@@ -98,8 +102,9 @@ trait EvenLowerPriorityWrite {
   }
 
   implicit def ogeneric[B, A <: HList](
-    implicit G: Generic.Aux[B, A],
-             A: Lazy[MkWrite[Option[A]]]
+      implicit
+      G: Generic.Aux[B, A],
+      A: Lazy[MkWrite[Option[A]]]
   ): MkWrite[Option[B]] =
     new MkWrite(
       A.value.puts,

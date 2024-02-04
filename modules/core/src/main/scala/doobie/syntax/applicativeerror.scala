@@ -5,7 +5,7 @@
 package doobie.syntax
 
 import cats.ApplicativeError
-import doobie.util.{ catchsql => C }
+import doobie.util.{catchsql => C}
 import doobie.enumerated.SqlState
 import java.sql.SQLException
 
@@ -21,7 +21,7 @@ class ApplicativeErrorOps[M[_], A](self: M[A])(implicit ev: ApplicativeError[M, 
 
 trait ToApplicativeErrorOps {
   implicit def toDoobieApplicativeErrorOps[M[_], A](ma: M[A])(
-    implicit ev: ApplicativeError[M, Throwable]
+      implicit ev: ApplicativeError[M, Throwable]
   ): ApplicativeErrorOps[M, A] =
     new ApplicativeErrorOps(ma)
 }

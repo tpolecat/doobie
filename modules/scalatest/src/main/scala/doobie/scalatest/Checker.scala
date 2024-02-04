@@ -4,19 +4,17 @@
 
 package doobie.scalatest
 
-import cats.effect.{ Async, IO }
-import doobie.{ Update, Update0 }
+import cats.effect.{Async, IO}
+import doobie.{Update, Update0}
 import doobie.syntax.connectionio._
 import doobie.util.query.{Query, Query0}
 import doobie.util.testing._
 import org.scalatest.Assertions
 import org.tpolecat.typename._
 
-/**
-  * Mix-in trait for specifications that enables checking of doobie `Query` and `Update` values.
-  * Users must provide an effect type `M` as well as a `Transactor[M]` and instances. As a
-  * convenience doobie provides specializations for common effect types (see other types in this
-  * package).
+/** Mix-in trait for specifications that enables checking of doobie `Query` and `Update` values. Users must provide an
+  * effect type `M` as well as a `Transactor[M]` and instances. As a convenience doobie provides specializations for
+  * common effect types (see other types in this package).
   *
   * {{{
   * // An example specification, taken from the examples project.
@@ -39,25 +37,37 @@ trait Checker[M[_]] extends CheckerBase[M] { self: Assertions =>
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def checkOutput[A: TypeName](q: Query0[A]) =
     checkImpl(AnalysisArgs(
-      s"Query0[${typeName[A]}]", q.pos, q.sql, q.outputAnalysis
+      s"Query0[${typeName[A]}]",
+      q.pos,
+      q.sql,
+      q.outputAnalysis
     ))
 
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def checkOutput[A: TypeName, B: TypeName](q: Query[A, B]) =
     checkImpl(AnalysisArgs(
-      s"Query[${typeName[A]}, ${typeName[B]}]", q.pos, q.sql, q.outputAnalysis
+      s"Query[${typeName[A]}, ${typeName[B]}]",
+      q.pos,
+      q.sql,
+      q.outputAnalysis
     ))
 
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def checkOutput[A: TypeName](u: Update[A]) =
     checkImpl(AnalysisArgs(
-      s"Update[${typeName[A]}]", u.pos, u.sql, u.analysis
+      s"Update[${typeName[A]}]",
+      u.pos,
+      u.sql,
+      u.analysis
     ))
 
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def checkOutput(u: Update0) =
     checkImpl(AnalysisArgs(
-      "Update0", u.pos, u.sql, u.analysis
+      "Update0",
+      u.pos,
+      u.sql,
+      u.analysis
     ))
 
   private def checkImpl(args: AnalysisArgs) = {

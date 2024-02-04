@@ -11,7 +11,6 @@ import doobie.postgres.implicits._
 import fs2._
 import org.openjdk.jmh.annotations._
 
-
 final case class Person(name: String, age: Int)
 
 class text {
@@ -23,7 +22,7 @@ class text {
 
   def ddl: ConnectionIO[Unit] =
     sql"drop table if exists bench_person".update.run *>
-    sql"create table bench_person (name varchar not null, age integer not null)".update.run.void
+      sql"create table bench_person (name varchar not null, age integer not null)".update.run.void
 
   def naive(n: Int): ConnectionIO[Int] =
     ddl *> HC.prepareStatement("insert into bench_person (name, age) values (?, ?)")(

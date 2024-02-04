@@ -12,6 +12,4 @@ object StringArbitraries {
 
   def nLongString(n: Int): Gen[String] = Gen.listOfN(n, Gen.alphaChar).map(_.mkString(""))
 
-
-
 }

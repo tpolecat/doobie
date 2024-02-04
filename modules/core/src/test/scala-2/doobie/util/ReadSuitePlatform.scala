@@ -14,7 +14,7 @@ trait ReadSuitePlatform { self: munit.FunSuite =>
 
   test("Read should exist for shapeless record types") {
     type DL = (Double, Long) // used below
-    type A  = Record.`'foo -> Int, 'bar -> String, 'baz -> DL, 'quz -> Woozle`.T
+    type A = Record.`'foo -> Int, 'bar -> String, 'baz -> DL, 'quz -> Woozle`.T
     Read[A]
     Read[(A, A)]
   }: @nowarn("msg=.*DL is never used.*")

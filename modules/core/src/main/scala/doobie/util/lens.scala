@@ -31,7 +31,7 @@ object lens {
 
     def mods(f: B => B): State[A, B] =
       State { a =>
-        val b  = get(a)
+        val b = get(a)
         val bʹ = f(b)
         val aʹ = set(a, bʹ)
         (aʹ, bʹ)
@@ -45,6 +45,6 @@ object lens {
 
   }
 
-  type @>[A,B] = Lens[A,B]
+  type @>[A, B] = Lens[A, B]
 
 }

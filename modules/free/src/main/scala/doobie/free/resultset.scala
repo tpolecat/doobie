@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -32,7 +32,7 @@ import java.sql.SQLXML
 import java.sql.Statement
 import java.sql.Time
 import java.sql.Timestamp
-import java.sql.{ Array => SqlArray }
+import java.sql.{Array => SqlArray}
 import java.util.Calendar
 
 // This file is Auto-generated using FreeGen2.scala
@@ -902,9 +902,11 @@ object resultset { module =>
   val unit: ResultSetIO[Unit] = FF.pure[ResultSetOp, Unit](())
   def pure[A](a: A): ResultSetIO[A] = FF.pure[ResultSetOp, A](a)
   def raw[A](f: ResultSet => A): ResultSetIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ResultSetOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ResultSetOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): ResultSetIO[A] = FF.liftF[ResultSetOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: ResultSetIO[A])(f: Throwable => ResultSetIO[A]): ResultSetIO[A] = FF.liftF[ResultSetOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: ResultSetIO[A])(f: Throwable => ResultSetIO[A]): ResultSetIO[A] =
+    FF.liftF[ResultSetOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[ResultSetOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[ResultSetOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[ResultSetOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -917,7 +919,8 @@ object resultset { module =>
   val canceled = FF.liftF[ResultSetOp, Unit](Canceled)
   def onCancel[A](fa: ResultSetIO[A], fin: ResultSetIO[Unit]) = FF.liftF[ResultSetOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: ResultSetIO[Future[A]]) = FF.liftF[ResultSetOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: ResultSetIO[(Future[A], ResultSetIO[Unit])]) = FF.liftF[ResultSetOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: ResultSetIO[(Future[A], ResultSetIO[Unit])]) =
+    FF.liftF[ResultSetOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[ResultSetOp, Unit](PerformLogging(event))
 
   // Smart constructors for ResultSet-specific operations.
@@ -1057,7 +1060,8 @@ object resultset { module =>
   def updateCharacterStream(a: Int, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateCharacterStream2(a, b, c))
   def updateCharacterStream(a: String, b: Reader): ResultSetIO[Unit] = FF.liftF(UpdateCharacterStream3(a, b))
   def updateCharacterStream(a: String, b: Reader, c: Int): ResultSetIO[Unit] = FF.liftF(UpdateCharacterStream4(a, b, c))
-  def updateCharacterStream(a: String, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateCharacterStream5(a, b, c))
+  def updateCharacterStream(a: String, b: Reader, c: Long): ResultSetIO[Unit] =
+    FF.liftF(UpdateCharacterStream5(a, b, c))
   def updateClob(a: Int, b: Clob): ResultSetIO[Unit] = FF.liftF(UpdateClob(a, b))
   def updateClob(a: Int, b: Reader): ResultSetIO[Unit] = FF.liftF(UpdateClob1(a, b))
   def updateClob(a: Int, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateClob2(a, b, c))
@@ -1077,7 +1081,8 @@ object resultset { module =>
   def updateNCharacterStream(a: Int, b: Reader): ResultSetIO[Unit] = FF.liftF(UpdateNCharacterStream(a, b))
   def updateNCharacterStream(a: Int, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateNCharacterStream1(a, b, c))
   def updateNCharacterStream(a: String, b: Reader): ResultSetIO[Unit] = FF.liftF(UpdateNCharacterStream2(a, b))
-  def updateNCharacterStream(a: String, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateNCharacterStream3(a, b, c))
+  def updateNCharacterStream(a: String, b: Reader, c: Long): ResultSetIO[Unit] =
+    FF.liftF(UpdateNCharacterStream3(a, b, c))
   def updateNClob(a: Int, b: NClob): ResultSetIO[Unit] = FF.liftF(UpdateNClob(a, b))
   def updateNClob(a: Int, b: Reader): ResultSetIO[Unit] = FF.liftF(UpdateNClob1(a, b))
   def updateNClob(a: Int, b: Reader, c: Long): ResultSetIO[Unit] = FF.liftF(UpdateNClob2(a, b, c))
@@ -1123,27 +1128,29 @@ object resultset { module =>
       override def flatMap[A, B](fa: ResultSetIO[A])(f: A => ResultSetIO[B]): ResultSetIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => ResultSetIO[Either[A, B]]): ResultSetIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): ResultSetIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: ResultSetIO[A])(f: Throwable => ResultSetIO[A]): ResultSetIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: ResultSetIO[A])(f: Throwable => ResultSetIO[A]): ResultSetIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: ResultSetIO[FiniteDuration] = module.monotonic
       override def realTime: ResultSetIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): ResultSetIO[A] = module.suspend(hint)(thunk)
       override def forceR[A, B](fa: ResultSetIO[A])(fb: ResultSetIO[B]): ResultSetIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[ResultSetIO] => ResultSetIO[A]): ResultSetIO[A] = module.uncancelable(body)
+      override def uncancelable[A](body: Poll[ResultSetIO] => ResultSetIO[A]): ResultSetIO[A] =
+        module.uncancelable(body)
       override def canceled: ResultSetIO[Unit] = module.canceled
       override def onCancel[A](fa: ResultSetIO[A], fin: ResultSetIO[Unit]): ResultSetIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: ResultSetIO[Future[A]]): ResultSetIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: ResultSetIO[(Future[A], ResultSetIO[Unit])]): ResultSetIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: ResultSetIO[(Future[A], ResultSetIO[Unit])]): ResultSetIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidResultSetIO[A : Monoid]: Monoid[ResultSetIO[A]] = new Monoid[ResultSetIO[A]] {
+
+  implicit def MonoidResultSetIO[A: Monoid]: Monoid[ResultSetIO[A]] = new Monoid[ResultSetIO[A]] {
     override def empty: ResultSetIO[A] = Applicative[ResultSetIO].pure(Monoid[A].empty)
     override def combine(x: ResultSetIO[A], y: ResultSetIO[A]): ResultSetIO[A] =
       Applicative[ResultSetIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupResultSetIO[A : Semigroup]: Semigroup[ResultSetIO[A]] = new Semigroup[ResultSetIO[A]] {
+
+  implicit def SemigroupResultSetIO[A: Semigroup]: Semigroup[ResultSetIO[A]] = new Semigroup[ResultSetIO[A]] {
     override def combine(x: ResultSetIO[A], y: ResultSetIO[A]): ResultSetIO[A] =
       Applicative[ResultSetIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

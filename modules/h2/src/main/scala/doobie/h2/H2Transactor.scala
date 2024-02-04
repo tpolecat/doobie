@@ -14,14 +14,14 @@ object H2Transactor {
 
   /** Resource yielding a new H2Transactor. */
   def newH2Transactor[M[_]: Async](
-    url:        String,
-    user:       String,
-    pass:       String,
-    connectEC:  ExecutionContext,
-    logHandler: Option[LogHandler[M]] = None
+      url: String,
+      user: String,
+      pass: String,
+      connectEC: ExecutionContext,
+      logHandler: Option[LogHandler[M]] = None
   ): Resource[M, H2Transactor[M]] = {
     val alloc = Async[M].delay(JdbcConnectionPool.create(url, user, pass))
-    val free  = (ds: JdbcConnectionPool) => Async[M].delay(ds.dispose())
+    val free = (ds: JdbcConnectionPool) => Async[M].delay(ds.dispose())
     Resource.make(alloc)(free).map(ds => Transactor.fromDataSource[M](ds, connectEC, logHandler))
   }
 

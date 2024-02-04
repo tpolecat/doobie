@@ -5,7 +5,7 @@
 package doobie.util
 
 import cats._
-import doobie.free.{ FRS, ResultSetIO }
+import doobie.free.{FRS, ResultSetIO}
 import doobie.enumerated.Nullability._
 import java.sql.ResultSet
 import scala.annotation.implicitNotFound
@@ -41,8 +41,8 @@ And find the missing instance and construct it as needed. Refer to Chapter 12
 of the book of doobie for more information.
 """)
 sealed abstract class Read[A](
-  val gets: List[(Get[_], NullabilityKnown)],
-  val unsafeGet: (ResultSet, Int) => A
+    val gets: List[(Get[_], NullabilityKnown)],
+    val unsafeGet: (ResultSet, Int) => A
 ) {
 
   final lazy val length: Int = gets.length
@@ -61,8 +61,8 @@ sealed abstract class Read[A](
 object Read {
 
   def apply[A](
-    gets: List[(Get[_], NullabilityKnown)],
-    unsafeGet: (ResultSet, Int) => A
+      gets: List[(Get[_], NullabilityKnown)],
+      unsafeGet: (ResultSet, Int) => A
   ): Read[A] = new Read(gets, unsafeGet) {}
 
   def apply[A](implicit ev: Read[A]): ev.type = ev
@@ -92,8 +92,8 @@ object Read {
 }
 
 final class MkRead[A](
-  override val gets: List[(Get[_], NullabilityKnown)],
-  override val unsafeGet: (ResultSet, Int) => A
+    override val gets: List[(Get[_], NullabilityKnown)],
+    override val unsafeGet: (ResultSet, Int) => A
 ) extends Read[A](gets, unsafeGet)
 object MkRead extends ReadPlatform {
 

@@ -9,14 +9,14 @@ import doobie.util.fragment.Fragment
 import doobie.util.fragment.Elem.{Arg, Opt}
 import doobie.util.pos.Pos
 
-final class PutOps[A : Put](a: A) {
+final class PutOps[A: Put](a: A) {
   def fr(implicit pos: Pos): Fragment = mkFragment("? ", pos)
   def fr0(implicit pos: Pos): Fragment = mkFragment("?", pos)
 
   private def mkFragment(sql: String, pos: Pos) = Fragment(sql, List(Arg(a, Put[A])), Some(pos))
 }
 
-final class OptionPutOps[A : Put](oa: Option[A]) {
+final class OptionPutOps[A: Put](oa: Option[A]) {
   def fr(implicit pos: Pos): Fragment = mkFragment("? ", pos)
   def fr0(implicit pos: Pos): Fragment = mkFragment("?", pos)
 
@@ -24,9 +24,9 @@ final class OptionPutOps[A : Put](oa: Option[A]) {
 }
 
 trait ToPutOps {
-  implicit def toPutOps[A : Put](a: A): PutOps[A] =
+  implicit def toPutOps[A: Put](a: A): PutOps[A] =
     new PutOps(a)
-  implicit def toOptionPutOps[A : Put](a: Option[A]): OptionPutOps[A] =
+  implicit def toOptionPutOps[A: Put](a: Option[A]): OptionPutOps[A] =
     new OptionPutOps(a)
 }
 

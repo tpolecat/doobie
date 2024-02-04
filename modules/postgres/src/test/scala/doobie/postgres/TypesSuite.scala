@@ -31,12 +31,12 @@ class TypesSuite extends munit.ScalaCheckSuite {
   import cats.effect.unsafe.implicits.global
   import PostgresTestTransactor.xa
 
-  def inOut[A: Get : Put](col: String, a: A): ConnectionIO[A] = for {
-      _ <- Update0(s"CREATE TEMPORARY TABLE TEST (value $col NOT NULL)", None).run
-      a0 <- Update[A](s"INSERT INTO TEST VALUES (?)", None).withUniqueGeneratedKeys[A]("value")(a)
-    } yield a0
+  def inOut[A: Get: Put](col: String, a: A): ConnectionIO[A] = for {
+    _ <- Update0(s"CREATE TEMPORARY TABLE TEST (value $col NOT NULL)", None).run
+    a0 <- Update[A](s"INSERT INTO TEST VALUES (?)", None).withUniqueGeneratedKeys[A]("value")(a)
+  } yield a0
 
-  def inOutOpt[A: Get : Put](col: String, a: Option[A]): ConnectionIO[Option[A]] =
+  def inOutOpt[A: Get: Put](col: String, a: Option[A]): ConnectionIO[Option[A]] =
     for {
       _ <- Update0(s"CREATE TEMPORARY TABLE TEST (value $col)", None).run
       a0 <- Update[Option[A]](s"INSERT INTO TEST VALUES (?)", None).withUniqueGeneratedKeys[Option[A]]("value")(a)
@@ -62,12 +62,17 @@ class TypesSuite extends munit.ScalaCheckSuite {
     }
   }
 
-  def testInOutWithCustomGen[A](col: String, gen: Gen[A], expected: A => A = identity[A](_))(implicit m: Get[A], p: Put[A]) = {
+  def testInOutWithCustomGen[A](col: String, gen: Gen[A], expected: A => A = identity[A](_))(implicit
+      m: Get[A],
+      p: Put[A]
+  ) = {
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as ${m.typeStack}") {
       forAll(gen) { (t: A) => assertEquals(inOut(col, t).transact(xa).attempt.unsafeRunSync(), Right(expected(t))) }
     }
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as Option[${m.typeStack}] (Some)") {
-      forAll(gen) { (t: A) => assertEquals(inOutOpt[A](col, Some(t)).transact(xa).attempt.unsafeRunSync(), Right(Some(expected(t)))) }
+      forAll(gen) { (t: A) =>
+        assertEquals(inOutOpt[A](col, Some(t)).transact(xa).attempt.unsafeRunSync(), Right(Some(expected(t))))
+      }
     }
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as Option[${m.typeStack}] (None)") {
       assertEquals(inOutOpt[A](col, None).transact(xa).attempt.unsafeRunSync(), Right(None))
@@ -108,7 +113,9 @@ class TypesSuite extends munit.ScalaCheckSuite {
    */
   testInOut[java.sql.Timestamp]("timestamptz")
   testInOut[java.time.Instant]("timestamptz")
-  testInOutTweakExpected[java.time.OffsetDateTime]("timestamptz")(_.withOffsetSameInstant(ZoneOffset.UTC)) // +148488-07-03T02:38:17Z != +148488-07-03T00:00-02:38:17
+  testInOutTweakExpected[java.time.OffsetDateTime]("timestamptz")(
+    _.withOffsetSameInstant(ZoneOffset.UTC)
+  ) // +148488-07-03T02:38:17Z != +148488-07-03T00:00-02:38:17
 
   /*
     local date & time (not an instant in time)
@@ -222,7 +229,8 @@ class TypesSuite extends munit.ScalaCheckSuite {
   // Random streams of geometry values
   lazy val rnd: Iterator[Double] = Stream.continually(scala.util.Random.nextDouble()).iterator
   lazy val pts: Iterator[Point] = Stream.continually(new Point(rnd.next(), rnd.next())).iterator
-  lazy val lss: Iterator[LineString] = Stream.continually(new LineString(Array(pts.next(), pts.next(), pts.next()))).iterator
+  lazy val lss: Iterator[LineString] =
+    Stream.continually(new LineString(Array(pts.next(), pts.next(), pts.next()))).iterator
   lazy val lrs: Iterator[LinearRing] = Stream.continually(new LinearRing({
     lazy val p = pts.next();
     Array(p, pts.next(), pts.next(), pts.next(), p)
@@ -236,7 +244,7 @@ class TypesSuite extends munit.ScalaCheckSuite {
   lazy val lras: Iterator[Array[LinearRing]] = Stream.continually(Array(lrs.next(), lrs.next(), lrs.next())).iterator
 
   // All these types map to `geometry`
-  def testInOutGeom[A <: Geometry : Meta](a: A) =
+  def testInOutGeom[A <: Geometry: Meta](a: A) =
     testInOut[A]("geometry", a)
 
   testInOutGeom[Geometry](pts.next())

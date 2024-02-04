@@ -4,7 +4,7 @@
 
 package doobie.util
 
-import doobie.util.log.{ Success, ProcessingFailure }
+import doobie.util.log.{Success, ProcessingFailure}
 
 trait LogSuitePlatform { self: LogSuite =>
   import doobie.generic.auto._
@@ -14,7 +14,7 @@ trait LogSuitePlatform { self: LogSuite =>
     val Arg = 1 *: 1 *: EmptyTuple
     eventForUniqueQuery(Sql, Arg) match {
       case Success(Sql, List(1, 1), _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                                 => fail(s"no match: $a")
     }
   }
 
@@ -23,7 +23,7 @@ trait LogSuitePlatform { self: LogSuite =>
     val Arg = 1 *: 2 *: EmptyTuple
     eventForUniqueQuery(Sql, Arg) match {
       case ProcessingFailure(Sql, List(1, 2), _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                                              => fail(s"no match: $a")
     }
   }
 
@@ -32,7 +32,7 @@ trait LogSuitePlatform { self: LogSuite =>
     val Arg = 42 *: EmptyTuple
     eventForUniqueUpdate(Sql, Arg) match {
       case Success(Sql, List(42), _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                               => fail(s"no match: $a")
     }
   }
 

@@ -28,11 +28,11 @@ trait PgisGeographyInstances {
       })(new PGgeography(_))
 
   // PostGIS Geometry Types
-  implicit val MultiLineStringType: Meta[MultiLineString]       = geometryType[MultiLineString]
-  implicit val MultiPolygonType: Meta[MultiPolygon]             = geometryType[MultiPolygon]
-  implicit val PointComposedGeomType: Meta[PointComposedGeom]   = geometryType[PointComposedGeom]
-  implicit val LineStringType: Meta[LineString]                 = geometryType[LineString]
-  implicit val MultiPointType: Meta[MultiPoint]                 = geometryType[MultiPoint]
-  implicit val PolygonType: Meta[Polygon]                       = geometryType[Polygon]
-  implicit val PointType: Meta[Point]                           = geometryType[Point]
+  implicit val MultiLineStringType: Meta[MultiLineString] = geometryType[MultiLineString]
+  implicit val MultiPolygonType: Meta[MultiPolygon] = geometryType[MultiPolygon]
+  implicit val PointComposedGeomType: Meta[PointComposedGeom] = geometryType[PointComposedGeom]
+  implicit val LineStringType: Meta[LineString] = geometryType[LineString]
+  implicit val MultiPointType: Meta[MultiPoint] = geometryType[MultiPoint]
+  implicit val PolygonType: Meta[Polygon] = geometryType[Polygon]
+  implicit val PointType: Meta[Point] = geometryType[Point]
 }

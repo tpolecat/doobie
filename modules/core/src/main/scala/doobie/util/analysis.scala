@@ -27,9 +27,19 @@ object analysis {
   }
 
   /** Metadata for the JDBC end of a column/parameter mapping. */
-  final case class ParameterMeta(jdbcType: JdbcType, vendorTypeName: String, nullability: Nullability, mode: ParameterMode)
+  final case class ParameterMeta(
+      jdbcType: JdbcType,
+      vendorTypeName: String,
+      nullability: Nullability,
+      mode: ParameterMode
+  )
   object ParameterMeta {
-    def apply(jdbcType: JdbcType, vendorTypeName: String, nullability: Nullability, mode: ParameterMode): ParameterMeta = {
+    def apply(
+        jdbcType: JdbcType,
+        vendorTypeName: String,
+        nullability: Nullability,
+        mode: ParameterMode
+    ): ParameterMeta = {
       new ParameterMeta(tweakJdbcType(jdbcType, vendorTypeName), vendorTypeName, nullability, mode)
     }
   }
@@ -38,9 +48,9 @@ object analysis {
     // the Postgres driver does not return *WithTimezone types but they are pretty much required for proper analysis
     // https://github.com/pgjdbc/pgjdbc/issues/2485
     // https://github.com/pgjdbc/pgjdbc/issues/1766
-    case JdbcType.Time if vendorTypeName.compareToIgnoreCase("timetz") == 0 => JdbcType.TimeWithTimezone
+    case JdbcType.Time if vendorTypeName.compareToIgnoreCase("timetz") == 0           => JdbcType.TimeWithTimezone
     case JdbcType.Timestamp if vendorTypeName.compareToIgnoreCase("timestamptz") == 0 => JdbcType.TimestampWithTimezone
-    case t => t
+    case t                                                                            => t
   }
 
   sealed trait AlignmentError extends Product with Serializable {
@@ -58,11 +68,18 @@ object analysis {
             |the parameter.""".stripMargin.linesIterator.mkString(" ")
       case ParameterMisalignment(_, Some(pm)) =>
         s"""|${pm.jdbcType.show.toUpperCase} parameter is not set; this will result in a runtime
-            |failure. Perhaps you used a literal ? rather than an interpolated value.""".stripMargin.linesIterator.mkString(" ")
+            |failure. Perhaps you used a literal ? rather than an interpolated value.""".stripMargin.linesIterator.mkString(
+          " ")
     }
   }
 
-  final case class ParameterTypeError(index: Int, put: Put[_], n: NullabilityKnown, jdbcType: JdbcType, vendorTypeName: String) extends AlignmentError {
+  final case class ParameterTypeError(
+      index: Int,
+      put: Put[_],
+      n: NullabilityKnown,
+      jdbcType: JdbcType,
+      vendorTypeName: String
+  ) extends AlignmentError {
     override val tag = "P"
     override def msg =
       s"""|${typeName(put.typeStack.last, n)} is not coercible to ${jdbcType.show.toUpperCase}
@@ -71,18 +88,27 @@ object analysis {
           |Expected schema type was ${put.jdbcTargets.head.show.toUpperCase}.""".stripMargin.linesIterator.mkString(" ")
   }
 
-  final case class ColumnMisalignment(index: Int, alignment: Either[(Get[_], NullabilityKnown), ColumnMeta]) extends AlignmentError {
+  final case class ColumnMisalignment(index: Int, alignment: Either[(Get[_], NullabilityKnown), ColumnMeta])
+      extends AlignmentError {
     override val tag = "C"
     override def msg = this match {
       case ColumnMisalignment(_, Left((get, n))) =>
         s"""|Too few columns are selected, which will result in a runtime failure. Add a column or
-            |remove mapped ${typeName(get.typeStack.last, n)} from the result type.""".stripMargin.linesIterator.mkString(" ")
+            |remove mapped ${typeName(
+             get.typeStack.last,
+             n)} from the result type.""".stripMargin.linesIterator.mkString(" ")
       case ColumnMisalignment(_, Right(_)) =>
         s"""Column is unused. Remove it from the SELECT statement."""
     }
   }
 
-  final case class NullabilityMisalignment(index: Int, name: String, st: Option[String], jdk: NullabilityKnown, jdbc: NullabilityKnown) extends AlignmentError {
+  final case class NullabilityMisalignment(
+      index: Int,
+      name: String,
+      st: Option[String],
+      jdk: NullabilityKnown,
+      jdbc: NullabilityKnown
+  ) extends AlignmentError {
     override val tag = "C"
     override def msg = this match {
       // https://github.com/tpolecat/doobie/issues/164 ... NoNulls means "maybe no nulls"  :-\
@@ -96,39 +122,42 @@ object analysis {
     }
   }
 
-  final case class ColumnTypeError(index: Int, get: Get[_], n: NullabilityKnown, schema: ColumnMeta) extends AlignmentError {
+  final case class ColumnTypeError(index: Int, get: Get[_], n: NullabilityKnown, schema: ColumnMeta)
+      extends AlignmentError {
     override val tag = "C"
     override def msg =
       s"""|${schema.jdbcType.show.toUpperCase} (${schema.vendorTypeName}) is not
           |coercible to ${typeName(get.typeStack.last, n)} according to the JDBC specification or any defined
           |mapping.
           |Fix this by changing the schema type to
-          |${get.jdbcSources.toList.map(_.show.toUpperCase).toList.mkString(" or ") }; or the
+          |${get.jdbcSources.toList.map(_.show.toUpperCase).toList.mkString(" or ")}; or the
           |Scala type to an appropriate ${if (schema.jdbcType === JdbcType.Array) "array" else "object"}
           |type.
           |""".stripMargin.linesIterator.mkString(" ")
   }
 
-  final case class ColumnTypeWarning(index: Int, get: Get[_], n: NullabilityKnown, schema: ColumnMeta) extends AlignmentError {
+  final case class ColumnTypeWarning(index: Int, get: Get[_], n: NullabilityKnown, schema: ColumnMeta)
+      extends AlignmentError {
     override val tag = "C"
     override def msg =
       s"""|${schema.jdbcType.show.toUpperCase} (${schema.vendorTypeName}) is ostensibly
           |coercible to ${typeName(get.typeStack.last, n)}
           |according to the JDBC specification but is not a recommended target type.
           |Expected schema type was
-          |${get.jdbcSources.toList.map(_.show.toUpperCase).toList.mkString(" or ") }.
+          |${get.jdbcSources.toList.map(_.show.toUpperCase).toList.mkString(" or ")}.
           |""".stripMargin.linesIterator.mkString(" ")
   }
 
   /** Compatibility analysis for the given statement and aligned mappings. */
   final case class Analysis(
-    sql:                String,
-    parameterAlignment: List[(Put[_], NullabilityKnown) Ior ParameterMeta],
-    columnAlignment:    List[(Get[_], NullabilityKnown) Ior ColumnMeta]) {
+      sql: String,
+      parameterAlignment: List[(Put[_], NullabilityKnown) Ior ParameterMeta],
+      columnAlignment: List[(Get[_], NullabilityKnown) Ior ColumnMeta]
+  ) {
 
     def parameterMisalignments: List[ParameterMisalignment] =
       parameterAlignment.zipWithIndex.collect {
-        case (Ior.Left(_), n) => ParameterMisalignment(n + 1, None)
+        case (Ior.Left(_), n)  => ParameterMisalignment(n + 1, None)
         case (Ior.Right(p), n) => ParameterMisalignment(n + 1, Some(p))
       }
 
@@ -140,7 +169,7 @@ object analysis {
 
     def columnMisalignments: List[ColumnMisalignment] =
       columnAlignment.zipWithIndex.collect {
-        case (Ior.Left(j), n) => ColumnMisalignment(n + 1, Left(j))
+        case (Ior.Left(j), n)  => ColumnMisalignment(n + 1, Left(j))
         case (Ior.Right(p), n) => ColumnMisalignment(n + 1, Right(p))
       }
 
@@ -148,7 +177,9 @@ object analysis {
       columnAlignment.zipWithIndex.collect {
         case (Ior.Both((j, n1), p), n) if !(j.jdbcSources.toList ++ j.jdbcSourceSecondary).contains_(p.jdbcType) =>
           ColumnTypeError(n + 1, j, n1, p)
-        case (Ior.Both((j, n1), p), n) if (p.jdbcType === JdbcType.JavaObject || p.jdbcType === JdbcType.Other) && !j.schemaTypes.headOption.contains_(p.vendorTypeName) =>
+        case (Ior.Both((j, n1), p), n)
+            if (p.jdbcType === JdbcType.JavaObject || p.jdbcType === JdbcType.Other) && !j.schemaTypes.headOption.contains_(
+              p.vendorTypeName) =>
           ColumnTypeError(n + 1, j, n1, p)
       }
 
@@ -162,7 +193,8 @@ object analysis {
       columnAlignment.zipWithIndex.collect {
         // We can't do anything helpful with NoNulls .. it means "might not be nullable"
         // case (Ior.Both((st, Nullable), ColumnMeta(_, _, NoNulls, col)), n) => NullabilityMisalignment(n + 1, col, st, NoNulls, Nullable)
-        case (Ior.Both((st, NoNulls), ColumnMeta(_, _, Nullable, col)), n) => NullabilityMisalignment(n + 1, col, st.typeStack.last, Nullable, NoNulls)
+        case (Ior.Both((st, NoNulls), ColumnMeta(_, _, Nullable, col)), n) =>
+          NullabilityMisalignment(n + 1, col, st.typeStack.last, Nullable, NoNulls)
         // N.B. if we had a warning mechanism we could issue a warning for NullableUnknown
       }
 
@@ -174,16 +206,19 @@ object analysis {
 
     lazy val alignmentErrors =
       (parameterAlignmentErrors).sortBy(m => (m.index, m.msg)) ++
-      (columnAlignmentErrors).sortBy(m => (m.index, m.msg))
+        (columnAlignmentErrors).sortBy(m => (m.index, m.msg))
 
     /** Description of each parameter, paired with its errors. */
     lazy val paramDescriptions: List[(String, List[AlignmentError])] = {
       val params: Block =
         parameterAlignment.zipWithIndex.map {
-          case (Ior.Both((j1, n1), ParameterMeta(j2, s2, _, _)), i)  => List(f"P${i+1}%02d", show"${typeName(j1.typeStack.last, n1)}", " → ", j2.show.toUpperCase, show"($s2)")
-          case (Ior.Left((j1, n1)),                              i)  => List(f"P${i+1}%02d", show"${typeName(j1.typeStack.last, n1)}", " → ", "", "")
-          case (Ior.Right(          ParameterMeta(j2, s2, _, _)), i) => List(f"P${i+1}%02d", "",                     " → ", j2.show.toUpperCase, show"($s2)")
-        } .transpose.map(Block(_)).foldLeft(Block(Nil))(_ leftOf1 _).trimLeft(1)
+          case (Ior.Both((j1, n1), ParameterMeta(j2, s2, _, _)), i) =>
+            List(f"P${i + 1}%02d", show"${typeName(j1.typeStack.last, n1)}", " → ", j2.show.toUpperCase, show"($s2)")
+          case (Ior.Left((j1, n1)), i) =>
+            List(f"P${i + 1}%02d", show"${typeName(j1.typeStack.last, n1)}", " → ", "", "")
+          case (Ior.Right(ParameterMeta(j2, s2, _, _)), i) =>
+            List(f"P${i + 1}%02d", "", " → ", j2.show.toUpperCase, show"($s2)")
+        }.transpose.map(Block(_)).foldLeft(Block(Nil))(_ leftOf1 _).trimLeft(1)
       params.toString.linesIterator.toList.zipWithIndex.map { case (show, n) =>
         (show, parameterAlignmentErrors.filter(_.index == n + 1))
       }
@@ -194,10 +229,18 @@ object analysis {
       import pretty._
       val cols: Block =
         columnAlignment.zipWithIndex.map {
-          case (Ior.Both((j1, n1), ColumnMeta(j2, s2, n2, m)), i)  => List(f"C${i+1}%02d", m, j2.show.toUpperCase, show"(${s2.toString})", formatNullability(n2), " → ", typeName(j1.typeStack.last, n1))
-          case (Ior.Left((j1, n1)),                            i)  => List(f"C${i+1}%02d", "",          "", "",                       "",                    " → ", typeName(j1.typeStack.last, n1))
-          case (Ior.Right(          ColumnMeta(j2, s2, n2, m)), i) => List(f"C${i+1}%02d", m, j2.show.toUpperCase, show"(${s2.toString})", formatNullability(n2), " → ", "")
-        } .transpose.map(Block(_)).foldLeft(Block(Nil))(_ leftOf1 _).trimLeft(1)
+          case (Ior.Both((j1, n1), ColumnMeta(j2, s2, n2, m)), i) => List(
+              f"C${i + 1}%02d",
+              m,
+              j2.show.toUpperCase,
+              show"(${s2.toString})",
+              formatNullability(n2),
+              " → ",
+              typeName(j1.typeStack.last, n1))
+          case (Ior.Left((j1, n1)), i) => List(f"C${i + 1}%02d", "", "", "", "", " → ", typeName(j1.typeStack.last, n1))
+          case (Ior.Right(ColumnMeta(j2, s2, n2, m)), i) =>
+            List(f"C${i + 1}%02d", m, j2.show.toUpperCase, show"(${s2.toString})", formatNullability(n2), " → ", "")
+        }.transpose.map(Block(_)).foldLeft(Block(Nil))(_ leftOf1 _).trimLeft(1)
       cols.toString.linesIterator.toList.zipWithIndex.map { case (show, n) =>
         (show, columnAlignmentErrors.filter(_.index == n + 1))
       }
@@ -224,6 +267,5 @@ object analysis {
       case Nullable        => "NULL"
       case NullableUnknown => "NULL?"
     }
-
 
 }

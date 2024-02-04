@@ -4,14 +4,14 @@
 
 package example
 
-import cats.effect.{ IO, IOApp }
+import cats.effect.{IO, IOApp}
 import cats.syntax.all._
 import doobie._, doobie.implicits._
 
 object FragmentExample extends IOApp.Simple {
 
   // Import some convenience constructors.
-  import Fragments.{ in, whereAndOpt }
+  import Fragments.{in, whereAndOpt}
 
   // Country Info
   final case class Info(name: String, code: String, population: Int)
@@ -27,8 +27,8 @@ object FragmentExample extends IOApp.Simple {
     // Our final query
     val q: Fragment =
       fr"SELECT name, code, population FROM country" ++
-      whereAndOpt(f1, f2, f3)                        ++
-      fr"LIMIT $limit"
+        whereAndOpt(f1, f2, f3) ++
+        fr"LIMIT $limit"
 
     // Construct a Query0
     q.query[Info]
@@ -39,7 +39,9 @@ object FragmentExample extends IOApp.Simple {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.postgresql.Driver",
     url = "jdbc:postgresql:world",
-    user = "postgres", password = "password", logHandler = None
+    user = "postgres",
+    password = "password",
+    logHandler = None
   )
 
   // Some quick examples.

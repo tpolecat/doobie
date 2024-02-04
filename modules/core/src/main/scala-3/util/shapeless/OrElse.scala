@@ -23,12 +23,11 @@ package doobie.util.shapeless
  * limitations under the License.
  */
 
-/**
- * Like `Option.orElse` on the type level and like `Either` on the value level.
- *
- * Instead of left and right constructors `OrElse` has primary and secondary implicits that lazily
- * try to resolve first a value of type `A` or otherwise a value of type `B`.
- */
+/** Like `Option.orElse` on the type level and like `Either` on the value level.
+  *
+  * Instead of left and right constructors `OrElse` has primary and secondary implicits that lazily try to resolve first
+  * a value of type `A` or otherwise a value of type `B`.
+  */
 sealed trait OrElse[+A, +B] {
   def fold[C](prim: A => C, sec: B => C): C
   def unify[C >: A](implicit ev: B <:< C): C = fold(a => a, ev)

@@ -6,7 +6,7 @@ package example
 
 import doobie._
 import doobie.implicits._
-import cats.effect.{ IO, IOApp }
+import cats.effect.{IO, IOApp}
 import cats.syntax.all._
 
 // Sketch of a program to run a query and get the output without knowing how many columns will
@@ -14,12 +14,14 @@ import cats.syntax.all._
 object Dynamic extends IOApp.Simple {
 
   type Headers = List[String]
-  type Data    = List[List[Object]]
+  type Data = List[List[Object]]
 
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.postgresql.Driver",
     url = "jdbc:postgresql:world",
-    user = "postgres", password = "password", logHandler = None
+    user = "postgres",
+    password = "password",
+    logHandler = None
   )
 
   // Entry point. Run a query and print the results out.
@@ -38,8 +40,8 @@ object Dynamic extends IOApp.Simple {
   // Exec our PreparedStatement, examining metadata to figure out column count.
   def exec: PreparedStatementIO[(Headers, Data)] =
     for {
-      md   <- HPS.getMetaData // lots of useful info here
-      cols  = (1 to md.getColumnCount).toList
+      md <- HPS.getMetaData // lots of useful info here
+      cols = (1 to md.getColumnCount).toList
       data <- HPS.executeQuery(readAll(cols))
     } yield (cols.map(md.getColumnName), data)
 

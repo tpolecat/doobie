@@ -18,9 +18,10 @@ trait TextPlatform { this: Text.type =>
 
   // Put is available for single-element products.
   given derived[P <: Product, A](
-    using m: Mirror.ProductOf[P],
-          i: m.MirroredElemTypes =:= A,
-          t: Text[A]
+      using
+      m: Mirror.ProductOf[P],
+      i: m.MirroredElemTypes =:= A,
+      t: Text[A]
   ): Text[P] =
     t.contramap(p => i(Tuple.fromProductTyped(p)))
 

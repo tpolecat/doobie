@@ -5,14 +5,14 @@
 package doobie.postgres.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-import org.postgresql.copy.{ CopyIn => PGCopyIn }
+import org.postgresql.copy.{CopyIn => PGCopyIn}
 import org.postgresql.util.ByteStreamWriter
 
 // This file is Auto-generated using FreeGen2.scala
@@ -158,9 +158,11 @@ object copyin { module =>
   val unit: CopyInIO[Unit] = FF.pure[CopyInOp, Unit](())
   def pure[A](a: A): CopyInIO[A] = FF.pure[CopyInOp, A](a)
   def raw[A](f: PGCopyIn => A): CopyInIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyInOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyInOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): CopyInIO[A] = FF.liftF[CopyInOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: CopyInIO[A])(f: Throwable => CopyInIO[A]): CopyInIO[A] = FF.liftF[CopyInOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: CopyInIO[A])(f: Throwable => CopyInIO[A]): CopyInIO[A] =
+    FF.liftF[CopyInOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[CopyInOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[CopyInOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[CopyInOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -173,7 +175,8 @@ object copyin { module =>
   val canceled = FF.liftF[CopyInOp, Unit](Canceled)
   def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]) = FF.liftF[CopyInOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CopyInIO[Future[A]]) = FF.liftF[CopyInOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]) = FF.liftF[CopyInOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]) =
+    FF.liftF[CopyInOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[CopyInOp, Unit](PerformLogging(event))
 
   // Smart constructors for CopyIn-specific operations.
@@ -198,7 +201,8 @@ object copyin { module =>
       override def flatMap[A, B](fa: CopyInIO[A])(f: A => CopyInIO[B]): CopyInIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => CopyInIO[Either[A, B]]): CopyInIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): CopyInIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: CopyInIO[A])(f: Throwable => CopyInIO[A]): CopyInIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: CopyInIO[A])(f: Throwable => CopyInIO[A]): CopyInIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: CopyInIO[FiniteDuration] = module.monotonic
       override def realTime: CopyInIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): CopyInIO[A] = module.suspend(hint)(thunk)
@@ -207,18 +211,18 @@ object copyin { module =>
       override def canceled: CopyInIO[Unit] = module.canceled
       override def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): CopyInIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: CopyInIO[Future[A]]): CopyInIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]): CopyInIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]): CopyInIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidCopyInIO[A : Monoid]: Monoid[CopyInIO[A]] = new Monoid[CopyInIO[A]] {
+
+  implicit def MonoidCopyInIO[A: Monoid]: Monoid[CopyInIO[A]] = new Monoid[CopyInIO[A]] {
     override def empty: CopyInIO[A] = Applicative[CopyInIO].pure(Monoid[A].empty)
     override def combine(x: CopyInIO[A], y: CopyInIO[A]): CopyInIO[A] =
       Applicative[CopyInIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupCopyInIO[A : Semigroup]: Semigroup[CopyInIO[A]] = new Semigroup[CopyInIO[A]] {
+
+  implicit def SemigroupCopyInIO[A: Semigroup]: Semigroup[CopyInIO[A]] = new Semigroup[CopyInIO[A]] {
     override def combine(x: CopyInIO[A], y: CopyInIO[A]): CopyInIO[A] =
       Applicative[CopyInIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

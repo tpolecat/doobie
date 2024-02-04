@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -28,7 +28,7 @@ import java.sql.SQLInput
 import java.sql.SQLXML
 import java.sql.Time
 import java.sql.Timestamp
-import java.sql.{ Array => SqlArray }
+import java.sql.{Array => SqlArray}
 
 // This file is Auto-generated using FreeGen2.scala
 object sqlinput { module =>
@@ -245,9 +245,11 @@ object sqlinput { module =>
   val unit: SQLInputIO[Unit] = FF.pure[SQLInputOp, Unit](())
   def pure[A](a: A): SQLInputIO[A] = FF.pure[SQLInputOp, A](a)
   def raw[A](f: SQLInput => A): SQLInputIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLInputOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[SQLInputOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): SQLInputIO[A] = FF.liftF[SQLInputOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: SQLInputIO[A])(f: Throwable => SQLInputIO[A]): SQLInputIO[A] = FF.liftF[SQLInputOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: SQLInputIO[A])(f: Throwable => SQLInputIO[A]): SQLInputIO[A] =
+    FF.liftF[SQLInputOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[SQLInputOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[SQLInputOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[SQLInputOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -260,7 +262,8 @@ object sqlinput { module =>
   val canceled = FF.liftF[SQLInputOp, Unit](Canceled)
   def onCancel[A](fa: SQLInputIO[A], fin: SQLInputIO[Unit]) = FF.liftF[SQLInputOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: SQLInputIO[Future[A]]) = FF.liftF[SQLInputOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: SQLInputIO[(Future[A], SQLInputIO[Unit])]) = FF.liftF[SQLInputOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: SQLInputIO[(Future[A], SQLInputIO[Unit])]) =
+    FF.liftF[SQLInputOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[SQLInputOp, Unit](PerformLogging(event))
 
   // Smart constructors for SQLInput-specific operations.
@@ -303,7 +306,8 @@ object sqlinput { module =>
       override def flatMap[A, B](fa: SQLInputIO[A])(f: A => SQLInputIO[B]): SQLInputIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => SQLInputIO[Either[A, B]]): SQLInputIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): SQLInputIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: SQLInputIO[A])(f: Throwable => SQLInputIO[A]): SQLInputIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: SQLInputIO[A])(f: Throwable => SQLInputIO[A]): SQLInputIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: SQLInputIO[FiniteDuration] = module.monotonic
       override def realTime: SQLInputIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): SQLInputIO[A] = module.suspend(hint)(thunk)
@@ -312,18 +316,18 @@ object sqlinput { module =>
       override def canceled: SQLInputIO[Unit] = module.canceled
       override def onCancel[A](fa: SQLInputIO[A], fin: SQLInputIO[Unit]): SQLInputIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: SQLInputIO[Future[A]]): SQLInputIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: SQLInputIO[(Future[A], SQLInputIO[Unit])]): SQLInputIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: SQLInputIO[(Future[A], SQLInputIO[Unit])]): SQLInputIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidSQLInputIO[A : Monoid]: Monoid[SQLInputIO[A]] = new Monoid[SQLInputIO[A]] {
+
+  implicit def MonoidSQLInputIO[A: Monoid]: Monoid[SQLInputIO[A]] = new Monoid[SQLInputIO[A]] {
     override def empty: SQLInputIO[A] = Applicative[SQLInputIO].pure(Monoid[A].empty)
     override def combine(x: SQLInputIO[A], y: SQLInputIO[A]): SQLInputIO[A] =
       Applicative[SQLInputIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupSQLInputIO[A : Semigroup]: Semigroup[SQLInputIO[A]] = new Semigroup[SQLInputIO[A]] {
+
+  implicit def SemigroupSQLInputIO[A: Semigroup]: Semigroup[SQLInputIO[A]] = new Semigroup[SQLInputIO[A]] {
     override def combine(x: SQLInputIO[A], y: SQLInputIO[A]): SQLInputIO[A] =
       Applicative[SQLInputIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -346,9 +346,11 @@ object statement { module =>
   val unit: StatementIO[Unit] = FF.pure[StatementOp, Unit](())
   def pure[A](a: A): StatementIO[A] = FF.pure[StatementOp, A](a)
   def raw[A](f: Statement => A): StatementIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[StatementOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[StatementOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): StatementIO[A] = FF.liftF[StatementOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: StatementIO[A])(f: Throwable => StatementIO[A]): StatementIO[A] = FF.liftF[StatementOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: StatementIO[A])(f: Throwable => StatementIO[A]): StatementIO[A] =
+    FF.liftF[StatementOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[StatementOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[StatementOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[StatementOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -361,7 +363,8 @@ object statement { module =>
   val canceled = FF.liftF[StatementOp, Unit](Canceled)
   def onCancel[A](fa: StatementIO[A], fin: StatementIO[Unit]) = FF.liftF[StatementOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: StatementIO[Future[A]]) = FF.liftF[StatementOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: StatementIO[(Future[A], StatementIO[Unit])]) = FF.liftF[StatementOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: StatementIO[(Future[A], StatementIO[Unit])]) =
+    FF.liftF[StatementOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[StatementOp, Unit](PerformLogging(event))
 
   // Smart constructors for Statement-specific operations.
@@ -432,27 +435,29 @@ object statement { module =>
       override def flatMap[A, B](fa: StatementIO[A])(f: A => StatementIO[B]): StatementIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => StatementIO[Either[A, B]]): StatementIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): StatementIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: StatementIO[A])(f: Throwable => StatementIO[A]): StatementIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: StatementIO[A])(f: Throwable => StatementIO[A]): StatementIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: StatementIO[FiniteDuration] = module.monotonic
       override def realTime: StatementIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): StatementIO[A] = module.suspend(hint)(thunk)
       override def forceR[A, B](fa: StatementIO[A])(fb: StatementIO[B]): StatementIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[StatementIO] => StatementIO[A]): StatementIO[A] = module.uncancelable(body)
+      override def uncancelable[A](body: Poll[StatementIO] => StatementIO[A]): StatementIO[A] =
+        module.uncancelable(body)
       override def canceled: StatementIO[Unit] = module.canceled
       override def onCancel[A](fa: StatementIO[A], fin: StatementIO[Unit]): StatementIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: StatementIO[Future[A]]): StatementIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: StatementIO[(Future[A], StatementIO[Unit])]): StatementIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: StatementIO[(Future[A], StatementIO[Unit])]): StatementIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidStatementIO[A : Monoid]: Monoid[StatementIO[A]] = new Monoid[StatementIO[A]] {
+
+  implicit def MonoidStatementIO[A: Monoid]: Monoid[StatementIO[A]] = new Monoid[StatementIO[A]] {
     override def empty: StatementIO[A] = Applicative[StatementIO].pure(Monoid[A].empty)
     override def combine(x: StatementIO[A], y: StatementIO[A]): StatementIO[A] =
       Applicative[StatementIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupStatementIO[A : Semigroup]: Semigroup[StatementIO[A]] = new Semigroup[StatementIO[A]] {
+
+  implicit def SemigroupStatementIO[A: Semigroup]: Semigroup[StatementIO[A]] = new Semigroup[StatementIO[A]] {
     override def combine(x: StatementIO[A], y: StatementIO[A]): StatementIO[A] =
       Applicative[StatementIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -175,9 +175,11 @@ object nclob { module =>
   val unit: NClobIO[Unit] = FF.pure[NClobOp, Unit](())
   def pure[A](a: A): NClobIO[A] = FF.pure[NClobOp, A](a)
   def raw[A](f: NClob => A): NClobIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[NClobOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[NClobOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): NClobIO[A] = FF.liftF[NClobOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: NClobIO[A])(f: Throwable => NClobIO[A]): NClobIO[A] = FF.liftF[NClobOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: NClobIO[A])(f: Throwable => NClobIO[A]): NClobIO[A] =
+    FF.liftF[NClobOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[NClobOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[NClobOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[NClobOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -190,7 +192,8 @@ object nclob { module =>
   val canceled = FF.liftF[NClobOp, Unit](Canceled)
   def onCancel[A](fa: NClobIO[A], fin: NClobIO[Unit]) = FF.liftF[NClobOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: NClobIO[Future[A]]) = FF.liftF[NClobOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]) = FF.liftF[NClobOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]) =
+    FF.liftF[NClobOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[NClobOp, Unit](PerformLogging(event))
 
   // Smart constructors for NClob-specific operations.
@@ -218,7 +221,8 @@ object nclob { module =>
       override def flatMap[A, B](fa: NClobIO[A])(f: A => NClobIO[B]): NClobIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => NClobIO[Either[A, B]]): NClobIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): NClobIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: NClobIO[A])(f: Throwable => NClobIO[A]): NClobIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: NClobIO[A])(f: Throwable => NClobIO[A]): NClobIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: NClobIO[FiniteDuration] = module.monotonic
       override def realTime: NClobIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): NClobIO[A] = module.suspend(hint)(thunk)
@@ -227,18 +231,18 @@ object nclob { module =>
       override def canceled: NClobIO[Unit] = module.canceled
       override def onCancel[A](fa: NClobIO[A], fin: NClobIO[Unit]): NClobIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: NClobIO[Future[A]]): NClobIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]): NClobIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]): NClobIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidNClobIO[A : Monoid]: Monoid[NClobIO[A]] = new Monoid[NClobIO[A]] {
+
+  implicit def MonoidNClobIO[A: Monoid]: Monoid[NClobIO[A]] = new Monoid[NClobIO[A]] {
     override def empty: NClobIO[A] = Applicative[NClobIO].pure(Monoid[A].empty)
     override def combine(x: NClobIO[A], y: NClobIO[A]): NClobIO[A] =
       Applicative[NClobIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupNClobIO[A : Semigroup]: Semigroup[NClobIO[A]] = new Semigroup[NClobIO[A]] {
+
+  implicit def SemigroupNClobIO[A: Semigroup]: Semigroup[NClobIO[A]] = new Semigroup[NClobIO[A]] {
     override def combine(x: NClobIO[A], y: NClobIO[A]): NClobIO[A] =
       Applicative[NClobIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

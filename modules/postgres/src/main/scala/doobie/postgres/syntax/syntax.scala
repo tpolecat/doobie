@@ -15,7 +15,7 @@ import doobie.hi.{HPS, HRS, HC}
 import doobie.free.ConnectionIO
 
 class PostgresMonadErrorOps[M[_], A](ma: M[A])(
-  implicit ev: MonadError[M, Throwable]
+    implicit ev: MonadError[M, Throwable]
 ) {
 
   def onSuccessfulCompletion(handler: => M[A]): M[A] =
@@ -619,7 +619,7 @@ class PostgresMonadErrorOps[M[_], A](ma: M[A])(
 
 trait ToPostgresMonadErrorOps {
   implicit def toPostgresMonadErrorOps[M[_], A](ma: M[A])(
-    implicit ev: MonadError[M, Throwable]
+      implicit ev: MonadError[M, Throwable]
   ): PostgresMonadErrorOps[M, A] =
     new PostgresMonadErrorOps(ma)
 }
@@ -639,69 +639,59 @@ trait ToPostgresExplainOps {
 }
 
 class PostgresExplainQuery0Ops(self: Query0[_]) {
-  /**
-   * Construct a program in
-   * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-   * for the query (i.e., `EXPLAIN` output). The query is not actually executed.
-   */
-  def explain: ConnectionIO[List[String]] =
-    self.inspect { (sql, prepare) =>
-      HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
-  }
 
-  /**
-   * Construct a program in
-   * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-   * for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The
-   * query will be executed, but no results are returned.
-   */
-  def explainAnalyze: ConnectionIO[List[String]] =
-    self.inspect { (sql, prepare) =>
-      HC.prepareStatement(s"EXPLAIN ANALYZE $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
-  }
-}
-
-class PostgresExplainQueryOps[A](self: Query[A, _]) {
-
-  /**
-   * Apply the argument `a` to construct a program in
-   * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-   * for the query (i.e., `EXPLAIN` output). The query is not actually executed.
-   */
-  def explain(a: A): ConnectionIO[List[String]] = {
-    self.inspect(a){ (sql, prepare) =>
-        HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
-    }
-  }
-
-  /**
-   * Apply the argument `a` to construct a program in
-   * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-   * for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The
-   * query will be executed, but no results are returned.
-   */
-  def explainAnalyze(a: A): ConnectionIO[List[String]] =
-    self.inspect(a) { (sql, prepare) =>
-      HC.prepareStatement(s"EXPLAIN ANALYZE $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
-  }
-}
-
-class PostgresExplainUpdate0Ops(self: Update0) {
-  /**
-    * Construct a program in
-    * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-    * for the query (i.e., `EXPLAIN` output). The query is not actually executed.
+  /** Construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query
+    * plan for the query (i.e., `EXPLAIN` output). The query is not actually executed.
     */
   def explain: ConnectionIO[List[String]] =
     self.inspect { (sql, prepare) =>
       HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
     }
 
-  /**
-    * Construct a program in
-    * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-    * for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The
-    * query will be executed, but no results are returned.
+  /** Construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query
+    * plan for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The query will be
+    * executed, but no results are returned.
+    */
+  def explainAnalyze: ConnectionIO[List[String]] =
+    self.inspect { (sql, prepare) =>
+      HC.prepareStatement(s"EXPLAIN ANALYZE $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
+    }
+}
+
+class PostgresExplainQueryOps[A](self: Query[A, _]) {
+
+  /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which
+    * returns the server's query plan for the query (i.e., `EXPLAIN` output). The query is not actually executed.
+    */
+  def explain(a: A): ConnectionIO[List[String]] = {
+    self.inspect(a) { (sql, prepare) =>
+      HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
+    }
+  }
+
+  /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which
+    * returns the server's query plan for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE`
+    * output). The query will be executed, but no results are returned.
+    */
+  def explainAnalyze(a: A): ConnectionIO[List[String]] =
+    self.inspect(a) { (sql, prepare) =>
+      HC.prepareStatement(s"EXPLAIN ANALYZE $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
+    }
+}
+
+class PostgresExplainUpdate0Ops(self: Update0) {
+
+  /** Construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query
+    * plan for the query (i.e., `EXPLAIN` output). The query is not actually executed.
+    */
+  def explain: ConnectionIO[List[String]] =
+    self.inspect { (sql, prepare) =>
+      HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
+    }
+
+  /** Construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query
+    * plan for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The query will be
+    * executed, but no results are returned.
     */
   def explainAnalyze: ConnectionIO[List[String]] =
     self.inspect { (sql, prepare) =>
@@ -711,22 +701,18 @@ class PostgresExplainUpdate0Ops(self: Update0) {
 
 class PostgresExplainUpdateOps[A](self: Update[A]) {
 
-  /**
-    * Apply the argument `a` to construct a program in
-    * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-    * for the query (i.e., `EXPLAIN` output). The query is not actually executed.
+  /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which
+    * returns the server's query plan for the query (i.e., `EXPLAIN` output). The query is not actually executed.
     */
   def explain(a: A): ConnectionIO[List[String]] = {
-    self.inspect(a){ (sql, prepare) =>
+    self.inspect(a) { (sql, prepare) =>
       HC.prepareStatement(s"EXPLAIN $sql")(prepare *> HPS.executeQuery(HRS.build[List, String]))
     }
   }
 
-  /**
-    * Apply the argument `a` to construct a program in
-    * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which returns the server's query plan
-    * for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE` output). The
-    * query will be executed, but no results are returned.
+  /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` which
+    * returns the server's query plan for the query, with a comparison to the actual execution (i.e., `EXPLAIN ANALYZE`
+    * output). The query will be executed, but no results are returned.
     */
   def explainAnalyze(a: A): ConnectionIO[List[String]] =
     self.inspect(a) { (sql, prepare) =>

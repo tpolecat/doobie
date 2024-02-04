@@ -15,8 +15,9 @@ trait ReadPlatform:
 
   // Read for head and tail.
   given readTuple[H, T <: Tuple](
-    using H: Read[H] OrElse MkRead[H],
-          T: => MkRead[T]
+      using
+      H: Read[H] OrElse MkRead[H],
+      T: => MkRead[T]
   ): MkRead[H *: T] = {
     val head = H.unify
 
@@ -28,9 +29,10 @@ trait ReadPlatform:
 
   // Generic Read for products.
   given derived[P <: Product, A](
-    using m: Mirror.ProductOf[P],
-          i: A =:= m.MirroredElemTypes,
-          w: MkRead[A]
+      using
+      m: Mirror.ProductOf[P],
+      i: A =:= m.MirroredElemTypes,
+      w: MkRead[A]
   ): MkRead[P] = {
     val read = w.map(a => m.fromProduct(i(a)))
     MkRead.lift(read)
@@ -43,8 +45,9 @@ trait ReadPlatform:
     new MkRead[Option[Unit]](Nil, (_, _) => Some(()))
 
   given cons1[H, T <: Tuple](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
-          T: => MkRead[Option[T]],
+      using
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: => MkRead[Option[T]]
   ): MkRead[Option[H *: T]] = {
     val head = H.unify
 
@@ -59,8 +62,9 @@ trait ReadPlatform:
   }
 
   given cons2[H, T <: Tuple](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
-          T: => MkRead[Option[T]]
+      using
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: => MkRead[Option[T]]
   ): MkRead[Option[Option[H] *: T]] = {
     val head = H.unify
 
@@ -72,9 +76,10 @@ trait ReadPlatform:
 
   // Generic Read for option of products.
   given readOptionProduct[P <: Product, A](
-    using m: Mirror.ProductOf[P],
-          i: A =:= m.MirroredElemTypes,
-          w: MkRead[Option[A]]
+      using
+      m: Mirror.ProductOf[P],
+      i: A =:= m.MirroredElemTypes,
+      w: MkRead[Option[A]]
   ): MkRead[Option[P]] = {
     val read = w.map(a => a.map(a => m.fromProduct(i(a))))
     MkRead.lift(read)

@@ -4,14 +4,15 @@
 
 package doobie.util
 
-import shapeless.{ HList, HNil, ::, Generic, Lazy, <:!<, OrElse }
-import shapeless.labelled.{ field, FieldType }
+import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
+import shapeless.labelled.{field, FieldType}
 
 trait ReadPlatform extends LowerPriorityRead {
 
   implicit def recordRead[K <: Symbol, H, T <: HList](
-    implicit H: Lazy[Read[H] OrElse MkRead[H]],
-              T: Lazy[MkRead[T]]
+      implicit
+      H: Lazy[Read[H] OrElse MkRead[H]],
+      T: Lazy[MkRead[T]]
   ): MkRead[FieldType[K, H] :: T] = {
     val head = H.value.unify
 
@@ -26,8 +27,9 @@ trait ReadPlatform extends LowerPriorityRead {
 trait LowerPriorityRead extends EvenLower {
 
   implicit def product[H, T <: HList](
-    implicit H: Lazy[Read[H] OrElse MkRead[H]],
-              T: Lazy[MkRead[T]]
+      implicit
+      H: Lazy[Read[H] OrElse MkRead[H]],
+      T: Lazy[MkRead[T]]
   ): MkRead[H :: T] = {
     val head = H.value.unify
 
@@ -51,9 +53,10 @@ trait EvenLower {
     new MkRead[Option[HNil]](Nil, (_, _) => Some(HNil))
 
   implicit def ohcons1[H, T <: HList](
-    implicit H: Lazy[Read[Option[H]] OrElse MkRead[Option[H]]],
-              T: Lazy[MkRead[Option[T]]],
-              N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Lazy[Read[Option[H]] OrElse MkRead[Option[H]]],
+      T: Lazy[MkRead[Option[T]]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkRead[Option[H :: T]] = {
     void(N)
     val head = H.value.unify
@@ -69,8 +72,9 @@ trait EvenLower {
   }
 
   implicit def ohcons2[H, T <: HList](
-    implicit H: Lazy[Read[Option[H]] OrElse MkRead[Option[H]]],
-              T: Lazy[MkRead[Option[T]]]
+      implicit
+      H: Lazy[Read[Option[H]] OrElse MkRead[Option[H]]],
+      T: Lazy[MkRead[Option[T]]]
   ): MkRead[Option[Option[H] :: T]] = {
     val head = H.value.unify
 
@@ -81,10 +85,10 @@ trait EvenLower {
   }
 
   implicit def ogeneric[A, Repr <: HList](
-    implicit G: Generic.Aux[A, Repr],
-              B: Lazy[MkRead[Option[Repr]]]
+      implicit
+      G: Generic.Aux[A, Repr],
+      B: Lazy[MkRead[Option[Repr]]]
   ): MkRead[Option[A]] =
     new MkRead[Option[A]](B.value.gets, B.value.unsafeGet(_, _).map(G.from))
 
 }
-

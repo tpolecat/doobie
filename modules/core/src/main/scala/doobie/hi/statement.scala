@@ -15,10 +15,9 @@ import java.sql.SQLWarning
 
 import scala.Predef.intArrayOps
 
-/**
- * Module of high-level constructors for `StatementIO` actions.
- * @group Modules
- */
+/** Module of high-level constructors for `StatementIO` actions.
+  * @group Modules
+  */
 object statement {
 
   /** @group Batching */

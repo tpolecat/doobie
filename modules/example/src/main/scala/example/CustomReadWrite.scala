@@ -4,27 +4,27 @@
 
 package example
 
- import doobie._, doobie.implicits._
+import doobie._, doobie.implicits._
 
- import java.sql.Date
+import java.sql.Date
 
- object CustomReadWrite {
+object CustomReadWrite {
 
-   final case class PosixTime(time: Long)
+  final case class PosixTime(time: Long)
 
-   // Create our base Meta by invariant mapping an existing one.
-   implicit val LongPosixTimeScalaType: Meta[PosixTime] =
-     Meta[Date].timap(d => PosixTime(d.getTime))(t => new Date(t.time))
+  // Create our base Meta by invariant mapping an existing one.
+  implicit val LongPosixTimeScalaType: Meta[PosixTime] =
+    Meta[Date].timap(d => PosixTime(d.getTime))(t => new Date(t.time))
 
-   // What we just defined
-   val m = Meta[PosixTime]
+  // What we just defined
+  val m = Meta[PosixTime]
 
-   // Free derived read/writes containing atomic types
-   val c1 = Read[(PosixTime, Int, String)]
-   val c2 = Write[(Option[PosixTime], Int, String)]
+  // Free derived read/writes containing atomic types
+  val c1 = Read[(PosixTime, Int, String)]
+  val c2 = Write[(Option[PosixTime], Int, String)]
 
-   // You can now use PosixTime as a column or parameter type (both demonstrated here)
-   def query(lpt: PosixTime): Query0[(String, PosixTime)] =
-     sql"SELECT NAME, DATE FROM FOO WHERE DATE > $lpt".query[(String, PosixTime)]
+  // You can now use PosixTime as a column or parameter type (both demonstrated here)
+  def query(lpt: PosixTime): Query0[(String, PosixTime)] =
+    sql"SELECT NAME, DATE FROM FOO WHERE DATE > $lpt".query[(String, PosixTime)]
 
- }
+}

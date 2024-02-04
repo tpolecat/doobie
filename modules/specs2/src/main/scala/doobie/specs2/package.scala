@@ -7,7 +7,7 @@ package doobie
 package object specs2 {
 
   type Checker[M[_]] = analysisspec.Checker[M]
-  type IOChecker     = analysisspec.IOChecker
+  type IOChecker = analysisspec.IOChecker
   type AnalysisMatchers[M[_]] = analysismatchers.AnalysisMatchers[M]
   type IOAnalysisMatchers = analysismatchers.IOAnalysisMatchers
 

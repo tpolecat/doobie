@@ -6,8 +6,8 @@ package doobie
 
 import cats.~>
 import cats.implicits._
-import cats.effect.{ IO, LiftIO }
-import cats.effect.kernel.{ Async, Poll, Resource, Sync }
+import cats.effect.{IO, LiftIO}
+import cats.effect.kernel.{Async, Poll, Resource, Sync}
 import cats.effect.std.Dispatcher
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -21,7 +21,7 @@ object WeakAsync {
 
   def apply[F[_]](implicit ev: WeakAsync[F]): WeakAsync[F] = ev
 
-  implicit def doobieWeakAsyncForAsync[F[_]](implicit F: Async[F]): WeakAsync[F] = 
+  implicit def doobieWeakAsyncForAsync[F[_]](implicit F: Async[F]): WeakAsync[F] =
     new WeakAsync[F] {
       override val applicative = F.applicative
       override val rootCancelScope = F.rootCancelScope
@@ -42,8 +42,9 @@ object WeakAsync {
     }
 
   /** Create a natural transformation for lifting an `Async` effect `F` into a `WeakAsync` effect `G`
-    * `cats.effect.std.Dispatcher` the trasformation is based on is stateful and requires finalization.
-    * Leaking it from it's resource scope will lead to erorrs at runtime. */
+    * `cats.effect.std.Dispatcher` the trasformation is based on is stateful and requires finalization. Leaking it from
+    * it's resource scope will lead to erorrs at runtime.
+    */
   def liftK[F[_], G[_]](implicit F: Async[F], G: WeakAsync[G]): Resource[F, F ~> G] =
     Dispatcher.parallel[F].map(new Lifter(_))
 

@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -27,7 +27,7 @@ import java.sql.Savepoint
 import java.sql.ShardingKey
 import java.sql.Statement
 import java.sql.Struct
-import java.sql.{ Array => SqlArray }
+import java.sql.{Array => SqlArray}
 import java.util.Properties
 import java.util.concurrent.Executor
 
@@ -374,9 +374,11 @@ object connection { module =>
   val unit: ConnectionIO[Unit] = FF.pure[ConnectionOp, Unit](())
   def pure[A](a: A): ConnectionIO[A] = FF.pure[ConnectionOp, A](a)
   def raw[A](f: Connection => A): ConnectionIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): ConnectionIO[A] = FF.liftF[ConnectionOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] = FF.liftF[ConnectionOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] =
+    FF.liftF[ConnectionOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[ConnectionOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[ConnectionOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[ConnectionOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -389,7 +391,8 @@ object connection { module =>
   val canceled = FF.liftF[ConnectionOp, Unit](Canceled)
   def onCancel[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]) = FF.liftF[ConnectionOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: ConnectionIO[Future[A]]) = FF.liftF[ConnectionOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]) = FF.liftF[ConnectionOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]) =
+    FF.liftF[ConnectionOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[ConnectionOp, Unit](PerformLogging(event))
 
   // Smart constructors for Connection-specific operations.
@@ -426,13 +429,16 @@ object connection { module =>
   def nativeSQL(a: String): ConnectionIO[String] = FF.liftF(NativeSQL(a))
   def prepareCall(a: String): ConnectionIO[CallableStatement] = FF.liftF(PrepareCall(a))
   def prepareCall(a: String, b: Int, c: Int): ConnectionIO[CallableStatement] = FF.liftF(PrepareCall1(a, b, c))
-  def prepareCall(a: String, b: Int, c: Int, d: Int): ConnectionIO[CallableStatement] = FF.liftF(PrepareCall2(a, b, c, d))
+  def prepareCall(a: String, b: Int, c: Int, d: Int): ConnectionIO[CallableStatement] =
+    FF.liftF(PrepareCall2(a, b, c, d))
   def prepareStatement(a: String): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement(a))
   def prepareStatement(a: String, b: Array[Int]): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement1(a, b))
   def prepareStatement(a: String, b: Array[String]): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement2(a, b))
   def prepareStatement(a: String, b: Int): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement3(a, b))
-  def prepareStatement(a: String, b: Int, c: Int): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement4(a, b, c))
-  def prepareStatement(a: String, b: Int, c: Int, d: Int): ConnectionIO[PreparedStatement] = FF.liftF(PrepareStatement5(a, b, c, d))
+  def prepareStatement(a: String, b: Int, c: Int): ConnectionIO[PreparedStatement] =
+    FF.liftF(PrepareStatement4(a, b, c))
+  def prepareStatement(a: String, b: Int, c: Int, d: Int): ConnectionIO[PreparedStatement] =
+    FF.liftF(PrepareStatement5(a, b, c, d))
   def releaseSavepoint(a: Savepoint): ConnectionIO[Unit] = FF.liftF(ReleaseSavepoint(a))
   val rollback: ConnectionIO[Unit] = FF.liftF(Rollback)
   def rollback(a: Savepoint): ConnectionIO[Unit] = FF.liftF(Rollback1(a))
@@ -449,7 +455,8 @@ object connection { module =>
   def setShardingKey(a: ShardingKey): ConnectionIO[Unit] = FF.liftF(SetShardingKey(a))
   def setShardingKey(a: ShardingKey, b: ShardingKey): ConnectionIO[Unit] = FF.liftF(SetShardingKey1(a, b))
   def setShardingKeyIfValid(a: ShardingKey, b: Int): ConnectionIO[Boolean] = FF.liftF(SetShardingKeyIfValid(a, b))
-  def setShardingKeyIfValid(a: ShardingKey, b: ShardingKey, c: Int): ConnectionIO[Boolean] = FF.liftF(SetShardingKeyIfValid1(a, b, c))
+  def setShardingKeyIfValid(a: ShardingKey, b: ShardingKey, c: Int): ConnectionIO[Boolean] =
+    FF.liftF(SetShardingKeyIfValid1(a, b, c))
   def setTransactionIsolation(a: Int): ConnectionIO[Unit] = FF.liftF(SetTransactionIsolation(a))
   def setTypeMap(a: java.util.Map[String, Class[_]]): ConnectionIO[Unit] = FF.liftF(SetTypeMap(a))
   def unwrap[T](a: Class[T]): ConnectionIO[T] = FF.liftF(Unwrap(a))
@@ -464,27 +471,29 @@ object connection { module =>
       override def flatMap[A, B](fa: ConnectionIO[A])(f: A => ConnectionIO[B]): ConnectionIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => ConnectionIO[Either[A, B]]): ConnectionIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): ConnectionIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: ConnectionIO[FiniteDuration] = module.monotonic
       override def realTime: ConnectionIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): ConnectionIO[A] = module.suspend(hint)(thunk)
       override def forceR[A, B](fa: ConnectionIO[A])(fb: ConnectionIO[B]): ConnectionIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[ConnectionIO] => ConnectionIO[A]): ConnectionIO[A] = module.uncancelable(body)
+      override def uncancelable[A](body: Poll[ConnectionIO] => ConnectionIO[A]): ConnectionIO[A] =
+        module.uncancelable(body)
       override def canceled: ConnectionIO[Unit] = module.canceled
       override def onCancel[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]): ConnectionIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: ConnectionIO[Future[A]]): ConnectionIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]): ConnectionIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]): ConnectionIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidConnectionIO[A : Monoid]: Monoid[ConnectionIO[A]] = new Monoid[ConnectionIO[A]] {
+
+  implicit def MonoidConnectionIO[A: Monoid]: Monoid[ConnectionIO[A]] = new Monoid[ConnectionIO[A]] {
     override def empty: ConnectionIO[A] = Applicative[ConnectionIO].pure(Monoid[A].empty)
     override def combine(x: ConnectionIO[A], y: ConnectionIO[A]): ConnectionIO[A] =
       Applicative[ConnectionIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupConnectionIO[A : Semigroup]: Semigroup[ConnectionIO[A]] = new Semigroup[ConnectionIO[A]] {
+
+  implicit def SemigroupConnectionIO[A: Semigroup]: Semigroup[ConnectionIO[A]] = new Semigroup[ConnectionIO[A]] {
     override def combine(x: ConnectionIO[A], y: ConnectionIO[A]): ConnectionIO[A] =
       Applicative[ConnectionIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-
