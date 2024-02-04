@@ -153,10 +153,10 @@ class FreeGen2(
 
     // Case clause mapping this constructor to the corresponding primitive action
     def prim(sname: String): String =
-      (if (cargs.isEmpty)
-         s"case $cname => primitive(_.$mname)"
-       else
-         s"case $cname($args) => primitive(_.$mname($args))")
+      if (cargs.isEmpty)
+        s"case $cname => primitive(_.$mname)"
+      else
+        s"case $cname($args) => primitive(_.$mname($args))"
 
     // Smart constructor
     def lifted(ioname: String): String =
@@ -167,18 +167,25 @@ class FreeGen2(
       }
 
     def visitor: String =
-      if (cargs.isEmpty) s"|      def $mname: F[$ret]"
-      else s"|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret]"
+      if (cargs.isEmpty)
+        s"|      def $mname: F[$ret]"
+      else
+        s"|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret]"
 
     def stub: String =
-      if (cargs.isEmpty) s"""|      def $mname: F[$ret] = sys.error("Not implemented: $mname")"""
-      else s"""|      def $mname$ctparams(${cargs.mkString(
-          ", ")}): F[$ret] = sys.error("Not implemented: $mname$ctparams(${cparams.mkString(", ")})")"""
+      if (cargs.isEmpty)
+        s"""|      def $mname: F[$ret] = sys.error("Not implemented: $mname")"""
+      else {
+        val cargsStr = cargs.mkString(", ")
+        val cparamsStr = cparams.mkString(", ")
+        s"""|      def $mname$ctparams($cargsStr): F[$ret] = sys.error("Not implemented: $mname$ctparams($cparamsStr)")"""
+      }
 
     def kleisliImpl(oname: String): String =
-      if (cargs.isEmpty) s"|    override def $mname: Kleisli[M, $oname, $ret] = primitive(_.$mname)"
-      else s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
-
+      if (cargs.isEmpty)
+        s"|    override def $mname: Kleisli[M, $oname, $ret] = primitive(_.$mname)"
+      else
+        s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
   }
 
   // This class, plus any superclasses and interfaces, "all the way up"
@@ -495,7 +502,17 @@ class FreeGen2(
   }
 
   // template for a kleisli interpreter
-  def kleisliInterpreter: String =
+  def kleisliInterpreter: String = {
+    val extraImports =
+      managed.map(ClassTag(_))
+        .flatMap { c => imports(kleisliImportExcludes ++ allImportExcludes)(c) }
+        .distinct.sorted.mkString("\n")
+
+    val kleisliInterpreterEmbedMatch =
+      managed.map(_.getSimpleName)
+        .map { n => s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))" }
+        .mkString("\n      ")
+
     s"""
        |package $pkg
        |
@@ -510,8 +527,7 @@ class FreeGen2(
        |import scala.concurrent.duration.FiniteDuration
        |
        |// Types referenced in the JDBC API
-       |${managed.map(ClassTag(_)).flatMap(c =>
-        imports(kleisliImportExcludes ++ allImportExcludes)(c)).distinct.sorted.mkString("\n")}
+       |$extraImports
        |
        |// Algebras and free monads thereof referenced by our interpreter.
        |${managed.map(_.getSimpleName).map(c => s"import ${pkg}.${c.toLowerCase}.{ ${c}IO, ${c}Op }").mkString("\n")}
@@ -570,8 +586,7 @@ class FreeGen2(
        |  )
        |  def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
        |    e match {
-       |      ${managed.map(_.getSimpleName).map(n =>
-        s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))").mkString("\n      ")}
+       |      $kleisliInterpreterEmbedMatch
        |    }
        |
        |  // Interpreters
@@ -579,6 +594,7 @@ class FreeGen2(
        |
        |}
        |""".trim.stripMargin
+  }
 
   def gen(base: File): Seq[java.io.File] = {
     import java.io._
