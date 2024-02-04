@@ -4,30 +4,30 @@ import scala.annotation.nowarn
 import scala.sys.process._
 
 // Library versions all in one place, for convenience and sanity.
-lazy val catsVersion          = "2.10.0"
-lazy val catsEffectVersion    = "3.5.4"
-lazy val circeVersion         = "0.14.6"
-lazy val fs2Version           = "3.9.4"
-lazy val h2Version            = "1.4.200"
-lazy val hikariVersion        = "5.1.0" // N.B. Hikari v4 introduces a breaking change via slf4j v2
+lazy val catsVersion = "2.10.0"
+lazy val catsEffectVersion = "3.5.4"
+lazy val circeVersion = "0.14.6"
+lazy val fs2Version = "3.9.4"
+lazy val h2Version = "1.4.200"
+lazy val hikariVersion = "5.1.0" // N.B. Hikari v4 introduces a breaking change via slf4j v2
 lazy val kindProjectorVersion = "0.11.2"
-lazy val log4catsVersion      = "2.6.0"
-lazy val postGisVersion       = "2023.1.0"
-lazy val postgresVersion      = "42.7.1"
-lazy val refinedVersion       = "0.11.1"
-lazy val scalaCheckVersion    = "1.15.4"
-lazy val scalatestVersion     = "3.2.18"
-lazy val munitVersion         = "1.0.0-M11"
-lazy val shapelessVersion     = "2.3.10"
-lazy val silencerVersion      = "1.7.1"
-lazy val specs2Version        = "4.20.5"
-lazy val scala212Version      = "2.12.19"
-lazy val scala213Version      = "2.13.13"
-lazy val scala3Version       = "3.3.3"
+lazy val log4catsVersion = "2.6.0"
+lazy val postGisVersion = "2023.1.0"
+lazy val postgresVersion = "42.7.1"
+lazy val refinedVersion = "0.11.1"
+lazy val scalaCheckVersion = "1.15.4"
+lazy val scalatestVersion  = "3.2.18"
+lazy val munitVersion = "1.0.0-M11"
+lazy val shapelessVersion = "2.3.10"
+lazy val silencerVersion = "1.7.1"
+lazy val specs2Version = "4.20.5"
+lazy val scala212Version = "2.12.19"
+lazy val scala213Version = "2.13.13"
+lazy val scala3Version = "3.3.3"
 // scala-steward:off
-lazy val slf4jVersion         = "1.7.36"
+lazy val slf4jVersion = "1.7.36"
 // scala-steward:on
-lazy val weaverVersion        = "0.8.4"
+lazy val weaverVersion = "0.8.4"
 
 // Basic versioning and publishing stuff
 ThisBuild / tlBaseVersion := "1.0"
@@ -40,54 +40,57 @@ ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 ThisBuild / githubWorkflowBuildPreamble ++= Seq(
   WorkflowStep.Run(
     commands = List("docker-compose up -d"),
-    name = Some("Start up Postgres"),
+    name = Some("Start up Postgres")
   ),
   WorkflowStep.Sbt(
     commands = List("headerCheckAll"),
-    name = Some("Check Headers"),
-  ),
+    name = Some("Check Headers")
+  )
 )
 ThisBuild / githubWorkflowBuild := {
   val current = (ThisBuild / githubWorkflowBuild).value
   current.updated(0, WorkflowStep.Sbt(List("freeGen2", "test"), name = Some("Test")))
 }
 ThisBuild / githubWorkflowBuildPostamble ++= Seq(
-    WorkflowStep.Sbt(
-      commands = List("checkGitNoUncommittedChanges"),
-      name = Some(s"Check there are no uncommitted changes in git (to catch generated files that weren't committed)"),
-    ),
-    WorkflowStep.Sbt(
+  WorkflowStep.Sbt(
+    commands = List("checkGitNoUncommittedChanges"),
+    name = Some(s"Check there are no uncommitted changes in git (to catch generated files that weren't committed)")
+  ),
+  WorkflowStep.Sbt(
     commands = List("docs/makeSite"),
     name = Some(s"Check Doc Site ($scala213Version only)"),
-    cond = Some(s"matrix.scala == '$scala213Version'"),
+    cond = Some(s"matrix.scala == '$scala213Version'")
   )
 )
 
-ThisBuild / mergifyPrRules += MergifyPrRule(name = "merge-when-ci-pass", conditions = githubWorkflowGeneratedCI.value.flatMap {
-  case job if mergifyRequiredJobs.value.contains(job.id) =>
-    val buildSuccesses = for {
-      os <- job.oses
-      scalaVer <- job.scalas
-      javaSpec <- job.javas
-    } yield MergifyCondition.Custom(s"status-success=${job.name} ($os, $scalaVer, ${javaSpec.render})")
-    buildSuccesses :+ MergifyCondition.Custom("label=merge-on-build-success")
-  case _ => Nil
-}.toList, actions = List(MergifyAction.Merge()))
-
+ThisBuild / mergifyPrRules += MergifyPrRule(
+  name = "merge-when-ci-pass",
+  conditions = githubWorkflowGeneratedCI.value.flatMap {
+    case job if mergifyRequiredJobs.value.contains(job.id) =>
+      val buildSuccesses = for {
+        os <- job.oses
+        scalaVer <- job.scalas
+        javaSpec <- job.javas
+      } yield MergifyCondition.Custom(s"status-success=${job.name} ($os, $scalaVer, ${javaSpec.render})")
+      buildSuccesses :+ MergifyCondition.Custom("label=merge-on-build-success")
+    case _ => Nil
+  }.toList,
+  actions = List(MergifyAction.Merge())
+)
 
 // This is used in a couple places. Might be nice to separate these things out.
 lazy val postgisDep = "net.postgis" % "postgis-jdbc" % postGisVersion
 
 lazy val compilerFlags = Seq(
   Compile / console / scalacOptions ++= Seq(
-    "-Ydelambdafy:inline",    // http://fs2.io/faq.html
+    "-Ydelambdafy:inline" // http://fs2.io/faq.html
   ),
   Compile / doc / scalacOptions --= Seq(
     "-Xfatal-warnings"
   ),
   Test / scalacOptions --= Seq(
     "-Xfatal-warnings"
-  ),
+  )
 //  scalacOptions ++= Seq(
 //    "-Xsource:3"
 //  )
@@ -100,40 +103,41 @@ lazy val buildSettings = Seq(
 
 lazy val commonSettings =
   compilerFlags ++
-  Seq(
+    Seq(
+      // These sbt-header settings can't be set in ThisBuild for some reason
+      headerMappings := headerMappings.value + (HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment),
+      headerLicense := Some(HeaderLicense.Custom(
+        """|Copyright (c) 2013-2020 Rob Norris and Contributors
+           |This software is licensed under the MIT License (MIT).
+           |For more information see LICENSE or https://opensource.org/licenses/MIT
+           |""".stripMargin
+      )),
 
-    // These sbt-header settings can't be set in ThisBuild for some reason
-    headerMappings := headerMappings.value + (HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment),
-    headerLicense  := Some(HeaderLicense.Custom(
-      """|Copyright (c) 2013-2020 Rob Norris and Contributors
-         |This software is licensed under the MIT License (MIT).
-         |For more information see LICENSE or https://opensource.org/licenses/MIT
-         |""".stripMargin
-    )),
+      // Scaladoc options
+      Compile / doc / scalacOptions ++= Seq(
+        "-groups",
+        "-sourcepath",
+        (LocalRootProject / baseDirectory).value.getAbsolutePath,
+        "-doc-source-url",
+        "https://github.com/tpolecat/doobie/blob/v" + version.value + "€{FILE_PATH}.scala"
+      ),
 
-    // Scaladoc options
-    Compile / doc / scalacOptions ++= Seq(
-      "-groups",
-      "-sourcepath", (LocalRootProject / baseDirectory).value.getAbsolutePath,
-      "-doc-source-url", "https://github.com/tpolecat/doobie/blob/v" + version.value + "€{FILE_PATH}.scala"
-    ),
+      // Kind Projector (Scala 2 only)
+      libraryDependencies ++= Seq(
+        compilerPlugin("org.typelevel" %% "kind-projector" % "0.13.3" cross CrossVersion.full)
+      ).filterNot(_ => tlIsScala3.value),
 
-    // Kind Projector (Scala 2 only)
-    libraryDependencies ++= Seq(
-      compilerPlugin("org.typelevel" %% "kind-projector" % "0.13.3" cross CrossVersion.full),
-    ).filterNot(_ => tlIsScala3.value),
+      // MUnit
+      libraryDependencies ++= Seq(
+        "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4" % Test,
+        "org.typelevel" %% "munit-cats-effect-3" % "1.0.7" % Test,
+        "org.typelevel" %% "cats-effect-testkit" % catsEffectVersion % Test
+      ),
+      testFrameworks += new TestFramework("munit.Framework"),
 
-    // MUnit
-    libraryDependencies ++= Seq(
-      "org.typelevel"     %% "scalacheck-effect-munit" % "1.0.4"  % Test,
-      "org.typelevel"     %% "munit-cats-effect-3"     % "1.0.7" % Test,
-      "org.typelevel"     %% "cats-effect-testkit"     % catsEffectVersion % Test,
-    ),
-    testFrameworks += new TestFramework("munit.Framework"),
-
-    // For some reason tests started hanging with docker-compose so let's disable parallelism.
-    Test / parallelExecution := false,
-  )
+      // For some reason tests started hanging with docker-compose so let's disable parallelism.
+      Test / parallelExecution := false
+    )
 
 lazy val doobieSettings = buildSettings ++ commonSettings
 
@@ -144,7 +148,8 @@ lazy val doobie = project.in(file("."))
     checkGitNoUncommittedChanges := {
       val gitDiffOutput = "git diff".!!
       if (gitDiffOutput.nonEmpty) {
-        throw new Error(s"There are uncommitted changes in git. Perhaps some generated file from FreeGen2 were not committed?\n$gitDiffOutput")
+        throw new Error(
+          s"There are uncommitted changes in git. Perhaps some generated file from FreeGen2 were not committed?\n$gitDiffOutput")
       }
     }
   )
@@ -178,14 +183,14 @@ lazy val free = project
     scalacOptions += "-Yno-predef",
     scalacOptions -= "-Xfatal-warnings", // the only reason this project exists
     libraryDependencies ++= Seq(
-      "co.fs2"         %% "fs2-core"    % fs2Version,
-      "org.typelevel"  %% "cats-core"   % catsVersion,
-      "org.typelevel"  %% "cats-free"   % catsVersion,
-      "org.typelevel"  %% "cats-effect" % catsEffectVersion,
-    ) ++Seq(
-      scalaOrganization.value %  "scala-reflect" % scalaVersion.value, // required for macros
+      "co.fs2" %% "fs2-core" % fs2Version,
+      "org.typelevel" %% "cats-core" % catsVersion,
+      "org.typelevel" %% "cats-free" % catsVersion,
+      "org.typelevel" %% "cats-effect" % catsEffectVersion
+    ) ++ Seq(
+      scalaOrganization.value % "scala-reflect" % scalaVersion.value // required for macros
     ).filterNot(_ => tlIsScala3.value),
-    freeGen2Dir     := (Compile / scalaSource).value / "doobie" / "free",
+    freeGen2Dir := (Compile / scalaSource).value / "doobie" / "free",
     freeGen2Package := "doobie.free",
     freeGen2Classes := {
       import java.sql._
@@ -207,7 +212,7 @@ lazy val free = project
       )
     },
     freeGen2AllImportExcludes := Set[Class[_]](
-      classOf[java.util.Map[_, _]],
+      classOf[java.util.Map[_, _]]
     ),
     freeGen2KleisliInterpreterImportExcludes := Set[Class[_]](
       classOf[java.sql.DriverPropertyInfo],
@@ -215,7 +220,6 @@ lazy val free = project
       classOf[java.io.OutputStream]
     )
   )
-
 
 lazy val core = project
   .in(file("modules/core"))
@@ -226,10 +230,10 @@ lazy val core = project
     name := "doobie-core",
     description := "Pure functional JDBC layer for Scala.",
     libraryDependencies ++= Seq(
-      "com.chuusai"    %% "shapeless" % shapelessVersion,
+      "com.chuusai" %% "shapeless" % shapelessVersion
     ).filterNot(_ => tlIsScala3.value) ++ Seq(
-      "org.tpolecat"   %% "typename"  % "1.1.0",
-      "com.h2database" %  "h2"        % h2Version % "test",
+      "org.tpolecat" %% "typename" % "1.1.0",
+      "com.h2database" % "h2" % h2Version % "test"
     ),
     scalacOptions += "-Yno-predef",
     Compile / unmanagedSourceDirectories += {
@@ -245,7 +249,8 @@ lazy val core = project
       outDir.mkdirs
       val v = version.value
       val t = System.currentTimeMillis
-      IO.write(outFile,
+      IO.write(
+        outFile,
         s"""|package doobie
             |
             |/** Auto-generated build information. */
@@ -255,7 +260,8 @@ lazy val core = project
             |  /** Build date (${new java.util.Date(t)}). */
             |  val date    = new java.util.Date(${t}L)
             |}
-            |""".stripMargin)
+            |""".stripMargin
+      )
       Seq(outFile)
     }.taskValue
   )
@@ -279,7 +285,7 @@ lazy val example = project
   .dependsOn(core, postgres, specs2, scalatest, hikari, h2)
   .settings(
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io"     % fs2Version
+      "co.fs2" %% "fs2-io" % fs2Version
     )
   )
 
@@ -290,15 +296,15 @@ lazy val postgres = project
   .settings(doobieSettings)
   .settings(freeGen2Settings)
   .settings(
-    name  := "doobie-postgres",
+    name := "doobie-postgres",
     description := "Postgres support for doobie.",
     libraryDependencies ++= Seq(
-      "co.fs2"         %% "fs2-io"     % fs2Version,
-      "org.postgresql" %  "postgresql" % postgresVersion,
+      "co.fs2" %% "fs2-io" % fs2Version,
+      "org.postgresql" % "postgresql" % postgresVersion,
       postgisDep % "provided"
     ),
     scalacOptions -= "-Xfatal-warnings", // we need to do deprecated things
-    freeGen2Dir     := (Compile / scalaSource).value / "doobie" / "postgres" / "free",
+    freeGen2Dir := (Compile / scalaSource).value / "doobie" / "postgres" / "free",
     freeGen2Package := "doobie.postgres.free",
     freeGen2Classes := {
       List[Class[_]](
@@ -311,19 +317,19 @@ lazy val postgres = project
       )
     },
     freeGen2Renames ++= Map(
-      classOf[org.postgresql.copy.CopyDual]     -> "PGCopyDual",
-      classOf[org.postgresql.copy.CopyIn]       -> "PGCopyIn",
-      classOf[org.postgresql.copy.CopyManager]  -> "PGCopyManager",
-      classOf[org.postgresql.copy.CopyOut]      -> "PGCopyOut",
+      classOf[org.postgresql.copy.CopyDual] -> "PGCopyDual",
+      classOf[org.postgresql.copy.CopyIn] -> "PGCopyIn",
+      classOf[org.postgresql.copy.CopyManager] -> "PGCopyManager",
+      classOf[org.postgresql.copy.CopyOut] -> "PGCopyOut"
     ),
     freeGen2AllImportExcludes := Set[Class[_]](
-      classOf[java.util.Map[_, _]],
+      classOf[java.util.Map[_, _]]
     ),
     freeGen2KleisliInterpreterImportExcludes := Set[Class[_]](
       classOf[java.sql.Array],
       classOf[org.postgresql.copy.CopyDual]
     ),
-      initialCommands := """
+    initialCommands := """
       import cats._, cats.data._, cats.implicits._, cats.effect._
       import doobie._, doobie.implicits._
       import doobie.postgres._, doobie.postgres.implicits._
@@ -344,11 +350,11 @@ lazy val `postgres-circe` = project
   .dependsOn(core, postgres)
   .settings(doobieSettings)
   .settings(
-    name  := "doobie-postgres-circe",
+    name := "doobie-postgres-circe",
     description := "Postgres circe support for doobie.",
     libraryDependencies ++= Seq(
-      "io.circe"    %% "circe-core"    % circeVersion,
-      "io.circe"    %% "circe-parser"  % circeVersion
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
     )
   )
 
@@ -358,9 +364,9 @@ lazy val h2 = project
   .settings(doobieSettings)
   .dependsOn(core % "compile->compile;test->test")
   .settings(
-    name  := "doobie-h2",
+    name := "doobie-h2",
     description := "H2 support for doobie.",
-    libraryDependencies += "com.h2database" % "h2"  % h2Version,
+    libraryDependencies += "com.h2database" % "h2" % h2Version,
     scalacOptions -= "-Xfatal-warnings" // we need to do deprecated things
   )
 
@@ -370,11 +376,11 @@ lazy val `h2-circe` = project
   .dependsOn(core, h2)
   .settings(doobieSettings)
   .settings(
-    name  := "doobie-h2-circe",
+    name := "doobie-h2-circe",
     description := "h2 circe support for doobie.",
     libraryDependencies ++= Seq(
-      "io.circe"    %% "circe-core"    % circeVersion,
-      "io.circe"    %% "circe-parser"  % circeVersion
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
     )
   )
 
@@ -388,11 +394,11 @@ lazy val hikari = project
     name := "doobie-hikari",
     description := "Hikari support for doobie.",
     libraryDependencies ++= Seq(
-      //needs to be excluded, otherwise coursier may resolve slf4j-api 2 if > Java 11
-      "com.zaxxer"     % "HikariCP"   % hikariVersion exclude("org.slf4j", "slf4j-api"),
-      "com.h2database" % "h2"         % h2Version      % "test",
-      "org.slf4j"      % "slf4j-api"  % slf4jVersion,
-      "org.slf4j"      % "slf4j-nop"  % slf4jVersion   % "test"
+      // needs to be excluded, otherwise coursier may resolve slf4j-api 2 if > Java 11
+      "com.zaxxer" % "HikariCP" % hikariVersion exclude ("org.slf4j", "slf4j-api"),
+      "com.h2database" % "h2" % h2Version % "test",
+      "org.slf4j" % "slf4j-api" % slf4jVersion,
+      "org.slf4j" % "slf4j-nop" % slf4jVersion % "test"
     )
   )
 
@@ -417,8 +423,8 @@ lazy val scalatest = project
     name := s"doobie-scalatest",
     description := "Scalatest support for doobie.",
     libraryDependencies ++= Seq(
-      "org.scalatest"  %% "scalatest" % scalatestVersion,
-      "com.h2database" %  "h2"        % h2Version % "test"
+      "org.scalatest" %% "scalatest" % scalatestVersion,
+      "com.h2database" % "h2" % h2Version % "test"
     )
   )
 
@@ -432,8 +438,8 @@ lazy val munit = project
     description := "MUnit support for doobie.",
     testFrameworks += new TestFramework("munit.Framework"),
     libraryDependencies ++= Seq(
-      "org.scalameta"   %% "munit" % munitVersion,
-      "com.h2database"  %  "h2"    % h2Version % "test"
+      "org.scalameta" %% "munit" % munitVersion,
+      "com.h2database" % "h2" % h2Version % "test"
     )
   )
 
@@ -448,7 +454,7 @@ lazy val weaver = project
     testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
     libraryDependencies ++= Seq(
       "com.disneystreaming" %% "weaver-cats" % weaverVersion,
-      "com.h2database"  %  "h2"    % h2Version % "test"
+      "com.h2database" % "h2" % h2Version % "test"
     )
   )
 
@@ -471,45 +477,41 @@ lazy val docs = project
   .settings(doobieSettings)
   .settings(
     scalacOptions := Nil,
-
     libraryDependencies ++= Seq(
-      "io.circe"    %% "circe-core"    % circeVersion,
-      "io.circe"    %% "circe-generic" % circeVersion,
-      "io.circe"    %% "circe-parser"  % circeVersion,
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
     ),
     Test / fork := true,
 
     // postgis is `provided` dependency for users, and section from book of doobie needs it
     libraryDependencies += postgisDep,
-
-    git.remoteRepo     := "git@github.com:tpolecat/doobie.git",
-    ghpagesNoJekyll    := true,
-    publish / skip     := true,
-    paradoxTheme       := Some(builtinParadoxTheme("generic")),
-    version            := version.value.takeWhile(_ != '+'), // strip off the +3-f22dca22+20191110-1520-SNAPSHOT business
+    git.remoteRepo := "git@github.com:tpolecat/doobie.git",
+    ghpagesNoJekyll := true,
+    publish / skip := true,
+    paradoxTheme := Some(builtinParadoxTheme("generic")),
+    version := version.value.takeWhile(_ != '+'), // strip off the +3-f22dca22+20191110-1520-SNAPSHOT business
     paradoxProperties ++= Map(
-      "scala-versions"           -> {
+      "scala-versions" -> {
         val crossVersions = (core / crossScalaVersions).value.flatMap(CrossVersion.partialVersion)
         val scala2Versions = crossVersions.filter(_._1 == 2).map(_._2).mkString("2.", "/", "") // 2.12/13
         val scala3 = crossVersions.find(_._1 == 3).map(_ => "3") // 3
         List(Some(scala2Versions), scala3).flatten.filter(_.nonEmpty).mkString(" and ") // 2.12/13 and 3
       },
-      "org"                      -> organization.value,
-      "scala.binary.version"     -> CrossVersion.binaryScalaVersion(scalaVersion.value),
-      "version"                  -> version.value,
-      "catsVersion"              -> catsVersion,
-      "fs2Version"               -> fs2Version,
-      "shapelessVersion"         -> shapelessVersion,
-      "h2Version"                -> h2Version,
-      "postgresVersion"          -> postgresVersion,
-      "scalaVersion"             -> scalaVersion.value,
+      "org" -> organization.value,
+      "scala.binary.version" -> CrossVersion.binaryScalaVersion(scalaVersion.value),
+      "version" -> version.value,
+      "catsVersion" -> catsVersion,
+      "fs2Version" -> fs2Version,
+      "shapelessVersion" -> shapelessVersion,
+      "h2Version" -> h2Version,
+      "postgresVersion" -> postgresVersion,
+      "scalaVersion" -> scalaVersion.value
     ),
-
     mdocIn := baseDirectory.value / "src" / "main" / "mdoc",
     Compile / paradox / sourceDirectory := mdocOut.value,
-    makeSite := makeSite.dependsOn(mdoc.toTask("")).value,
+    makeSite := makeSite.dependsOn(mdoc.toTask("")).value
   )
-
 
 lazy val refined = project
   .in(file("modules/refined"))
@@ -520,9 +522,10 @@ lazy val refined = project
     name := "doobie-refined",
     description := "Refined support for doobie.",
     libraryDependencies ++= Seq(
-      "eu.timepit"     %% "refined" % refinedVersion,
-      "com.h2database" %  "h2"      % h2Version       % "test"
+      "eu.timepit" %% "refined" % refinedVersion,
+      "com.h2database" % "h2" % h2Version % "test"
     )
   )
 
-lazy val checkGitNoUncommittedChanges = taskKey[Unit]("Check git working tree is clean (no uncommitted changes) due to generated code not being committed")
+lazy val checkGitNoUncommittedChanges =
+  taskKey[Unit]("Check git working tree is clean (no uncommitted changes) due to generated code not being committed")
