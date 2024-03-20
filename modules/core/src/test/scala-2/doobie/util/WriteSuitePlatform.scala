@@ -9,13 +9,12 @@ import shapeless.record._
 
 import scala.annotation.nowarn
 
-
 trait WriteSuitePlatform { self: munit.FunSuite =>
   import doobie.generic.auto._
 
   test("Write should exist for shapeless record types") {
     type DL = (Double, Long)
-    type A  = Record.`'foo -> Int, 'bar -> String, 'baz -> DL, 'quz -> Woozle`.T
+    type A = Record.`'foo -> Int, 'bar -> String, 'baz -> DL, 'quz -> Woozle`.T
     Write[A]
     Write[(A, A)]
   }: @nowarn("msg=.*DL is never used.*")

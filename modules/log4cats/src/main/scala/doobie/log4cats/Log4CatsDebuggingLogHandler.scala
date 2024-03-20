@@ -8,13 +8,12 @@ import doobie.LogHandler
 import doobie.util.log._
 import org.typelevel.log4cats._
 
-/**
- * A LogHandler that writes a default format to a log4cats MessageLogger.
- * This is provided for debugging purposes and is not intended for production use, because it could log sensitive data.
- *
- * @group Constructors
- */
-class Log4CatsDebuggingLogHandler[F[_]](logger: MessageLogger[F]) extends LogHandler[F]{
+/** A LogHandler that writes a default format to a log4cats MessageLogger. This is provided for debugging purposes and
+  * is not intended for production use, because it could log sensitive data.
+  *
+  * @group Constructors
+  */
+class Log4CatsDebuggingLogHandler[F[_]](logger: MessageLogger[F]) extends LogHandler[F] {
   override def run(logEvent: LogEvent): F[Unit] = logEvent match {
     case Success(s, a, l, e1, e2) =>
       logger.info(

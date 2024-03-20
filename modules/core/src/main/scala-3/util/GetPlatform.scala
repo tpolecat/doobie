@@ -10,9 +10,10 @@ trait GetPlatform:
 
   // Get is available for single-element products.
   given x[P <: Product, A](
-    using p: Mirror.ProductOf[P],
-          i: p.MirroredElemTypes =:= (A *: EmptyTuple),
-          g: Get[A],
+      using
+      p: Mirror.ProductOf[P],
+      i: p.MirroredElemTypes =:= (A *: EmptyTuple),
+      g: Get[A]
   ): MkGet[P] = {
     val get = g.map(a => p.fromProduct(a *: EmptyTuple))
     MkGet.lift(get)

@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -255,7 +255,8 @@ object databasemetadata { module =>
     final case class RaiseError[A](e: Throwable) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raiseError(e)
     }
-    final case class HandleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A]) extends DatabaseMetaDataOp[A] {
+    final case class HandleErrorWith[A](fa: DatabaseMetaDataIO[A], f: Throwable => DatabaseMetaDataIO[A])
+        extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa)(f)
     }
     case object Monotonic extends DatabaseMetaDataOp[FiniteDuration] {
@@ -285,7 +286,8 @@ object databasemetadata { module =>
     case class FromFuture[A](fut: DatabaseMetaDataIO[Future[A]]) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFuture(fut)
     }
-    case class FromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]) extends DatabaseMetaDataOp[A] {
+    case class FromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])])
+        extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
     }
     case class PerformLogging(event: LogEvent) extends DatabaseMetaDataOp[Unit] {
@@ -320,7 +322,8 @@ object databasemetadata { module =>
     final case class GetAttributes(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getAttributes(a, b, c, d)
     }
-    final case class GetBestRowIdentifier(a: String, b: String, c: String, d: Int, e: Boolean) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetBestRowIdentifier(a: String, b: String, c: String, d: Int, e: Boolean)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getBestRowIdentifier(a, b, c, d, e)
     }
     case object GetCatalogSeparator extends DatabaseMetaDataOp[String] {
@@ -335,7 +338,8 @@ object databasemetadata { module =>
     case object GetClientInfoProperties extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getClientInfoProperties
     }
-    final case class GetColumnPrivileges(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetColumnPrivileges(a: String, b: String, c: String, d: String)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getColumnPrivileges(a, b, c, d)
     }
     final case class GetColumns(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
@@ -344,7 +348,8 @@ object databasemetadata { module =>
     case object GetConnection extends DatabaseMetaDataOp[Connection] {
       def visit[F[_]](v: Visitor[F]) = v.getConnection
     }
-    final case class GetCrossReference(a: String, b: String, c: String, d: String, e: String, f: String) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetCrossReference(a: String, b: String, c: String, d: String, e: String, f: String)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getCrossReference(a, b, c, d, e, f)
     }
     case object GetDatabaseMajorVersion extends DatabaseMetaDataOp[Int] {
@@ -380,7 +385,8 @@ object databasemetadata { module =>
     case object GetExtraNameCharacters extends DatabaseMetaDataOp[String] {
       def visit[F[_]](v: Visitor[F]) = v.getExtraNameCharacters
     }
-    final case class GetFunctionColumns(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetFunctionColumns(a: String, b: String, c: String, d: String)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getFunctionColumns(a, b, c, d)
     }
     final case class GetFunctions(a: String, b: String, c: String) extends DatabaseMetaDataOp[ResultSet] {
@@ -392,7 +398,8 @@ object databasemetadata { module =>
     final case class GetImportedKeys(a: String, b: String, c: String) extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getImportedKeys(a, b, c)
     }
-    final case class GetIndexInfo(a: String, b: String, c: String, d: Boolean, e: Boolean) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetIndexInfo(a: String, b: String, c: String, d: Boolean, e: Boolean)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getIndexInfo(a, b, c, d, e)
     }
     case object GetJDBCMajorVersion extends DatabaseMetaDataOp[Int] {
@@ -470,7 +477,8 @@ object databasemetadata { module =>
     final case class GetPrimaryKeys(a: String, b: String, c: String) extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getPrimaryKeys(a, b, c)
     }
-    final case class GetProcedureColumns(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetProcedureColumns(a: String, b: String, c: String, d: String)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getProcedureColumns(a, b, c, d)
     }
     case object GetProcedureTerm extends DatabaseMetaDataOp[String] {
@@ -479,7 +487,8 @@ object databasemetadata { module =>
     final case class GetProcedures(a: String, b: String, c: String) extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getProcedures(a, b, c)
     }
-    final case class GetPseudoColumns(a: String, b: String, c: String, d: String) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetPseudoColumns(a: String, b: String, c: String, d: String)
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getPseudoColumns(a, b, c, d)
     }
     case object GetResultSetHoldability extends DatabaseMetaDataOp[Int] {
@@ -524,7 +533,8 @@ object databasemetadata { module =>
     case object GetTableTypes extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getTableTypes
     }
-    final case class GetTables(a: String, b: String, c: String, d: Array[String]) extends DatabaseMetaDataOp[ResultSet] {
+    final case class GetTables(a: String, b: String, c: String, d: Array[String])
+        extends DatabaseMetaDataOp[ResultSet] {
       def visit[F[_]](v: Visitor[F]) = v.getTables(a, b, c, d)
     }
     case object GetTimeDateFunctions extends DatabaseMetaDataOp[String] {
@@ -838,43 +848,61 @@ object databasemetadata { module =>
   val unit: DatabaseMetaDataIO[Unit] = FF.pure[DatabaseMetaDataOp, Unit](())
   def pure[A](a: A): DatabaseMetaDataIO[A] = FF.pure[DatabaseMetaDataOp, A](a)
   def raw[A](f: DatabaseMetaData => A): DatabaseMetaDataIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DatabaseMetaDataOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DatabaseMetaDataOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): DatabaseMetaDataIO[A] = FF.liftF[DatabaseMetaDataOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: DatabaseMetaDataIO[A])(f: Throwable => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] = FF.liftF[DatabaseMetaDataOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: DatabaseMetaDataIO[A])(f: Throwable => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
+    FF.liftF[DatabaseMetaDataOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[DatabaseMetaDataOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[DatabaseMetaDataOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[DatabaseMetaDataOp, A](Suspend(Sync.Type.Delay, () => thunk))
   def suspend[A](hint: Sync.Type)(thunk: => A) = FF.liftF[DatabaseMetaDataOp, A](Suspend(hint, () => thunk))
-  def forceR[A, B](fa: DatabaseMetaDataIO[A])(fb: DatabaseMetaDataIO[B]) = FF.liftF[DatabaseMetaDataOp, B](ForceR(fa, fb))
-  def uncancelable[A](body: Poll[DatabaseMetaDataIO] => DatabaseMetaDataIO[A]) = FF.liftF[DatabaseMetaDataOp, A](Uncancelable(body))
+  def forceR[A, B](fa: DatabaseMetaDataIO[A])(fb: DatabaseMetaDataIO[B]) =
+    FF.liftF[DatabaseMetaDataOp, B](ForceR(fa, fb))
+  def uncancelable[A](body: Poll[DatabaseMetaDataIO] => DatabaseMetaDataIO[A]) =
+    FF.liftF[DatabaseMetaDataOp, A](Uncancelable(body))
   def capturePoll[M[_]](mpoll: Poll[M]) = new Poll[DatabaseMetaDataIO] {
     def apply[A](fa: DatabaseMetaDataIO[A]) = FF.liftF[DatabaseMetaDataOp, A](Poll1(mpoll, fa))
   }
   val canceled = FF.liftF[DatabaseMetaDataOp, Unit](Canceled)
-  def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]) = FF.liftF[DatabaseMetaDataOp, A](OnCancel(fa, fin))
+  def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]) =
+    FF.liftF[DatabaseMetaDataOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: DatabaseMetaDataIO[Future[A]]) = FF.liftF[DatabaseMetaDataOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]) = FF.liftF[DatabaseMetaDataOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]) =
+    FF.liftF[DatabaseMetaDataOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[DatabaseMetaDataOp, Unit](PerformLogging(event))
 
   // Smart constructors for DatabaseMetaData-specific operations.
   val allProceduresAreCallable: DatabaseMetaDataIO[Boolean] = FF.liftF(AllProceduresAreCallable)
   val allTablesAreSelectable: DatabaseMetaDataIO[Boolean] = FF.liftF(AllTablesAreSelectable)
   val autoCommitFailureClosesAllResultSets: DatabaseMetaDataIO[Boolean] = FF.liftF(AutoCommitFailureClosesAllResultSets)
-  val dataDefinitionCausesTransactionCommit: DatabaseMetaDataIO[Boolean] = FF.liftF(DataDefinitionCausesTransactionCommit)
+  val dataDefinitionCausesTransactionCommit: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(DataDefinitionCausesTransactionCommit)
   val dataDefinitionIgnoredInTransactions: DatabaseMetaDataIO[Boolean] = FF.liftF(DataDefinitionIgnoredInTransactions)
   def deletesAreDetected(a: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(DeletesAreDetected(a))
   val doesMaxRowSizeIncludeBlobs: DatabaseMetaDataIO[Boolean] = FF.liftF(DoesMaxRowSizeIncludeBlobs)
   val generatedKeyAlwaysReturned: DatabaseMetaDataIO[Boolean] = FF.liftF(GeneratedKeyAlwaysReturned)
-  def getAttributes(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetAttributes(a, b, c, d))
-  def getBestRowIdentifier(a: String, b: String, c: String, d: Int, e: Boolean): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetBestRowIdentifier(a, b, c, d, e))
+  def getAttributes(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetAttributes(a, b, c, d))
+  def getBestRowIdentifier(a: String, b: String, c: String, d: Int, e: Boolean): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetBestRowIdentifier(a, b, c, d, e))
   val getCatalogSeparator: DatabaseMetaDataIO[String] = FF.liftF(GetCatalogSeparator)
   val getCatalogTerm: DatabaseMetaDataIO[String] = FF.liftF(GetCatalogTerm)
   val getCatalogs: DatabaseMetaDataIO[ResultSet] = FF.liftF(GetCatalogs)
   val getClientInfoProperties: DatabaseMetaDataIO[ResultSet] = FF.liftF(GetClientInfoProperties)
-  def getColumnPrivileges(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetColumnPrivileges(a, b, c, d))
-  def getColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetColumns(a, b, c, d))
+  def getColumnPrivileges(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetColumnPrivileges(a, b, c, d))
+  def getColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetColumns(a, b, c, d))
   val getConnection: DatabaseMetaDataIO[Connection] = FF.liftF(GetConnection)
-  def getCrossReference(a: String, b: String, c: String, d: String, e: String, f: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetCrossReference(a, b, c, d, e, f))
+  def getCrossReference(
+      a: String,
+      b: String,
+      c: String,
+      d: String,
+      e: String,
+      f: String
+  ): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetCrossReference(a, b, c, d, e, f))
   val getDatabaseMajorVersion: DatabaseMetaDataIO[Int] = FF.liftF(GetDatabaseMajorVersion)
   val getDatabaseMinorVersion: DatabaseMetaDataIO[Int] = FF.liftF(GetDatabaseMinorVersion)
   val getDatabaseProductName: DatabaseMetaDataIO[String] = FF.liftF(GetDatabaseProductName)
@@ -884,13 +912,17 @@ object databasemetadata { module =>
   val getDriverMinorVersion: DatabaseMetaDataIO[Int] = FF.liftF(GetDriverMinorVersion)
   val getDriverName: DatabaseMetaDataIO[String] = FF.liftF(GetDriverName)
   val getDriverVersion: DatabaseMetaDataIO[String] = FF.liftF(GetDriverVersion)
-  def getExportedKeys(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetExportedKeys(a, b, c))
+  def getExportedKeys(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetExportedKeys(a, b, c))
   val getExtraNameCharacters: DatabaseMetaDataIO[String] = FF.liftF(GetExtraNameCharacters)
-  def getFunctionColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetFunctionColumns(a, b, c, d))
+  def getFunctionColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetFunctionColumns(a, b, c, d))
   def getFunctions(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetFunctions(a, b, c))
   val getIdentifierQuoteString: DatabaseMetaDataIO[String] = FF.liftF(GetIdentifierQuoteString)
-  def getImportedKeys(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetImportedKeys(a, b, c))
-  def getIndexInfo(a: String, b: String, c: String, d: Boolean, e: Boolean): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetIndexInfo(a, b, c, d, e))
+  def getImportedKeys(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetImportedKeys(a, b, c))
+  def getIndexInfo(a: String, b: String, c: String, d: Boolean, e: Boolean): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetIndexInfo(a, b, c, d, e))
   val getJDBCMajorVersion: DatabaseMetaDataIO[Int] = FF.liftF(GetJDBCMajorVersion)
   val getJDBCMinorVersion: DatabaseMetaDataIO[Int] = FF.liftF(GetJDBCMinorVersion)
   val getMaxBinaryLiteralLength: DatabaseMetaDataIO[Int] = FF.liftF(GetMaxBinaryLiteralLength)
@@ -916,10 +948,12 @@ object databasemetadata { module =>
   val getMaxUserNameLength: DatabaseMetaDataIO[Int] = FF.liftF(GetMaxUserNameLength)
   val getNumericFunctions: DatabaseMetaDataIO[String] = FF.liftF(GetNumericFunctions)
   def getPrimaryKeys(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetPrimaryKeys(a, b, c))
-  def getProcedureColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetProcedureColumns(a, b, c, d))
+  def getProcedureColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetProcedureColumns(a, b, c, d))
   val getProcedureTerm: DatabaseMetaDataIO[String] = FF.liftF(GetProcedureTerm)
   def getProcedures(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetProcedures(a, b, c))
-  def getPseudoColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetPseudoColumns(a, b, c, d))
+  def getPseudoColumns(a: String, b: String, c: String, d: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetPseudoColumns(a, b, c, d))
   val getResultSetHoldability: DatabaseMetaDataIO[Int] = FF.liftF(GetResultSetHoldability)
   val getRowIdLifetime: DatabaseMetaDataIO[RowIdLifetime] = FF.liftF(GetRowIdLifetime)
   val getSQLKeywords: DatabaseMetaDataIO[String] = FF.liftF(GetSQLKeywords)
@@ -932,15 +966,19 @@ object databasemetadata { module =>
   def getSuperTables(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetSuperTables(a, b, c))
   def getSuperTypes(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetSuperTypes(a, b, c))
   val getSystemFunctions: DatabaseMetaDataIO[String] = FF.liftF(GetSystemFunctions)
-  def getTablePrivileges(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetTablePrivileges(a, b, c))
+  def getTablePrivileges(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetTablePrivileges(a, b, c))
   val getTableTypes: DatabaseMetaDataIO[ResultSet] = FF.liftF(GetTableTypes)
-  def getTables(a: String, b: String, c: String, d: Array[String]): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetTables(a, b, c, d))
+  def getTables(a: String, b: String, c: String, d: Array[String]): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetTables(a, b, c, d))
   val getTimeDateFunctions: DatabaseMetaDataIO[String] = FF.liftF(GetTimeDateFunctions)
   val getTypeInfo: DatabaseMetaDataIO[ResultSet] = FF.liftF(GetTypeInfo)
-  def getUDTs(a: String, b: String, c: String, d: Array[Int]): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetUDTs(a, b, c, d))
+  def getUDTs(a: String, b: String, c: String, d: Array[Int]): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetUDTs(a, b, c, d))
   val getURL: DatabaseMetaDataIO[String] = FF.liftF(GetURL)
   val getUserName: DatabaseMetaDataIO[String] = FF.liftF(GetUserName)
-  def getVersionColumns(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] = FF.liftF(GetVersionColumns(a, b, c))
+  def getVersionColumns(a: String, b: String, c: String): DatabaseMetaDataIO[ResultSet] =
+    FF.liftF(GetVersionColumns(a, b, c))
   def insertsAreDetected(a: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(InsertsAreDetected(a))
   val isCatalogAtStart: DatabaseMetaDataIO[Boolean] = FF.liftF(IsCatalogAtStart)
   val isReadOnly: DatabaseMetaDataIO[Boolean] = FF.liftF(IsReadOnly)
@@ -971,7 +1009,8 @@ object databasemetadata { module =>
   val supportsBatchUpdates: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsBatchUpdates)
   val supportsCatalogsInDataManipulation: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCatalogsInDataManipulation)
   val supportsCatalogsInIndexDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCatalogsInIndexDefinitions)
-  val supportsCatalogsInPrivilegeDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCatalogsInPrivilegeDefinitions)
+  val supportsCatalogsInPrivilegeDefinitions: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsCatalogsInPrivilegeDefinitions)
   val supportsCatalogsInProcedureCalls: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCatalogsInProcedureCalls)
   val supportsCatalogsInTableDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCatalogsInTableDefinitions)
   val supportsColumnAliasing: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsColumnAliasing)
@@ -979,9 +1018,12 @@ object databasemetadata { module =>
   def supportsConvert(a: Int, b: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsConvert1(a, b))
   val supportsCoreSQLGrammar: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCoreSQLGrammar)
   val supportsCorrelatedSubqueries: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsCorrelatedSubqueries)
-  val supportsDataDefinitionAndDataManipulationTransactions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsDataDefinitionAndDataManipulationTransactions)
-  val supportsDataManipulationTransactionsOnly: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsDataManipulationTransactionsOnly)
-  val supportsDifferentTableCorrelationNames: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsDifferentTableCorrelationNames)
+  val supportsDataDefinitionAndDataManipulationTransactions: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsDataDefinitionAndDataManipulationTransactions)
+  val supportsDataManipulationTransactionsOnly: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsDataManipulationTransactionsOnly)
+  val supportsDifferentTableCorrelationNames: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsDifferentTableCorrelationNames)
   val supportsExpressionsInOrderBy: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsExpressionsInOrderBy)
   val supportsExtendedSQLGrammar: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsExtendedSQLGrammar)
   val supportsFullOuterJoins: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsFullOuterJoins)
@@ -1009,26 +1051,30 @@ object databasemetadata { module =>
   val supportsPositionedDelete: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsPositionedDelete)
   val supportsPositionedUpdate: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsPositionedUpdate)
   val supportsRefCursors: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsRefCursors)
-  def supportsResultSetConcurrency(a: Int, b: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsResultSetConcurrency(a, b))
+  def supportsResultSetConcurrency(a: Int, b: Int): DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsResultSetConcurrency(a, b))
   def supportsResultSetHoldability(a: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsResultSetHoldability(a))
   def supportsResultSetType(a: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsResultSetType(a))
   val supportsSavepoints: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSavepoints)
   val supportsSchemasInDataManipulation: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInDataManipulation)
   val supportsSchemasInIndexDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInIndexDefinitions)
-  val supportsSchemasInPrivilegeDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInPrivilegeDefinitions)
+  val supportsSchemasInPrivilegeDefinitions: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsSchemasInPrivilegeDefinitions)
   val supportsSchemasInProcedureCalls: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInProcedureCalls)
   val supportsSchemasInTableDefinitions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSchemasInTableDefinitions)
   val supportsSelectForUpdate: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSelectForUpdate)
   val supportsSharding: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSharding)
   val supportsStatementPooling: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStatementPooling)
-  val supportsStoredFunctionsUsingCallSyntax: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStoredFunctionsUsingCallSyntax)
+  val supportsStoredFunctionsUsingCallSyntax: DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsStoredFunctionsUsingCallSyntax)
   val supportsStoredProcedures: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsStoredProcedures)
   val supportsSubqueriesInComparisons: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSubqueriesInComparisons)
   val supportsSubqueriesInExists: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSubqueriesInExists)
   val supportsSubqueriesInIns: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSubqueriesInIns)
   val supportsSubqueriesInQuantifieds: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsSubqueriesInQuantifieds)
   val supportsTableCorrelationNames: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsTableCorrelationNames)
-  def supportsTransactionIsolationLevel(a: Int): DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsTransactionIsolationLevel(a))
+  def supportsTransactionIsolationLevel(a: Int): DatabaseMetaDataIO[Boolean] =
+    FF.liftF(SupportsTransactionIsolationLevel(a))
   val supportsTransactions: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsTransactions)
   val supportsUnion: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsUnion)
   val supportsUnionAll: DatabaseMetaDataIO[Boolean] = FF.liftF(SupportsUnionAll)
@@ -1044,30 +1090,37 @@ object databasemetadata { module =>
       override val applicative = monad
       override val rootCancelScope = CancelScope.Cancelable
       override def pure[A](x: A): DatabaseMetaDataIO[A] = monad.pure(x)
-      override def flatMap[A, B](fa: DatabaseMetaDataIO[A])(f: A => DatabaseMetaDataIO[B]): DatabaseMetaDataIO[B] = monad.flatMap(fa)(f)
-      override def tailRecM[A, B](a: A)(f: A => DatabaseMetaDataIO[Either[A, B]]): DatabaseMetaDataIO[B] = monad.tailRecM(a)(f)
+      override def flatMap[A, B](fa: DatabaseMetaDataIO[A])(f: A => DatabaseMetaDataIO[B]): DatabaseMetaDataIO[B] =
+        monad.flatMap(fa)(f)
+      override def tailRecM[A, B](a: A)(f: A => DatabaseMetaDataIO[Either[A, B]]): DatabaseMetaDataIO[B] =
+        monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): DatabaseMetaDataIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: DatabaseMetaDataIO[A])(f: Throwable => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: DatabaseMetaDataIO[A])(f: Throwable => DatabaseMetaDataIO[A])
+          : DatabaseMetaDataIO[A] = module.handleErrorWith(fa)(f)
       override def monotonic: DatabaseMetaDataIO[FiniteDuration] = module.monotonic
       override def realTime: DatabaseMetaDataIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): DatabaseMetaDataIO[A] = module.suspend(hint)(thunk)
-      override def forceR[A, B](fa: DatabaseMetaDataIO[A])(fb: DatabaseMetaDataIO[B]): DatabaseMetaDataIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[DatabaseMetaDataIO] => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] = module.uncancelable(body)
+      override def forceR[A, B](fa: DatabaseMetaDataIO[A])(fb: DatabaseMetaDataIO[B]): DatabaseMetaDataIO[B] =
+        module.forceR(fa)(fb)
+      override def uncancelable[A](body: Poll[DatabaseMetaDataIO] => DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
+        module.uncancelable(body)
       override def canceled: DatabaseMetaDataIO[Unit] = module.canceled
-      override def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[A] = module.onCancel(fa, fin)
+      override def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[A] =
+        module.onCancel(fa, fin)
       override def fromFuture[A](fut: DatabaseMetaDataIO[Future[A]]): DatabaseMetaDataIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]): DatabaseMetaDataIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])])
+          : DatabaseMetaDataIO[A] = module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidDatabaseMetaDataIO[A : Monoid]: Monoid[DatabaseMetaDataIO[A]] = new Monoid[DatabaseMetaDataIO[A]] {
+
+  implicit def MonoidDatabaseMetaDataIO[A: Monoid]: Monoid[DatabaseMetaDataIO[A]] = new Monoid[DatabaseMetaDataIO[A]] {
     override def empty: DatabaseMetaDataIO[A] = Applicative[DatabaseMetaDataIO].pure(Monoid[A].empty)
     override def combine(x: DatabaseMetaDataIO[A], y: DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
       Applicative[DatabaseMetaDataIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupDatabaseMetaDataIO[A : Semigroup]: Semigroup[DatabaseMetaDataIO[A]] = new Semigroup[DatabaseMetaDataIO[A]] {
-    override def combine(x: DatabaseMetaDataIO[A], y: DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
-      Applicative[DatabaseMetaDataIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
-}
 
+  implicit def SemigroupDatabaseMetaDataIO[A: Semigroup]: Semigroup[DatabaseMetaDataIO[A]] =
+    new Semigroup[DatabaseMetaDataIO[A]] {
+      override def combine(x: DatabaseMetaDataIO[A], y: DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
+        Applicative[DatabaseMetaDataIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
+    }
+}

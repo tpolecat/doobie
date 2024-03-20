@@ -16,11 +16,12 @@ object HikariExample extends IOApp.Simple {
     for {
       ce <- ExecutionContexts.fixedThreadPool[IO](32)
       xa <- HikariTransactor.newHikariTransactor[IO](
-              "org.h2.Driver",
-              "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
-              "sa", "",
-              ce
-            )
+        "org.h2.Driver",
+        "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
+        "sa",
+        "",
+        ce
+      )
     } yield xa
 
   def run: IO[Unit] =

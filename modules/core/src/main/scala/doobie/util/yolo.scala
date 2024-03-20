@@ -4,12 +4,11 @@
 
 package doobie.util
 
-
 import cats.effect.kernel.Async
 import cats.instances.int._
 import cats.instances.string._
 import cats.syntax.show._
-import doobie.free.connection.{ ConnectionIO, delay }
+import doobie.free.connection.{ConnectionIO, delay}
 import doobie.implicits._
 import doobie.util.query._
 import doobie.util.update._
@@ -25,7 +24,6 @@ object yolo {
 
   class Yolo[M[_]](xa: Transactor[M])(implicit ev: Async[M]) {
 
-
     private def out(s: String, colors: Colors): ConnectionIO[Unit] =
       delay(Console.println(show"${colors.BLUE}  $s${colors.RESET}"))
 
@@ -34,22 +32,27 @@ object yolo {
       @SuppressWarnings(Array("org.wartremover.warts.ToString"))
       def quick(implicit colors: Colors = Colors.Ansi): M[Unit] =
         q.stream
-         .map(_.toString)
-         .evalMap(out(_, colors))
-         .compile
-         .drain
-         .transact(xa)(ev)
+          .map(_.toString)
+          .evalMap(out(_, colors))
+          .compile
+          .drain
+          .transact(xa)(ev)
 
       def check(implicit colors: Colors = Colors.Ansi): M[Unit] =
         checkImpl(Analyzable.unpack(q), colors)
 
       def checkOutput(implicit colors: Colors = Colors.Ansi): M[Unit] =
-        checkImpl(AnalysisArgs(
-          show"Query0[${typeName[A]}]", q.pos, q.sql, q.outputAnalysis
-        ), colors)
+        checkImpl(
+          AnalysisArgs(
+            show"Query0[${typeName[A]}]",
+            q.pos,
+            q.sql,
+            q.outputAnalysis
+          ),
+          colors)
     }
 
-    implicit class QueryYoloOps[I: TypeName, A: TypeName](q: Query[I,A]) {
+    implicit class QueryYoloOps[I: TypeName, A: TypeName](q: Query[I, A]) {
 
       def quick(i: I): M[Unit] =
         q.toQuery0(i).quick
@@ -58,9 +61,14 @@ object yolo {
         checkImpl(Analyzable.unpack(q), colors)
 
       def checkOutput(implicit colors: Colors = Colors.Ansi): M[Unit] =
-        checkImpl(AnalysisArgs(
-          show"Query[${typeName[I]}, ${typeName[A]}]", q.pos, q.sql, q.outputAnalysis
-        ), colors)
+        checkImpl(
+          AnalysisArgs(
+            show"Query[${typeName[I]}, ${typeName[A]}]",
+            q.pos,
+            q.sql,
+            q.outputAnalysis
+          ),
+          colors)
     }
 
     implicit class Update0YoloOps(u: Update0) {

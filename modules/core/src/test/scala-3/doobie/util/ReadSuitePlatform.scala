@@ -9,7 +9,7 @@ import Predef.augmentString
 trait ReadSuitePlatform { self: munit.FunSuite =>
 
   case class Woozle(a: (String, Int), b: Int *: String *: EmptyTuple, c: Boolean)
-  
+
   sealed trait NoGetInstanceForThis
   case class CaseClassWithFieldWithoutGetInstance(a: String, b: NoGetInstanceForThis)
 

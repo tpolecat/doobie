@@ -13,7 +13,7 @@ import cats.kernel.Eq
 import cats.kernel.instances.int._
 
 /** @group Types */
-sealed abstract class ParameterNullable(val toInt: Int)  extends Product with Serializable {
+sealed abstract class ParameterNullable(val toInt: Int) extends Product with Serializable {
   def toNullability: Nullability =
     Nullability.fromParameterNullable(this)
 }
@@ -21,11 +21,16 @@ sealed abstract class ParameterNullable(val toInt: Int)  extends Product with Se
 /** @group Modules */
 object ParameterNullable {
 
-  /** @group Values */ case object NoNulls         extends ParameterNullable(parameterNoNulls)
-  /** @group Values */ case object Nullable        extends ParameterNullable(parameterNullable)
-  /** @group Values */ case object NullableUnknown extends ParameterNullable(parameterNullableUnknown)
+  /** @group Values */
+  case object NoNulls extends ParameterNullable(parameterNoNulls)
 
-  def fromInt(n:Int): Option[ParameterNullable] =
+  /** @group Values */
+  case object Nullable extends ParameterNullable(parameterNullable)
+
+  /** @group Values */
+  case object NullableUnknown extends ParameterNullable(parameterNullableUnknown)
+
+  def fromInt(n: Int): Option[ParameterNullable] =
     Some(n) collect {
       case NoNulls.toInt         => NoNulls
       case Nullable.toInt        => Nullable

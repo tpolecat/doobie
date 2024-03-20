@@ -12,6 +12,8 @@ object PostgresTestTransactor {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.postgresql.Driver",
     url = "jdbc:postgresql:world",
-    user = "postgres", password = "password", logHandler = None
+    user = "postgres",
+    password = "password",
+    logHandler = None
   )
 }

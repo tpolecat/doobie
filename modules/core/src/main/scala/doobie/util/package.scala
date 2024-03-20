@@ -8,7 +8,7 @@ package doobie
 package object util {
 
   val unlabeled: String = "unlabeled"
-  
+
   private[util] def void(a: Any*): Unit =
     (a, ())._2
 

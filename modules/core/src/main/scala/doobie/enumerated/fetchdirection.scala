@@ -18,9 +18,14 @@ sealed abstract class FetchDirection(val toInt: Int) extends Product with Serial
 /** @group Modules */
 object FetchDirection {
 
-  /** @group Values */ case object Forward extends FetchDirection(FETCH_FORWARD)
-  /** @group Values */ case object Reverse extends FetchDirection(FETCH_REVERSE)
-  /** @group Values */ case object Unknown extends FetchDirection(FETCH_UNKNOWN)
+  /** @group Values */
+  case object Forward extends FetchDirection(FETCH_FORWARD)
+
+  /** @group Values */
+  case object Reverse extends FetchDirection(FETCH_REVERSE)
+
+  /** @group Values */
+  case object Unknown extends FetchDirection(FETCH_UNKNOWN)
 
   def fromInt(n: Int): Option[FetchDirection] =
     Some(n) collect {

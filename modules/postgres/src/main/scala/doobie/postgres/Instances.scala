@@ -8,7 +8,7 @@ import doobie.enumerated.JdbcType
 import doobie._
 import doobie.util.invariant._
 
-import java.util.{ UUID, Map => JMap }
+import java.util.{UUID, Map => JMap}
 import java.net.InetAddress
 
 import org.postgresql.util._
@@ -16,7 +16,7 @@ import org.postgresql.geometric._
 
 import scala.reflect.ClassTag
 
-import cats.data.NonEmptyList.{ of => NonEmptyListOf }
+import cats.data.NonEmptyList.{of => NonEmptyListOf}
 import org.tpolecat.typename._
 
 trait Instances {
@@ -24,11 +24,11 @@ trait Instances {
   // N.B. `Meta` is the lowest-level mapping and must always cope with NULL. Easy to forget.
 
   // Geometric Types, minus PGline which is "not fully implemented"
-  implicit val PGboxType: Meta[PGbox]         = Meta.Advanced.other[PGbox]("box")
-  implicit val PGcircleType: Meta[PGcircle]   = Meta.Advanced.other[PGcircle]("circle")
-  implicit val PGlsegType: Meta[PGlseg]       = Meta.Advanced.other[PGlseg]("lseg")
-  implicit val PGpathType: Meta[PGpath]       = Meta.Advanced.other[PGpath]("path")
-  implicit val PGpointType: Meta[PGpoint]     = Meta.Advanced.other[PGpoint]("point")
+  implicit val PGboxType: Meta[PGbox] = Meta.Advanced.other[PGbox]("box")
+  implicit val PGcircleType: Meta[PGcircle] = Meta.Advanced.other[PGcircle]("circle")
+  implicit val PGlsegType: Meta[PGlseg] = Meta.Advanced.other[PGlseg]("lseg")
+  implicit val PGpathType: Meta[PGpath] = Meta.Advanced.other[PGpath]("path")
+  implicit val PGpointType: Meta[PGpoint] = Meta.Advanced.other[PGpoint]("point")
   implicit val PGpolygonType: Meta[PGpolygon] = Meta.Advanced.other[PGpolygon]("polygon")
 
   // PGmoney doesn't seem to work:
@@ -49,15 +49,14 @@ trait Instances {
   implicit val UuidType: Meta[UUID] = Meta.Advanced.other[UUID]("uuid")
 
   // Network Address Types
-  implicit val InetType: Meta[InetAddress] = Meta.Advanced.other[PGobject]("inet").timap[InetAddress](
-    o => Option(o).map(a => InetAddress.getByName(a.getValue)).orNull)(
-    a => Option(a).map { a =>
+  implicit val InetType: Meta[InetAddress] = Meta.Advanced.other[PGobject]("inet").timap[InetAddress](o =>
+    Option(o).map(a => InetAddress.getByName(a.getValue)).orNull)(a =>
+    Option(a).map { a =>
       val o = new PGobject
       o.setType("inet")
       o.setValue(a.getHostAddress)
       o
-    } .orNull
-  )
+    }.orNull)
 
   // java.sql.Array::getArray returns an Object that may be of primitive type or of boxed type,
   // depending on the driver, so we can't really abstract over it. Also there's no telling what
@@ -75,14 +74,22 @@ trait Instances {
   // automatic lifting to Meta will give us lifted and unlifted arrays, for a total of four variants
   // of each 1-d array type. In the non-nullable case we simply check for nulls and perform a cast;
   // in the nullable case we must copy the array in both directions to lift/unlift Option.
-  @SuppressWarnings(Array("org.wartremover.warts.Equals", "org.wartremover.warts.ArrayEquals", "org.wartremover.warts.Throw"))
-  private def boxedPair[A >: Null <: AnyRef: ClassTag](elemType: String, arrayType: String, arrayTypeT: String*): (Meta[Array[A]], Meta[Array[Option[A]]]) = {
+  @SuppressWarnings(Array(
+    "org.wartremover.warts.Equals",
+    "org.wartremover.warts.ArrayEquals",
+    "org.wartremover.warts.Throw"))
+  private def boxedPair[A >: Null <: AnyRef: ClassTag](
+      elemType: String,
+      arrayType: String,
+      arrayTypeT: String*
+  ): (Meta[Array[A]], Meta[Array[Option[A]]]) = {
     val raw = Meta.Advanced.array[A](elemType, arrayType, arrayTypeT: _*)
     // Ensure `a`, which may be null, which is ok, contains no null elements.
     def checkNull[B >: Null](a: Array[B], e: Exception): Array[B] =
       if (a == null) null else if (a.exists(_ == null)) throw e else a
-    (raw.timap(checkNull(_, NullableCellRead))(checkNull(_, NullableCellUpdate)),
-     raw.timap[Array[Option[A]]](_.map(Option(_)))(_.map(_.orNull).toArray))
+    (
+      raw.timap(checkNull(_, NullableCellRead))(checkNull(_, NullableCellUpdate)),
+      raw.timap[Array[Option[A]]](_.map(Option(_)))(_.map(_.orNull).toArray))
   }
 
   // Arrays of lifted (nullable) and unlifted (non-nullable) Java wrapped primitives. PostgreSQL
@@ -93,76 +100,85 @@ trait Instances {
 
   private val boxedPairBoolean = boxedPair[java.lang.Boolean]("bit", "_bit")
   implicit val unliftedBooleanArrayType: Meta[Array[java.lang.Boolean]] = boxedPairBoolean._1
-  implicit val liftedBooleanArrayType:   Meta[Array[Option[java.lang.Boolean]]] = boxedPairBoolean._2
+  implicit val liftedBooleanArrayType: Meta[Array[Option[java.lang.Boolean]]] = boxedPairBoolean._2
 
   private val boxedPairInteger = boxedPair[java.lang.Integer]("int4", "_int4")
   implicit val unliftedIntegerArrayType: Meta[Array[java.lang.Integer]] = boxedPairInteger._1
-  implicit val liftedIntegerArrayType:   Meta[Array[Option[java.lang.Integer]]] = boxedPairInteger._2
+  implicit val liftedIntegerArrayType: Meta[Array[Option[java.lang.Integer]]] = boxedPairInteger._2
 
   private val boxedPairLong = boxedPair[java.lang.Long]("int8", "_int8")
   implicit val unliftedLongArrayType: Meta[Array[java.lang.Long]] = boxedPairLong._1
-  implicit val liftedLongArrayType:   Meta[Array[Option[java.lang.Long]]] = boxedPairLong._2
+  implicit val liftedLongArrayType: Meta[Array[Option[java.lang.Long]]] = boxedPairLong._2
 
   private val boxedPairFloat = boxedPair[java.lang.Float]("float4", "_float4")
   implicit val unliftedFloatArrayType: Meta[Array[java.lang.Float]] = boxedPairFloat._1
-  implicit val liftedFloatArrayType:   Meta[Array[Option[java.lang.Float]]] = boxedPairFloat._2
+  implicit val liftedFloatArrayType: Meta[Array[Option[java.lang.Float]]] = boxedPairFloat._2
 
   private val boxedPairDouble = boxedPair[java.lang.Double]("float8", "_float8")
   implicit val unliftedDoubleArrayType: Meta[Array[java.lang.Double]] = boxedPairDouble._1
-  implicit val liftedDoubleArrayType:   Meta[Array[Option[java.lang.Double]]] = boxedPairDouble._2
+  implicit val liftedDoubleArrayType: Meta[Array[Option[java.lang.Double]]] = boxedPairDouble._2
 
   private val boxedPairString = boxedPair[java.lang.String]("varchar", "_varchar", "_char", "_text", "_bpchar")
   implicit val unliftedStringArrayType: Meta[Array[java.lang.String]] = boxedPairString._1
-  implicit val liftedStringArrayType:   Meta[Array[Option[java.lang.String]]] = boxedPairString._2
+  implicit val liftedStringArrayType: Meta[Array[Option[java.lang.String]]] = boxedPairString._2
 
   private val boxedPairUUID = boxedPair[java.util.UUID]("uuid", "_uuid")
   implicit val unliftedUUIDArrayType: Meta[Array[java.util.UUID]] = boxedPairUUID._1
-  implicit val liftedUUIDArrayType:   Meta[Array[Option[java.util.UUID]]] = boxedPairUUID._2
+  implicit val liftedUUIDArrayType: Meta[Array[Option[java.util.UUID]]] = boxedPairUUID._2
 
   private val boxedPairBigDecimal = boxedPair[java.math.BigDecimal]("numeric", "_decimal", "_numeric")
   implicit val unliftedBigDecimalArrayType: Meta[Array[java.math.BigDecimal]] = boxedPairBigDecimal._1
-  implicit val iftedBigDecimalArrayType:    Meta[Array[Option[java.math.BigDecimal]]] = boxedPairBigDecimal._2
+  implicit val iftedBigDecimalArrayType: Meta[Array[Option[java.math.BigDecimal]]] = boxedPairBigDecimal._2
 
   // Unboxed equivalents (actually identical in the lifted case). We require that B is the unboxed
   // equivalent of A, otherwise this will fail in spectacular fashion, and we're using a cast in the
   // lifted case because the representation is identical, assuming no nulls. In the long run this
   // may need to become something slower but safer. Unclear.
-  @SuppressWarnings(Array("org.wartremover.warts.Equals", "org.wartremover.warts.ArrayEquals", "org.wartremover.warts.AsInstanceOf"))
+  @SuppressWarnings(Array(
+    "org.wartremover.warts.Equals",
+    "org.wartremover.warts.ArrayEquals",
+    "org.wartremover.warts.AsInstanceOf"))
   private def unboxedPair[A >: Null <: AnyRef: ClassTag, B <: AnyVal: ClassTag](f: A => B, g: B => A)(
-    implicit boxed: Meta[Array[A]], boxedLifted: Meta[Array[Option[A]]]): (Meta[Array[B]], Meta[Array[Option[B]]]) =
+      implicit
+      boxed: Meta[Array[A]],
+      boxedLifted: Meta[Array[Option[A]]]
+  ): (Meta[Array[B]], Meta[Array[Option[B]]]) =
     // TODO: assert, somehow, that A is the boxed version of B so we catch errors on instance
     // construction, which is somewhat better than at [logical] execution time.
-    (boxed.timap(a => if (a == null) null else a.map(f))(a => if (a == null) null else a.map(g)),
-     boxedLifted.timap(_.asInstanceOf[Array[Option[B]]])(_.asInstanceOf[Array[Option[A]]]))
+    (
+      boxed.timap(a => if (a == null) null else a.map(f))(a => if (a == null) null else a.map(g)),
+      boxedLifted.timap(_.asInstanceOf[Array[Option[B]]])(_.asInstanceOf[Array[Option[A]]]))
 
   // Arrays of lifted (nullable) and unlifted (non-nullable) AnyVals
-  private val unboxedPairBoolean = unboxedPair[java.lang.Boolean, scala.Boolean](_.booleanValue, java.lang.Boolean.valueOf)
+  private val unboxedPairBoolean =
+    unboxedPair[java.lang.Boolean, scala.Boolean](_.booleanValue, java.lang.Boolean.valueOf)
   implicit val unliftedUnboxedBooleanArrayType: Meta[Array[scala.Boolean]] = unboxedPairBoolean._1
-  implicit val liftedUnboxedBooleanArrayType:   Meta[Array[Option[scala.Boolean]]] = unboxedPairBoolean._2
+  implicit val liftedUnboxedBooleanArrayType: Meta[Array[Option[scala.Boolean]]] = unboxedPairBoolean._2
 
   private val unboxedPairInteger = unboxedPair[java.lang.Integer, scala.Int](_.intValue, java.lang.Integer.valueOf)
   implicit val unliftedUnboxedIntegerArrayType: Meta[Array[scala.Int]] = unboxedPairInteger._1
-  implicit val liftedUnboxedIntegerArrayType:   Meta[Array[Option[scala.Int]]] = unboxedPairInteger._2
+  implicit val liftedUnboxedIntegerArrayType: Meta[Array[Option[scala.Int]]] = unboxedPairInteger._2
 
   private val unboxedPairLong = unboxedPair[java.lang.Long, scala.Long](_.longValue, java.lang.Long.valueOf)
   implicit val unliftedUnboxedLongArrayType: Meta[Array[scala.Long]] = unboxedPairLong._1
-  implicit val liftedUnboxedLongArrayType:   Meta[Array[Option[scala.Long]]] = unboxedPairLong._2
+  implicit val liftedUnboxedLongArrayType: Meta[Array[Option[scala.Long]]] = unboxedPairLong._2
 
   private val unboxedPairFloat = unboxedPair[java.lang.Float, scala.Float](_.floatValue, java.lang.Float.valueOf)
   implicit val unliftedUnboxedFloatArrayType: Meta[Array[scala.Float]] = unboxedPairFloat._1
-  implicit val liftedUnboxedFloatArrayType:   Meta[Array[Option[scala.Float]]] = unboxedPairFloat._2
+  implicit val liftedUnboxedFloatArrayType: Meta[Array[Option[scala.Float]]] = unboxedPairFloat._2
 
   private val unboxedPairDouble = unboxedPair[java.lang.Double, scala.Double](_.doubleValue, java.lang.Double.valueOf)
   implicit val unliftedUnboxedDoubleArrayType: Meta[Array[scala.Double]] = unboxedPairDouble._1
-  implicit val liftedUnboxedDoubleArrayType:   Meta[Array[Option[scala.Double]]] = unboxedPairDouble._2
+  implicit val liftedUnboxedDoubleArrayType: Meta[Array[Option[scala.Double]]] = unboxedPairDouble._2
 
   // Arrays of scala.BigDecimal - special case as BigDecimal can be null
   @SuppressWarnings(Array("org.wartremover.warts.Equals"))
   implicit val bigDecimalMeta: Meta[Array[BigDecimal]] = Meta[Array[java.math.BigDecimal]]
-    .timap(_.map( a => if(a == null) null else BigDecimal.apply(a)))(_.map(a => if(a == null) null else a.bigDecimal))
+    .timap(_.map(a => if (a == null) null else BigDecimal.apply(a)))(_.map(a => if (a == null) null else a.bigDecimal))
   @SuppressWarnings(Array("org.wartremover.warts.Equals"))
   implicit val optionBigDecimalMeta: Meta[Array[Option[BigDecimal]]] = Meta[Array[Option[java.math.BigDecimal]]]
-    .timap(_.map(_.map(a => if(a == null) null else BigDecimal.apply(a))))(_.map(_.map(a => if(a == null) null else a.bigDecimal)))
+    .timap(_.map(_.map(a => if (a == null) null else BigDecimal.apply(a))))(_.map(_.map(a =>
+      if (a == null) null else a.bigDecimal)))
 
   // So, it turns out that arrays of structs don't work because something is missing from the
   // implementation. So this means we will only be able to support primitive types for arrays.
@@ -196,41 +212,47 @@ trait Instances {
       }
     )
 
-  /**
-   * Construct a `Meta` for values of the given type, mapped via `String` to the named PostgreSQL
-   * enum type.
-   */
+  /** Construct a `Meta` for values of the given type, mapped via `String` to the named PostgreSQL enum type.
+    */
   def pgEnumString[A: TypeName](name: String, f: String => A, g: A => String): Meta[A] =
     enumPartialMeta(name).timap[A](f)(g)
 
-  /**
-   * Construct a `Meta` for values of the given type, mapped via `String` to the named PostgreSQL
-   * enum type with tranparent partiality.
-   */
+  /** Construct a `Meta` for values of the given type, mapped via `String` to the named PostgreSQL enum type with
+    * tranparent partiality.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   def pgEnumStringOpt[A: TypeName](name: String, f: String => Option[A], g: A => String): Meta[A] =
-    pgEnumString(name, { (s: String) => f(s).getOrElse(throw doobie.util.invariant.InvalidEnum[A](s))} ,g)
+    pgEnumString(name, { (s: String) => f(s).getOrElse(throw doobie.util.invariant.InvalidEnum[A](s)) }, g)
 
-  /**
-   * Construct a `Meta` for value members of the given `Enumeration`.
-   */
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.ToString", "org.wartremover.warts.Throw"))
+  /** Construct a `Meta` for value members of the given `Enumeration`.
+    */
+  @SuppressWarnings(Array(
+    "org.wartremover.warts.NonUnitStatements",
+    "org.wartremover.warts.ToString",
+    "org.wartremover.warts.Throw"))
   def pgEnum(e: Enumeration, name: String): Meta[e.Value] =
-    pgEnumString[e.Value](name,
-      a => try e.withName(a) catch {
-        case _: NoSuchElementException => throw InvalidEnum[e.Value](a)
-      }, _.toString)
+    pgEnumString[e.Value](
+      name,
+      a =>
+        try e.withName(a)
+        catch {
+          case _: NoSuchElementException => throw InvalidEnum[e.Value](a)
+        },
+      _.toString)
 
-  /**
-   * Construct a `Meta` for value members of the given Java `enum`.
-   */
+  /** Construct a `Meta` for value members of the given Java `enum`.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Throw"))
   def pgJavaEnum[E <: java.lang.Enum[E]: TypeName](name: String)(implicit E: ClassTag[E]): Meta[E] = {
     val clazz = E.runtimeClass.asInstanceOf[Class[E]]
-    pgEnumString[E](name,
-      a => try java.lang.Enum.valueOf(clazz, a) catch {
-        case _: IllegalArgumentException => throw InvalidEnum[E](a)
-      }, _.name)
+    pgEnumString[E](
+      name,
+      a =>
+        try java.lang.Enum.valueOf(clazz, a)
+        catch {
+          case _: IllegalArgumentException => throw InvalidEnum[E](a)
+        },
+      _.name)
   }
 
   /** HSTORE maps to a java.util.Map[String, String]. */

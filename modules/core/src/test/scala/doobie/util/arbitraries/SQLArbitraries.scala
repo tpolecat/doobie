@@ -23,19 +23,18 @@ object SQLArbitraries {
 
   implicit val arbitraryDate: Arbitrary[Date] = Arbitrary {
     for {
-      y <- Gen.chooseNum(0,8099)
+      y <- Gen.chooseNum(0, 8099)
       m <- Gen.chooseNum(0, 11)
       d <- Gen.chooseNum(1, 31)
-    } yield new Date(y,m,d)
+    } yield new Date(y, m, d)
   }
 
   implicit val arbitraryTimestamp: Arbitrary[Timestamp] = Arbitrary {
     for {
       d <- arbitrary[Date]
       t <- arbitrary[Time]
-      n <- Gen.chooseNum(0,999999999)
+      n <- Gen.chooseNum(0, 999999999)
     } yield new Timestamp(d.getYear, d.getMonth, d.getDate, t.getHours, t.getMinutes, t.getSeconds, n)
   }
-
 
 }

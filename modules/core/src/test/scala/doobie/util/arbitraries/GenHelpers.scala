@@ -10,9 +10,8 @@ import org.scalacheck.Gen
 
 object GenHelpers {
 
-  /**
-   * [[Gen.chooseNum]] but allows `T` to have an `Ordering` instead of `Numeric`.
-   */
+  /** [[Gen.chooseNum]] but allows `T` to have an `Ordering` instead of `Numeric`.
+    */
   def chooseT[T](minT: T, maxT: T, specials: T*)(implicit ord: Ordering[T], c: Gen.Choose[T]): Gen[T] = {
     val basics = List(minT, maxT)
     val basicsAndSpecials = for {

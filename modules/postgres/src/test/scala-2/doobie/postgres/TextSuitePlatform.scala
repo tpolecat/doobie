@@ -4,6 +4,4 @@
 
 package doobie.postgres
 
-trait TextSuitePlatform { self: munit.FunSuite =>
-
-}
+trait TextSuitePlatform { self: munit.FunSuite => }

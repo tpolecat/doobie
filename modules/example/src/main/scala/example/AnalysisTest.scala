@@ -48,7 +48,7 @@ object AnalysisTest {
       SELECT '(1, 2)'::point test
     """.query[PGcircle]
   }
-  
+
   def update: Update[(String, String)] = {
     Update[(String, String)](
       "UPDATE COUNTRY SET NAME = ? WHERE CODE = ?"

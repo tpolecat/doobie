@@ -13,7 +13,6 @@ import doobie.implicits._
 import scala.concurrent.duration._
 import scala.util.Random
 
-
 class `824` extends munit.FunSuite {
 
   import cats.effect.unsafe.implicits.global
@@ -22,12 +21,12 @@ class `824` extends munit.FunSuite {
     for {
       ce <- ExecutionContexts.fixedThreadPool[IO](16) // our connect EC
       xa <- HikariTransactor.newHikariTransactor[IO](
-              "org.h2.Driver",                        // driver classname
-              "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",   // connect URL
-              "sa",                                   // username
-              "",                                     // password
-              ce                                      // await connection here
-            )
+        "org.h2.Driver", // driver classname
+        "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", // connect URL
+        "sa", // username
+        "", // password
+        ce // await connection here
+      )
     } yield xa
 
   // Show the state of the pool
@@ -41,8 +40,6 @@ class `824` extends munit.FunSuite {
   // block. Both should be zero
   val prog: IO[(Int, Int)] =
     transactor.use { xa =>
-
-
       // Kick off a concurrent transaction, reporting the pool state on exit
       val random: IO[Fiber[IO, Throwable, Unit]] =
         for {
@@ -52,16 +49,15 @@ class `824` extends munit.FunSuite {
 
       // Run a bunch of transactions at once, then return the active connection count
       for {
-        _  <- IO(xa.kernel.setMaximumPoolSize(10)) // max connections
-        _  <- ().pure[ConnectionIO].transact(xa)   // do this once to init the MBean
-        _  <- report(xa.kernel)
+        _ <- IO(xa.kernel.setMaximumPoolSize(10)) // max connections
+        _ <- ().pure[ConnectionIO].transact(xa) // do this once to init the MBean
+        _ <- report(xa.kernel)
         fs <- random.replicateA(50)
-        _  <- fs.traverse(_.join)
-        _  <- report(xa.kernel)
+        _ <- fs.traverse(_.join)
+        _ <- report(xa.kernel)
       } yield (xa.kernel.getHikariPoolMXBean.getActiveConnections, xa.kernel)
 
     } flatMap { case (n, ds) =>
-
       // One final report to show that all connections are disposed
       report(ds) *> IO((n, ds.getHikariPoolMXBean.getTotalConnections))
 

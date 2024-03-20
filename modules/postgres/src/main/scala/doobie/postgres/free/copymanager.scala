@@ -5,8 +5,8 @@
 package doobie.postgres.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -17,10 +17,10 @@ import java.io.OutputStream
 import java.io.Reader
 import java.io.Writer
 import java.lang.String
-import org.postgresql.copy.{ CopyDual => PGCopyDual }
-import org.postgresql.copy.{ CopyIn => PGCopyIn }
-import org.postgresql.copy.{ CopyManager => PGCopyManager }
-import org.postgresql.copy.{ CopyOut => PGCopyOut }
+import org.postgresql.copy.{CopyDual => PGCopyDual}
+import org.postgresql.copy.{CopyIn => PGCopyIn}
+import org.postgresql.copy.{CopyManager => PGCopyManager}
+import org.postgresql.copy.{CopyOut => PGCopyOut}
 import org.postgresql.util.ByteStreamWriter
 
 // This file is Auto-generated using FreeGen2.scala
@@ -90,7 +90,8 @@ object copymanager { module =>
     final case class RaiseError[A](e: Throwable) extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raiseError(e)
     }
-    final case class HandleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A]) extends CopyManagerOp[A] {
+    final case class HandleErrorWith[A](fa: CopyManagerIO[A], f: Throwable => CopyManagerIO[A])
+        extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa)(f)
     }
     case object Monotonic extends CopyManagerOp[FiniteDuration] {
@@ -166,9 +167,11 @@ object copymanager { module =>
   val unit: CopyManagerIO[Unit] = FF.pure[CopyManagerOp, Unit](())
   def pure[A](a: A): CopyManagerIO[A] = FF.pure[CopyManagerOp, A](a)
   def raw[A](f: PGCopyManager => A): CopyManagerIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyManagerOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[CopyManagerOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: CopyManagerIO[A])(f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] = FF.liftF[CopyManagerOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: CopyManagerIO[A])(f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] =
+    FF.liftF[CopyManagerOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[CopyManagerOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[CopyManagerOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[CopyManagerOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -181,7 +184,8 @@ object copymanager { module =>
   val canceled = FF.liftF[CopyManagerOp, Unit](Canceled)
   def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]) = FF.liftF[CopyManagerOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CopyManagerIO[Future[A]]) = FF.liftF[CopyManagerOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]) = FF.liftF[CopyManagerOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]) =
+    FF.liftF[CopyManagerOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[CopyManagerOp, Unit](PerformLogging(event))
 
   // Smart constructors for CopyManager-specific operations.
@@ -203,30 +207,34 @@ object copymanager { module =>
       override val applicative = monad
       override val rootCancelScope = CancelScope.Cancelable
       override def pure[A](x: A): CopyManagerIO[A] = monad.pure(x)
-      override def flatMap[A, B](fa: CopyManagerIO[A])(f: A => CopyManagerIO[B]): CopyManagerIO[B] = monad.flatMap(fa)(f)
+      override def flatMap[A, B](fa: CopyManagerIO[A])(f: A => CopyManagerIO[B]): CopyManagerIO[B] =
+        monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => CopyManagerIO[Either[A, B]]): CopyManagerIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): CopyManagerIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: CopyManagerIO[A])(f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: CopyManagerIO[A])(f: Throwable => CopyManagerIO[A]): CopyManagerIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: CopyManagerIO[FiniteDuration] = module.monotonic
       override def realTime: CopyManagerIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): CopyManagerIO[A] = module.suspend(hint)(thunk)
       override def forceR[A, B](fa: CopyManagerIO[A])(fb: CopyManagerIO[B]): CopyManagerIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[CopyManagerIO] => CopyManagerIO[A]): CopyManagerIO[A] = module.uncancelable(body)
+      override def uncancelable[A](body: Poll[CopyManagerIO] => CopyManagerIO[A]): CopyManagerIO[A] =
+        module.uncancelable(body)
       override def canceled: CopyManagerIO[Unit] = module.canceled
-      override def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): CopyManagerIO[A] = module.onCancel(fa, fin)
+      override def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): CopyManagerIO[A] =
+        module.onCancel(fa, fin)
       override def fromFuture[A](fut: CopyManagerIO[Future[A]]): CopyManagerIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]): CopyManagerIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]): CopyManagerIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidCopyManagerIO[A : Monoid]: Monoid[CopyManagerIO[A]] = new Monoid[CopyManagerIO[A]] {
+
+  implicit def MonoidCopyManagerIO[A: Monoid]: Monoid[CopyManagerIO[A]] = new Monoid[CopyManagerIO[A]] {
     override def empty: CopyManagerIO[A] = Applicative[CopyManagerIO].pure(Monoid[A].empty)
     override def combine(x: CopyManagerIO[A], y: CopyManagerIO[A]): CopyManagerIO[A] =
       Applicative[CopyManagerIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupCopyManagerIO[A : Semigroup]: Semigroup[CopyManagerIO[A]] = new Semigroup[CopyManagerIO[A]] {
+
+  implicit def SemigroupCopyManagerIO[A: Semigroup]: Semigroup[CopyManagerIO[A]] = new Semigroup[CopyManagerIO[A]] {
     override def combine(x: CopyManagerIO[A], y: CopyManagerIO[A]): CopyManagerIO[A] =
       Applicative[CopyManagerIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

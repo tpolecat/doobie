@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -134,7 +134,8 @@ object ref { module =>
   val unit: RefIO[Unit] = FF.pure[RefOp, Unit](())
   def pure[A](a: A): RefIO[A] = FF.pure[RefOp, A](a)
   def raw[A](f: Ref => A): RefIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[RefOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[RefOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): RefIO[A] = FF.liftF[RefOp, A](RaiseError(err))
   def handleErrorWith[A](fa: RefIO[A])(f: Throwable => RefIO[A]): RefIO[A] = FF.liftF[RefOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[RefOp, FiniteDuration](Monotonic)
@@ -177,18 +178,18 @@ object ref { module =>
       override def canceled: RefIO[Unit] = module.canceled
       override def onCancel[A](fa: RefIO[A], fin: RefIO[Unit]): RefIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: RefIO[Future[A]]): RefIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]): RefIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]): RefIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidRefIO[A : Monoid]: Monoid[RefIO[A]] = new Monoid[RefIO[A]] {
+
+  implicit def MonoidRefIO[A: Monoid]: Monoid[RefIO[A]] = new Monoid[RefIO[A]] {
     override def empty: RefIO[A] = Applicative[RefIO].pure(Monoid[A].empty)
     override def combine(x: RefIO[A], y: RefIO[A]): RefIO[A] =
       Applicative[RefIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupRefIO[A : Semigroup]: Semigroup[RefIO[A]] = new Semigroup[RefIO[A]] {
+
+  implicit def SemigroupRefIO[A: Semigroup]: Semigroup[RefIO[A]] = new Semigroup[RefIO[A]] {
     override def combine(x: RefIO[A], y: RefIO[A]): RefIO[A] =
       Applicative[RefIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

@@ -4,7 +4,7 @@
 
 package doobie.util
 
-import cats.effect.{ IO }
+import cats.effect.{IO}
 import doobie._, doobie.implicits._
 import java.sql.SQLException
 
@@ -48,26 +48,32 @@ class CatchSqlSuite extends munit.FunSuite {
   }
 
   test("attemptSomeSqlState should do nothing on success") {
-    assertEquals(IO.delay(3).attemptSomeSqlState {
-      case SQLSTATE_FOO => 42
-      case SQLSTATE_BAR => 66
-    }.unsafeRunSync(), Right(3))
+    assertEquals(
+      IO.delay(3).attemptSomeSqlState {
+        case SQLSTATE_FOO => 42
+        case SQLSTATE_BAR => 66
+      }.unsafeRunSync(),
+      Right(3))
   }
 
   test("attemptSomeSqlState should catch SQLException with matching state (1)") {
     val e = new SQLException("", SQLSTATE_FOO.value)
-    assertEquals(IO.raiseError(e).attemptSomeSqlState {
-      case SQLSTATE_FOO => 42
-      case SQLSTATE_BAR => 66
-    }.unsafeRunSync(), Left(42))
+    assertEquals(
+      IO.raiseError(e).attemptSomeSqlState {
+        case SQLSTATE_FOO => 42
+        case SQLSTATE_BAR => 66
+      }.unsafeRunSync(),
+      Left(42))
   }
 
   test("attemptSomeSqlState should catch SQLException with matching state (2)") {
     val e = new SQLException("", SQLSTATE_BAR.value)
-    assertEquals(IO.raiseError(e).attemptSomeSqlState {
-      case SQLSTATE_FOO => 42
-      case SQLSTATE_BAR => 66
-    }.unsafeRunSync(), Left(66))
+    assertEquals(
+      IO.raiseError(e).attemptSomeSqlState {
+        case SQLSTATE_FOO => 42
+        case SQLSTATE_BAR => 66
+      }.unsafeRunSync(),
+      Left(66))
   }
 
   test("attemptSomeSqlState should ignore SQLException with non-matching state") {
@@ -166,4 +172,3 @@ class CatchSqlSuite extends munit.FunSuite {
   }
 
 }
-

@@ -20,7 +20,8 @@ class LogSuite extends munit.FunSuite {
   val xa = Transactor.fromDriverManager[IO](
     "org.h2.Driver",
     "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    "sa", "",
+    "sa",
+    "",
     logHandler = Some(ev => ioLocal.set(ev))
   )
 
@@ -44,14 +45,14 @@ class LogSuite extends munit.FunSuite {
   test("[Query] implicit handler") {
     eventForCIO(sql"select 1".query[Int].unique) match {
       case Success(_, _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                      => fail(s"no match: $a")
     }
   }
 
   test("[Query] explicit handler") {
     eventForCIO(sql"select 1".query[Int].unique) match {
       case Success(_, _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                      => fail(s"no match: $a")
     }
   }
 
@@ -59,7 +60,7 @@ class LogSuite extends munit.FunSuite {
     val Sql = "select 1"
     eventForUniqueQuery(Sql, ()) match {
       case Success(Sql, Nil, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                          => fail(s"no match: $a")
     }
   }
 
@@ -75,7 +76,7 @@ class LogSuite extends munit.FunSuite {
     val Sql = "select 1 where 1 = 2"
     eventForUniqueQuery(Sql, ()) match {
       case ProcessingFailure(Sql, Nil, _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                                       => fail(s"no match: $a")
     }
   }
 
@@ -87,7 +88,7 @@ class LogSuite extends munit.FunSuite {
     val cio = sql"drop table if exists barf".update.run
     eventForCIO(cio) match {
       case Success(_, _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                      => fail(s"no match: $a")
     }
   }
 
@@ -95,7 +96,7 @@ class LogSuite extends munit.FunSuite {
     val cio = sql"drop table if exists barf".update.run
     eventForCIO(cio) match {
       case Success(_, _, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                      => fail(s"no match: $a")
     }
   }
 
@@ -103,7 +104,7 @@ class LogSuite extends munit.FunSuite {
     val Sql = "update foo set bar = 42"
     eventForUniqueUpdate(Sql, ()) match {
       case Success(Sql, Nil, _, _, _) => ()
-      case a => fail(s"no match: $a")
+      case a                          => fail(s"no match: $a")
     }
   }
 

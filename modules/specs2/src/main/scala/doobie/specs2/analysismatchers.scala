@@ -4,24 +4,17 @@
 
 package doobie.specs2
 
-import cats.effect.{ Async, IO }
+import cats.effect.{Async, IO}
 import cats.instances.list._
 import cats.syntax.foldable._
 import doobie.syntax.connectionio._
 import doobie.util.pretty._
-import doobie.util.testing.{
-  AnalysisReport,
-  Analyzable,
-  analyze,
-  CheckerBase,
-  UnsafeRun
-}
-import org.specs2.matcher.{ Expectable, Matcher, MatchResult }
+import doobie.util.testing.{AnalysisReport, Analyzable, analyze, CheckerBase, UnsafeRun}
+import org.specs2.matcher.{Expectable, Matcher, MatchResult}
 
 object analysismatchers {
 
-  /**
-    * Provides matcher syntax for query checking:
+  /** Provides matcher syntax for query checking:
     *
     * {{{
     * sql"select 1".query[Int] must typecheck
@@ -42,8 +35,8 @@ object analysismatchers {
       }
 
     private def reportToMatchResult[S](
-      r: AnalysisReport,
-      s: Expectable[S]
+        r: AnalysisReport,
+        s: Expectable[S]
     ): MatchResult[S] = {
       // We aim to produce the same format the fragment version does.
 

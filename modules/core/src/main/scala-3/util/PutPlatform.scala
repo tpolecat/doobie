@@ -10,9 +10,10 @@ trait PutPlatform:
 
   // Put is available for single-element products.
   given [P <: Product, A](
-    using m: Mirror.ProductOf[P],
-          i: m.MirroredElemTypes =:= (A *: EmptyTuple),
-          p: Put[A]
+      using
+      m: Mirror.ProductOf[P],
+      i: m.MirroredElemTypes =:= (A *: EmptyTuple),
+      p: Put[A]
   ): MkPut[P] = {
     val put: Put[P] = p.contramap(p => i(Tuple.fromProductTyped(p)).head)
     MkPut.lift(put)

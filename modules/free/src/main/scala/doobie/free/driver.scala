@@ -5,8 +5,8 @@
 package doobie.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -150,9 +150,11 @@ object driver { module =>
   val unit: DriverIO[Unit] = FF.pure[DriverOp, Unit](())
   def pure[A](a: A): DriverIO[A] = FF.pure[DriverOp, A](a)
   def raw[A](f: Driver => A): DriverIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DriverOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[DriverOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): DriverIO[A] = FF.liftF[DriverOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: DriverIO[A])(f: Throwable => DriverIO[A]): DriverIO[A] = FF.liftF[DriverOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: DriverIO[A])(f: Throwable => DriverIO[A]): DriverIO[A] =
+    FF.liftF[DriverOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[DriverOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[DriverOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[DriverOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -165,7 +167,8 @@ object driver { module =>
   val canceled = FF.liftF[DriverOp, Unit](Canceled)
   def onCancel[A](fa: DriverIO[A], fin: DriverIO[Unit]) = FF.liftF[DriverOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: DriverIO[Future[A]]) = FF.liftF[DriverOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]) = FF.liftF[DriverOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]) =
+    FF.liftF[DriverOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[DriverOp, Unit](PerformLogging(event))
 
   // Smart constructors for Driver-specific operations.
@@ -187,7 +190,8 @@ object driver { module =>
       override def flatMap[A, B](fa: DriverIO[A])(f: A => DriverIO[B]): DriverIO[B] = monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => DriverIO[Either[A, B]]): DriverIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): DriverIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: DriverIO[A])(f: Throwable => DriverIO[A]): DriverIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: DriverIO[A])(f: Throwable => DriverIO[A]): DriverIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: DriverIO[FiniteDuration] = module.monotonic
       override def realTime: DriverIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): DriverIO[A] = module.suspend(hint)(thunk)
@@ -196,18 +200,18 @@ object driver { module =>
       override def canceled: DriverIO[Unit] = module.canceled
       override def onCancel[A](fa: DriverIO[A], fin: DriverIO[Unit]): DriverIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: DriverIO[Future[A]]): DriverIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]): DriverIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]): DriverIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidDriverIO[A : Monoid]: Monoid[DriverIO[A]] = new Monoid[DriverIO[A]] {
+
+  implicit def MonoidDriverIO[A: Monoid]: Monoid[DriverIO[A]] = new Monoid[DriverIO[A]] {
     override def empty: DriverIO[A] = Applicative[DriverIO].pure(Monoid[A].empty)
     override def combine(x: DriverIO[A], y: DriverIO[A]): DriverIO[A] =
       Applicative[DriverIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupDriverIO[A : Semigroup]: Semigroup[DriverIO[A]] = new Semigroup[DriverIO[A]] {
+
+  implicit def SemigroupDriverIO[A: Semigroup]: Semigroup[DriverIO[A]] = new Semigroup[DriverIO[A]] {
     override def combine(x: DriverIO[A], y: DriverIO[A]): DriverIO[A] =
       Applicative[DriverIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-

@@ -45,4 +45,3 @@ object Embedded {
 trait Embeddable[F[_], J] {
   def embed[A](j: J, fa: Free[F, A]): Embedded[A]
 }
-

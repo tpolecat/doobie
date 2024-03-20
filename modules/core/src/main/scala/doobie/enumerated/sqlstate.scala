@@ -4,9 +4,8 @@
 
 package doobie.enumerated
 
-/**
- * A simple newtype wrapper around JDBC SqlState values, which are always vendor-specific. Vendor
- * modules like '''doobie-postgres''' can provide modules of defined values.
- * @group Types
- */
+/** A simple newtype wrapper around JDBC SqlState values, which are always vendor-specific. Vendor modules like
+  * '''doobie-postgres''' can provide modules of defined values.
+  * @group Types
+  */
 final case class SqlState(val value: String) extends AnyVal

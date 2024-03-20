@@ -27,8 +27,7 @@ package testing {
     def unsafeRunSync[A](fa: F[A]): A
   }
 
-  /**
-    * Common base trait for various checkers and matchers.
+  /** Common base trait for various checkers and matchers.
     */
   trait CheckerBase[M[_]] {
     // Effect type, required instances
@@ -40,10 +39,10 @@ package testing {
 
   /** Common data for all query-like types. */
   final case class AnalysisArgs(
-    typeName: String,
-    pos: Option[Pos],
-    sql: String,
-    analysis: ConnectionIO[Analysis]
+      typeName: String,
+      pos: Option[Pos],
+      sql: String,
+      analysis: ConnectionIO[Analysis]
   ) {
     val cleanedSql = Block(
       sql.linesIterator
@@ -62,9 +61,9 @@ package testing {
 
   /** Information from [[Analysis]], prepared for output. */
   final case class AnalysisReport(
-    header: String,
-    sql: Block,
-    items: List[AnalysisReport.Item]
+      header: String,
+      sql: Block,
+      items: List[AnalysisReport.Item]
   ) {
     val succeeded: Boolean = items.forall(_.error.isEmpty)
   }
@@ -85,7 +84,7 @@ package testing {
       T.unpack(t)
 
     def instance[T](
-      impl: T => AnalysisArgs
+        impl: T => AnalysisArgs
     ): Analyzable[T] =
       new Analyzable[T] {
         def unpack(t: T) = impl(t)
@@ -95,7 +94,9 @@ package testing {
       instance { q =>
         AnalysisArgs(
           s"Query[${typeName[A]}, ${typeName[B]}]",
-          q.pos, q.sql, q.analysis
+          q.pos,
+          q.sql,
+          q.analysis
         )
       }
 
@@ -103,7 +104,9 @@ package testing {
       instance { q =>
         AnalysisArgs(
           s"Query0[${typeName[A]}]",
-          q.pos, q.sql, q.analysis
+          q.pos,
+          q.sql,
+          q.analysis
         )
       }
 
@@ -111,7 +114,9 @@ package testing {
       instance { q =>
         AnalysisArgs(
           s"Update[${typeName[A]}]",
-          q.pos, q.sql, q.analysis
+          q.pos,
+          q.sql,
+          q.analysis
         )
       }
 
@@ -119,14 +124,15 @@ package testing {
       instance { q =>
         AnalysisArgs(
           s"Update0",
-          q.pos, q.sql, q.analysis
+          q.pos,
+          q.sql,
+          q.analysis
         )
       }
   }
 }
 
-/**
-  * Common utilities for query testing
+/** Common utilities for query testing
   */
 package object testing {
 
@@ -134,7 +140,7 @@ package object testing {
     args.analysis.attempt
       .map(buildItems)
       .map { items =>
-        AnalysisReport (
+        AnalysisReport(
           args.header,
           args.cleanedSql,
           items
@@ -142,12 +148,12 @@ package object testing {
       }
 
   private def alignmentErrorsToBlock(
-    es: NonEmptyList[AlignmentError]
+      es: NonEmptyList[AlignmentError]
   ): Block =
     Block(es.toList.flatMap(_.msg.linesIterator))
 
   private def buildItems(
-    input: Either[Throwable, Analysis]
+      input: Either[Throwable, Analysis]
   ): List[AnalysisReport.Item] = input match {
     case Left(e) =>
       List(AnalysisReport.Item(
@@ -157,18 +163,17 @@ package object testing {
     case Right(a) =>
       AnalysisReport.Item("SQL Compiles and TypeChecks", None) ::
         (a.paramDescriptions ++ a.columnDescriptions)
-        .map { case (s, es) =>
-          AnalysisReport.Item(s, es.toNel.map(alignmentErrorsToBlock))
-        }
+          .map { case (s, es) =>
+            AnalysisReport.Item(s, es.toNel.map(alignmentErrorsToBlock))
+          }
   }
 
-  /**
-    * Simple formatting for analysis results.
+  /** Simple formatting for analysis results.
     */
   def formatReport(
-    args: AnalysisArgs,
-    report: AnalysisReport,
-    colors: Colors
+      args: AnalysisArgs,
+      report: AnalysisReport,
+      colors: Colors
   ): Block = {
     val sql = args.cleanedSql
       .wrap(68)

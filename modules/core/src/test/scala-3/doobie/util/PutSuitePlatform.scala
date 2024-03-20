@@ -7,7 +7,6 @@ package util
 
 trait PutSuitePlatform { self: munit.FunSuite =>
 
-  test("Put should be derived for unary products (AnyVal)".ignore) {
-  }
+  test("Put should be derived for unary products (AnyVal)".ignore) {}
 
 }

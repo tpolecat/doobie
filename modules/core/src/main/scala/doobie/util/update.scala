@@ -9,31 +9,28 @@ import cats.syntax.all._
 import doobie._
 import doobie.implicits._
 import doobie.util.analysis.Analysis
-import doobie.util.log.{ Success, ExecFailure, LogEvent }
+import doobie.util.log.{Success, ExecFailure, LogEvent}
 import doobie.util.pos.Pos
 import fs2.Stream
 import scala.Predef.longWrapper
-import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
+import scala.concurrent.duration.{FiniteDuration, NANOSECONDS}
 
 /** Module defining updates parameterized by input type. */
 object update {
 
   val DefaultChunkSize = query.DefaultChunkSize
 
-  /**
-   * Partial application hack to allow calling updateManyWithGeneratedKeys without passing the
-   * F[_] type argument explicitly.
-   */
+  /** Partial application hack to allow calling updateManyWithGeneratedKeys without passing the F[_] type argument
+    * explicitly.
+    */
   trait UpdateManyWithGeneratedKeysPartiallyApplied[A, K] {
     def apply[F[_]](as: F[A])(implicit F: Foldable[F], K: Read[K]): Stream[ConnectionIO, K] =
       withChunkSize(as, DefaultChunkSize)
     def withChunkSize[F[_]](as: F[A], chunkSize: Int)(implicit F: Foldable[F], K: Read[K]): Stream[ConnectionIO, K]
   }
 
-  /**
-   * An update parameterized by some input type `A`. This is the type constructed by the `sql`
-   * interpolator.
-   */
+  /** An update parameterized by some input type `A`. This is the type constructed by the `sql` interpolator.
+    */
   trait Update[A] { u =>
 
     // Contravariant coyoneda trick for A
@@ -55,22 +52,20 @@ object update {
         t0 <- now
         en <- FPS.executeUpdate.attempt
         t1 <- now
-        n  <- en.liftTo[PreparedStatementIO].onError { case e => log(ExecFailure(sql, args, label, diff(t1, t0), e)) }
-        _  <- log(Success(sql, args, label, diff(t1, t0), FiniteDuration(0L, NANOSECONDS)))
+        n <- en.liftTo[PreparedStatementIO].onError { case e => log(ExecFailure(sql, args, label, diff(t1, t0), e)) }
+        _ <- log(Success(sql, args, label, diff(t1, t0), FiniteDuration(0L, NANOSECONDS)))
       } yield n
     }
 
-    /**
-     * The SQL string.
-     * @group Diagnostics
-     */
+    /** The SQL string.
+      * @group Diagnostics
+      */
     val sql: String
 
-    /**
-     * An optional `[[Pos]]` indicating the source location where this `[[Update]]` was
-     * constructed. This is used only for diagnostic purposes.
-     * @group Diagnostics
-     */
+    /** An optional `[[Pos]]` indicating the source location where this `[[Update]]` was constructed. This is used only
+      * for diagnostic purposes.
+      * @group Diagnostics
+      */
     val pos: Option[Pos]
 
     /** Convert this Update to a `Fragment`. */
@@ -80,90 +75,80 @@ object update {
     /** Label to be used during logging */
     val label: String
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and asserted parameter types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and asserted parameter types.
+      * @group Diagnostics
+      */
     def analysis: ConnectionIO[Analysis] =
       HC.prepareUpdateAnalysis[A](sql)
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and result set column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and result set column types.
+      * @group Diagnostics
+      */
     def outputAnalysis: ConnectionIO[Analysis] =
       HC.prepareUpdateAnalysis0(sql)
 
-    /**
-      * Program to construct an inspection of the query. Given arguments `a`, calls `f` with the SQL
-      * representation of the query and a statement with all arguments set. Returns the result
-      * of the `ConnectionIO` program constructed.
+    /** Program to construct an inspection of the query. Given arguments `a`, calls `f` with the SQL representation of
+      * the query and a statement with all arguments set. Returns the result of the `ConnectionIO` program constructed.
       *
       * @group Diagnostics
       */
     def inspect[R](a: A)(f: (String, PreparedStatementIO[Unit]) => ConnectionIO[R]): ConnectionIO[R] =
       f(sql, HPS.set(a))
 
-    /**
-     * Construct a program to execute the update and yield a count of affected rows, given the
-     * writable argument `a`.
-     * @group Execution
-     */
+    /** Construct a program to execute the update and yield a count of affected rows, given the writable argument `a`.
+      * @group Execution
+      */
     def run(a: A): ConnectionIO[Int] =
       HC.prepareStatement(sql)(HPS.set(a) *> executeUpdate(a))
 
-    /**
-     * Program to execute a batch update and yield a count of affected rows. Note that failed
-     * updates are not reported (see https://github.com/tpolecat/doobie/issues/706). This API is
-     * likely to change.
-     * @group Execution
-     */
+    /** Program to execute a batch update and yield a count of affected rows. Note that failed updates are not reported
+      * (see https://github.com/tpolecat/doobie/issues/706). This API is likely to change.
+      * @group Execution
+      */
     def updateMany[F[_]: Foldable](fa: F[A]): ConnectionIO[Int] =
       HC.prepareStatement(sql)(HPS.addBatchesAndExecute(fa))
 
-    /**
-     * Construct a stream that performs a batch update as with `updateMany`, yielding generated
-     * keys of readable type `K`, identified by the specified columns. Note that not all drivers
-     * support generated keys, and some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a stream that performs a batch update as with `updateMany`, yielding generated keys of readable type
+      * `K`, identified by the specified columns. Note that not all drivers support generated keys, and some support
+      * only a single key column.
+      * @group Execution
+      */
     def updateManyWithGeneratedKeys[K](columns: String*): UpdateManyWithGeneratedKeysPartiallyApplied[A, K] =
       new UpdateManyWithGeneratedKeysPartiallyApplied[A, K] {
-        def withChunkSize[F[_]](as: F[A], chunkSize: Int)(implicit F: Foldable[F], K: Read[K]): Stream[ConnectionIO, K] =
-          HC.updateManyWithGeneratedKeys[List,A,K](columns.toList)(sql, FPS.unit, as.toList, chunkSize)
+        def withChunkSize[F[_]](as: F[A], chunkSize: Int)(implicit
+            F: Foldable[F],
+            K: Read[K]
+        ): Stream[ConnectionIO, K] =
+          HC.updateManyWithGeneratedKeys[List, A, K](columns.toList)(sql, FPS.unit, as.toList, chunkSize)
       }
 
-    /**
-     * Construct a stream that performs the update, yielding generated keys of readable type `K`,
-     * identified by the specified columns, given a writable argument `a`. Note that not all
-     * drivers support generated keys, and some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a stream that performs the update, yielding generated keys of readable type `K`, identified by the
+      * specified columns, given a writable argument `a`. Note that not all drivers support generated keys, and some
+      * support only a single key column.
+      * @group Execution
+      */
     def withGeneratedKeys[K: Read](columns: String*)(a: A): Stream[ConnectionIO, K] =
       withGeneratedKeysWithChunkSize[K](columns: _*)(a, DefaultChunkSize)
 
-    /**
-     * Construct a stream that performs the update, yielding generated keys of readable type `K`,
-     * identified by the specified columns, given a writable argument `a` and `chunkSize`. Note
-     * that not all drivers support generated keys, and some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a stream that performs the update, yielding generated keys of readable type `K`, identified by the
+      * specified columns, given a writable argument `a` and `chunkSize`. Note that not all drivers support generated
+      * keys, and some support only a single key column.
+      * @group Execution
+      */
     def withGeneratedKeysWithChunkSize[K: Read](columns: String*)(a: A, chunkSize: Int): Stream[ConnectionIO, K] =
       HC.updateWithGeneratedKeys[K](columns.toList)(sql, HPS.set(a), chunkSize)
 
-    /**
-     * Construct a program that performs the update, yielding a single set of generated keys of
-     * readable type `K`, identified by the specified columns, given a writable argument `a`.
-     * Note that not all drivers support generated keys, and some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a program that performs the update, yielding a single set of generated keys of readable type `K`,
+      * identified by the specified columns, given a writable argument `a`. Note that not all drivers support generated
+      * keys, and some support only a single key column.
+      * @group Execution
+      */
     def withUniqueGeneratedKeys[K: Read](columns: String*)(a: A): ConnectionIO[K] =
       HC.prepareStatementS(sql, columns.toList)(HPS.set(a) *> HPS.executeUpdateWithUniqueGeneratedKeys)
 
-    /**
-     * Update is a contravariant functor.
-     * @group Transformations
-     */
+    /** Update is a contravariant functor.
+      * @group Transformations
+      */
     def contramap[C](f: C => A): Update[C] =
       new Update[C] {
         val write = u.write.contramap(f)
@@ -172,10 +157,9 @@ object update {
         val label = u.label
       }
 
-    /**
-     * Apply an argument, yielding a residual `[[Update0]]`.
-     * @group Transformations
-     */
+    /** Apply an argument, yielding a residual `[[Update0]]`.
+      * @group Transformations
+      */
     def toUpdate0(a: A): Update0 =
       new Update0 {
         val sql = u.sql
@@ -195,15 +179,13 @@ object update {
 
   object Update {
 
-    /**
-     * Construct an `Update` for some writable parameter type `A` with the given SQL string, and
-     * optionally a `Pos` and/or `LogHandler` for diagnostics. The normal mechanism
-     * for construction is the `sql/fr/fr0` interpolators.
-     * @group Constructors
-     */
+    /** Construct an `Update` for some writable parameter type `A` with the given SQL string, and optionally a `Pos`
+      * and/or `LogHandler` for diagnostics. The normal mechanism for construction is the `sql/fr/fr0` interpolators.
+      * @group Constructors
+      */
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def apply[A](sql: String, pos: Option[Pos] = None, label: String = unlabeled)(
-      implicit W: Write[A]
+        implicit W: Write[A]
     ): Update[A] = {
       val sql0 = sql
       val label0 = label
@@ -216,10 +198,9 @@ object update {
       }
     }
 
-    /**
-     * Update is a contravariant functor.
-     * @group Typeclass Instances
-     */
+    /** Update is a contravariant functor.
+      * @group Typeclass Instances
+      */
     implicit val updateContravariant: Contravariant[Update] =
       new Contravariant[Update] {
         def contramap[A, B](fa: Update[A])(f: B => A) = fa contramap f
@@ -229,84 +210,71 @@ object update {
 
   trait Update0 {
 
-    /**
-     * The SQL string.
-     * @group Diagnostics
-     */
+    /** The SQL string.
+      * @group Diagnostics
+      */
     val sql: String
 
-    /**
-     * An optional `[[Pos]]` indicating the source location where this `[[Query]]` was
-     * constructed. This is used only for diagnostic purposes.
-     * @group Diagnostics
-     */
+    /** An optional `[[Pos]]` indicating the source location where this `[[Query]]` was constructed. This is used only
+      * for diagnostic purposes.
+      * @group Diagnostics
+      */
     val pos: Option[Pos]
 
     /** Convert this Update0 to a `Fragment`. */
     def toFragment: Fragment
 
-      /**
-     * Program to construct an analysis of this query's SQL statement and asserted parameter types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and asserted parameter types.
+      * @group Diagnostics
+      */
     def analysis: ConnectionIO[Analysis]
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and result set column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and result set column types.
+      * @group Diagnostics
+      */
     def outputAnalysis: ConnectionIO[Analysis]
 
-    /**
-      * Program to construct an inspection of the query. Calls `f` with the SQL
-      * representation of the query and a statement with all statement arguments set. Returns the result
-      * of the `ConnectionIO` program constructed.
+    /** Program to construct an inspection of the query. Calls `f` with the SQL representation of the query and a
+      * statement with all statement arguments set. Returns the result of the `ConnectionIO` program constructed.
       *
       * @group Diagnostics
       */
     def inspect[R](f: (String, PreparedStatementIO[Unit]) => ConnectionIO[R]): ConnectionIO[R]
 
-    /**
-     * Program to execute the update and yield a count of affected rows.
-     * @group Execution
-     */
+    /** Program to execute the update and yield a count of affected rows.
+      * @group Execution
+      */
     def run: ConnectionIO[Int]
 
-    /**
-     * Construct a stream that performs the update, yielding generated keys of readable type `K`,
-     * identified by the specified columns. Note that not all drivers support generated keys, and
-     * some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a stream that performs the update, yielding generated keys of readable type `K`, identified by the
+      * specified columns. Note that not all drivers support generated keys, and some support only a single key column.
+      * @group Execution
+      */
     def withGeneratedKeys[K: Read](columns: String*): Stream[ConnectionIO, K] =
       withGeneratedKeysWithChunkSize(columns: _*)(DefaultChunkSize)
 
-    /**
-     * Construct a stream that performs the update, yielding generated keys of readable type `K`,
-     * identified by the specified columns, given a `chunkSize`. Note that not all drivers support
-     * generated keys, and some support only a single key column.
-     * @group Execution
-     */
-    def withGeneratedKeysWithChunkSize[K: Read](columns: String*)(chunkSize:Int): Stream[ConnectionIO, K]
+    /** Construct a stream that performs the update, yielding generated keys of readable type `K`, identified by the
+      * specified columns, given a `chunkSize`. Note that not all drivers support generated keys, and some support only
+      * a single key column.
+      * @group Execution
+      */
+    def withGeneratedKeysWithChunkSize[K: Read](columns: String*)(chunkSize: Int): Stream[ConnectionIO, K]
 
-    /**
-     * Construct a program that performs the update, yielding a single set of generated keys of
-     * readable type `K`, identified by the specified columns. Note that not all drivers support
-     * generated keys, and some support only a single key column.
-     * @group Execution
-     */
+    /** Construct a program that performs the update, yielding a single set of generated keys of readable type `K`,
+      * identified by the specified columns. Note that not all drivers support generated keys, and some support only a
+      * single key column.
+      * @group Execution
+      */
     def withUniqueGeneratedKeys[K: Read](columns: String*): ConnectionIO[K]
 
   }
 
   object Update0 {
 
-    /**
-     * Construct an `Update0` with the given SQL string, and optionally a `Pos`
-     * and/or `LogHandler` for diagnostics. The normal mechanism for construction is the
-     * `sql/fr/fr0` interpolators.
-     * @group Constructors
-     */
+    /** Construct an `Update0` with the given SQL string, and optionally a `Pos` and/or `LogHandler` for diagnostics.
+      * The normal mechanism for construction is the `sql/fr/fr0` interpolators.
+      * @group Constructors
+      */
     def apply(sql0: String, pos0: Option[Pos]): Update0 =
       Update[Unit](sql0, pos0).toUpdate0(())
 

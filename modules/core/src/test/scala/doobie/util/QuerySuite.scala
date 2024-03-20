@@ -11,16 +11,16 @@ import scala.Predef._
 class QuerySuite extends munit.FunSuite {
 
   import cats.effect.unsafe.implicits.global
-  
+
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
-  val q = Query[String,Int]("select 123 where ? = 'foo'", None)
+  val q = Query[String, Int]("select 123 where ? = 'foo'", None)
   val pairQuery = Query[String, (String, Int)]("select 'xxx', 123 where ? = 'foo'", None)
 
   test("Query (non-empty) to") {
@@ -131,7 +131,7 @@ class QuerySuite extends munit.FunSuite {
     assertEquals(q0e.map(_ * 2).to[List].transact(xa).unsafeRunSync(), Nil)
   }
 
-  val qf = sql"select 'foo', ${1:Int}, ${Option.empty[Int]}, ${Option(42)}".query[String] // wrong!
+  val qf = sql"select 'foo', ${1: Int}, ${Option.empty[Int]}, ${Option(42)}".query[String] // wrong!
   test("Query to Fragment and back") {
     val qfʹ = qf.toFragment.query[(String, Int, Option[Int], Option[Int])]
     assertEquals(qfʹ.unique.transact(xa).unsafeRunSync(), (("foo", 1, None, Some(42))))

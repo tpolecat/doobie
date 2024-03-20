@@ -7,6 +7,6 @@ package doobie
 package object munit {
 
   type Checker[M[_]] = analysisspec.Checker[M]
-  type IOChecker     = analysisspec.IOChecker
+  type IOChecker = analysisspec.IOChecker
 
 }

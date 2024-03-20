@@ -4,28 +4,26 @@
 
 package doobie.postgres
 
-import cats.{ ContravariantSemigroupal, Foldable }
+import cats.{ContravariantSemigroupal, Foldable}
 import cats.syntax.foldable._
 
-/**
- * Typeclass for types that can be written as Postgres literal text, using the default DELIMETER
- * and NULL values, for use with `COPY`. If you wish to implement an instance it's worth reading
- * the documentation at the link below.
- * @see [[https://www.postgresql.org/docs/9.6/static/sql-copy.html Postgres `COPY` command]]
- */
+/** Typeclass for types that can be written as Postgres literal text, using the default DELIMETER and NULL values, for
+  * use with `COPY`. If you wish to implement an instance it's worth reading the documentation at the link below.
+  * @see
+  *   [[https://www.postgresql.org/docs/9.6/static/sql-copy.html Postgres `COPY` command]]
+  */
 
 trait Text[A] { outer =>
 
-  /**
-   * Construct an encoder for `A` that appends to the provided `StringBuilder.
-   * @param a the value to encode
-   */
+  /** Construct an encoder for `A` that appends to the provided `StringBuilder.
+    * @param a
+    *   the value to encode
+    */
   def unsafeEncode(a: A, sb: StringBuilder): Unit
 
-  /**
-   * Variant of unsafeEncode, called for array members which require more escaping. Same as
-   * unsafeEncode unless overridden.
-   */
+  /** Variant of unsafeEncode, called for array members which require more escaping. Same as unsafeEncode unless
+    * overridden.
+    */
   def unsafeArrayEncode(a: A, sb: StringBuilder): Unit =
     unsafeEncode(a, sb)
 
@@ -58,17 +56,16 @@ object Text extends TextInstances with TextPlatform {
   val DELIMETER: Char = '\t'
   val NULL: String = "\\N"
 
-  /**
-   * Construct an instance, given a function matching the `unsafeEncode` signature.
-   * @param f a function from `(A, DELIMETER, NULL) => StringBuilder => StringBuilder`
-   */
+  /** Construct an instance, given a function matching the `unsafeEncode` signature.
+    * @param f
+    *   a function from `(A, DELIMETER, NULL) => StringBuilder => StringBuilder`
+    */
   def instance[A](f: (A, StringBuilder) => Unit): Text[A] =
     new Text[A] {
       def unsafeEncode(a: A, sb: StringBuilder) = f(a, sb)
     }
 
 }
-
 
 trait TextInstances extends TextInstances0 { this: Text.type =>
 
@@ -91,7 +88,7 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
           case '\n' => sb.append("\\n")
           case '\r' => sb.append("\\r")
           case '\t' => sb.append("\\t")
-          case 0x0B => sb.append("\\v")
+          case 0x0b => sb.append("\\v")
           case c    => sb.append(c.toChar)
         }
 
@@ -117,22 +114,22 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
       }
     }
 
-  //Char
-  implicit val charInstance:    Text[Char]    = instance((n, sb) => {sb.append(n.toString); ()})
+  // Char
+  implicit val charInstance: Text[Char] = instance((n, sb) => { sb.append(n.toString); () })
 
   // Primitive Numerics
-  implicit val intInstance:    Text[Int]    = instance((n, sb) => {sb.append(n); ()})
-  implicit val shortInstance:  Text[Short]  = instance((n, sb) => {sb.append(n); ()})
-  implicit val longInstance:   Text[Long]   = instance((n, sb) => {sb.append(n); ()})
-  implicit val floatInstance:  Text[Float]  = instance((n, sb) => {sb.append(n); ()})
-  implicit val doubleInstance: Text[Double] = instance((n, sb) => {sb.append(n); ()})
+  implicit val intInstance: Text[Int] = instance((n, sb) => { sb.append(n); () })
+  implicit val shortInstance: Text[Short] = instance((n, sb) => { sb.append(n); () })
+  implicit val longInstance: Text[Long] = instance((n, sb) => { sb.append(n); () })
+  implicit val floatInstance: Text[Float] = instance((n, sb) => { sb.append(n); () })
+  implicit val doubleInstance: Text[Double] = instance((n, sb) => { sb.append(n); () })
 
   // Big Numerics
-  implicit val bigDecimalInstance: Text[BigDecimal] = instance { (n, sb) => {sb.append(n.toString); ()} }
+  implicit val bigDecimalInstance: Text[BigDecimal] = instance { (n, sb) => { sb.append(n.toString); () } }
 
   // Boolean
   implicit val booleanInstance: Text[Boolean] =
-    instance((b, sb) => {sb.append(b); ()})
+    instance((b, sb) => { sb.append(b); () })
 
   // Date, Time, etc.
 
@@ -152,11 +149,11 @@ trait TextInstances extends TextInstances0 { this: Text.type =>
 
   // Any non-option Text can be lifted to Option
   implicit def option[A](
-    implicit csv: Text[A]
+      implicit csv: Text[A]
   ): Text[Option[A]] =
     instance {
-      case (Some(a), sb) => {csv.unsafeEncode(a, sb); ()}
-      case (None, sb)    => {sb.append(Text.NULL); ()}
+      case (Some(a), sb) => { csv.unsafeEncode(a, sb); () }
+      case (None, sb)    => { sb.append(Text.NULL); () }
     }
 
 }
@@ -166,8 +163,9 @@ trait TextInstances0 extends TextInstances1 { this: Text.type =>
   // Iterable and views thereof, as [nested] ARRAY
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Var"))
   implicit def iterableInstance[F[_], A](
-    implicit ev: Text[A],
-             f:  F[A] => Iterable[A]
+      implicit
+      ev: Text[A],
+      f: F[A] => Iterable[A]
   ): Text[F[A]] =
     instance { (fa, sb) =>
       var first = true
@@ -187,7 +185,7 @@ trait TextInstances1 { this: Text.type =>
 
   // Foldable, not as fast
   implicit def foldableInstance[F[_]: Foldable, A](
-    implicit ev: Text[A]
+      implicit ev: Text[A]
   ): Text[F[A]] =
     iterableInstance[List, A].contramap(_.toList)
 

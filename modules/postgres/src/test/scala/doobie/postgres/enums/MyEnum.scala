@@ -14,11 +14,14 @@ object MyEnum {
   case object Bar extends MyEnum
 
   implicit val MyEnumMeta: Meta[MyEnum] =
-    pgEnumString("myenum", {
-      case "foo" => Foo
-      case "bar" => Bar
-    }, {
-      case Foo => "foo"
-      case Bar => "bar"
-    })
+    pgEnumString(
+      "myenum",
+      {
+        case "foo" => Foo
+        case "bar" => Bar
+      },
+      {
+        case Foo => "foo"
+        case Bar => "bar"
+      })
 }

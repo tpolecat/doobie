@@ -5,8 +5,8 @@
 package doobie.postgres.free
 
 import cats.{~>, Applicative, Semigroup, Monoid}
-import cats.effect.kernel.{ CancelScope, Poll, Sync }
-import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import cats.effect.kernel.{CancelScope, Poll, Sync}
+import cats.free.{Free => FF} // alias because some algebras have an op called Free
 import doobie.util.log.LogEvent
 import doobie.WeakAsync
 import scala.concurrent.Future
@@ -95,7 +95,8 @@ object largeobject { module =>
     final case class RaiseError[A](e: Throwable) extends LargeObjectOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raiseError(e)
     }
-    final case class HandleErrorWith[A](fa: LargeObjectIO[A], f: Throwable => LargeObjectIO[A]) extends LargeObjectOp[A] {
+    final case class HandleErrorWith[A](fa: LargeObjectIO[A], f: Throwable => LargeObjectIO[A])
+        extends LargeObjectOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa)(f)
     }
     case object Monotonic extends LargeObjectOp[FiniteDuration] {
@@ -204,9 +205,11 @@ object largeobject { module =>
   val unit: LargeObjectIO[Unit] = FF.pure[LargeObjectOp, Unit](())
   def pure[A](a: A): LargeObjectIO[A] = FF.pure[LargeObjectOp, A](a)
   def raw[A](f: LargeObject => A): LargeObjectIO[A] = FF.liftF(Raw(f))
-  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[LargeObjectOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[LargeObjectOp, A] =
+    FF.liftF(Embed(ev.embed(j, fa)))
   def raiseError[A](err: Throwable): LargeObjectIO[A] = FF.liftF[LargeObjectOp, A](RaiseError(err))
-  def handleErrorWith[A](fa: LargeObjectIO[A])(f: Throwable => LargeObjectIO[A]): LargeObjectIO[A] = FF.liftF[LargeObjectOp, A](HandleErrorWith(fa, f))
+  def handleErrorWith[A](fa: LargeObjectIO[A])(f: Throwable => LargeObjectIO[A]): LargeObjectIO[A] =
+    FF.liftF[LargeObjectOp, A](HandleErrorWith(fa, f))
   val monotonic = FF.liftF[LargeObjectOp, FiniteDuration](Monotonic)
   val realtime = FF.liftF[LargeObjectOp, FiniteDuration](Realtime)
   def delay[A](thunk: => A) = FF.liftF[LargeObjectOp, A](Suspend(Sync.Type.Delay, () => thunk))
@@ -219,7 +222,8 @@ object largeobject { module =>
   val canceled = FF.liftF[LargeObjectOp, Unit](Canceled)
   def onCancel[A](fa: LargeObjectIO[A], fin: LargeObjectIO[Unit]) = FF.liftF[LargeObjectOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: LargeObjectIO[Future[A]]) = FF.liftF[LargeObjectOp, A](FromFuture(fut))
-  def fromFutureCancelable[A](fut: LargeObjectIO[(Future[A], LargeObjectIO[Unit])]) = FF.liftF[LargeObjectOp, A](FromFutureCancelable(fut))
+  def fromFutureCancelable[A](fut: LargeObjectIO[(Future[A], LargeObjectIO[Unit])]) =
+    FF.liftF[LargeObjectOp, A](FromFutureCancelable(fut))
   def performLogging(event: LogEvent) = FF.liftF[LargeObjectOp, Unit](PerformLogging(event))
 
   // Smart constructors for LargeObject-specific operations.
@@ -252,30 +256,34 @@ object largeobject { module =>
       override val applicative = monad
       override val rootCancelScope = CancelScope.Cancelable
       override def pure[A](x: A): LargeObjectIO[A] = monad.pure(x)
-      override def flatMap[A, B](fa: LargeObjectIO[A])(f: A => LargeObjectIO[B]): LargeObjectIO[B] = monad.flatMap(fa)(f)
+      override def flatMap[A, B](fa: LargeObjectIO[A])(f: A => LargeObjectIO[B]): LargeObjectIO[B] =
+        monad.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A => LargeObjectIO[Either[A, B]]): LargeObjectIO[B] = monad.tailRecM(a)(f)
       override def raiseError[A](e: Throwable): LargeObjectIO[A] = module.raiseError(e)
-      override def handleErrorWith[A](fa: LargeObjectIO[A])(f: Throwable => LargeObjectIO[A]): LargeObjectIO[A] = module.handleErrorWith(fa)(f)
+      override def handleErrorWith[A](fa: LargeObjectIO[A])(f: Throwable => LargeObjectIO[A]): LargeObjectIO[A] =
+        module.handleErrorWith(fa)(f)
       override def monotonic: LargeObjectIO[FiniteDuration] = module.monotonic
       override def realTime: LargeObjectIO[FiniteDuration] = module.realtime
       override def suspend[A](hint: Sync.Type)(thunk: => A): LargeObjectIO[A] = module.suspend(hint)(thunk)
       override def forceR[A, B](fa: LargeObjectIO[A])(fb: LargeObjectIO[B]): LargeObjectIO[B] = module.forceR(fa)(fb)
-      override def uncancelable[A](body: Poll[LargeObjectIO] => LargeObjectIO[A]): LargeObjectIO[A] = module.uncancelable(body)
+      override def uncancelable[A](body: Poll[LargeObjectIO] => LargeObjectIO[A]): LargeObjectIO[A] =
+        module.uncancelable(body)
       override def canceled: LargeObjectIO[Unit] = module.canceled
-      override def onCancel[A](fa: LargeObjectIO[A], fin: LargeObjectIO[Unit]): LargeObjectIO[A] = module.onCancel(fa, fin)
+      override def onCancel[A](fa: LargeObjectIO[A], fin: LargeObjectIO[Unit]): LargeObjectIO[A] =
+        module.onCancel(fa, fin)
       override def fromFuture[A](fut: LargeObjectIO[Future[A]]): LargeObjectIO[A] = module.fromFuture(fut)
-      override def fromFutureCancelable[A](fut: LargeObjectIO[(Future[A], LargeObjectIO[Unit])]): LargeObjectIO[A] = module.fromFutureCancelable(fut)
+      override def fromFutureCancelable[A](fut: LargeObjectIO[(Future[A], LargeObjectIO[Unit])]): LargeObjectIO[A] =
+        module.fromFutureCancelable(fut)
     }
-    
-  implicit def MonoidLargeObjectIO[A : Monoid]: Monoid[LargeObjectIO[A]] = new Monoid[LargeObjectIO[A]] {
+
+  implicit def MonoidLargeObjectIO[A: Monoid]: Monoid[LargeObjectIO[A]] = new Monoid[LargeObjectIO[A]] {
     override def empty: LargeObjectIO[A] = Applicative[LargeObjectIO].pure(Monoid[A].empty)
     override def combine(x: LargeObjectIO[A], y: LargeObjectIO[A]): LargeObjectIO[A] =
       Applicative[LargeObjectIO].product(x, y).map { case (x, y) => Monoid[A].combine(x, y) }
   }
- 
-  implicit def SemigroupLargeObjectIO[A : Semigroup]: Semigroup[LargeObjectIO[A]] = new Semigroup[LargeObjectIO[A]] {
+
+  implicit def SemigroupLargeObjectIO[A: Semigroup]: Semigroup[LargeObjectIO[A]] = new Semigroup[LargeObjectIO[A]] {
     override def combine(x: LargeObjectIO[A], y: LargeObjectIO[A]): LargeObjectIO[A] =
       Applicative[LargeObjectIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
-
