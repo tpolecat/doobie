@@ -1,6 +1,6 @@
 addSbtPlugin("com.lightbend.paradox"     % "sbt-paradox"             % "0.10.6")
 addSbtPlugin("com.github.sbt"          % "sbt-site"                % "1.6.0")
-addSbtPlugin("com.github.sbt"          % "sbt-ghpages"             % "0.7.0")
+addSbtPlugin("com.github.sbt"          % "sbt-ghpages"             % "0.8.0")
 addSbtPlugin("org.typelevel"             % "sbt-typelevel-ci-release" % "0.6.7")
 addSbtPlugin("org.typelevel"             % "sbt-typelevel-mergify"   % "0.6.7")
 addSbtPlugin("org.scoverage"             % "sbt-scoverage"           % "1.9.3")
