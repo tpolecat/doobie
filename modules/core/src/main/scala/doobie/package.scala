@@ -1,3 +1,4 @@
+import doobie.util.meta.LegacyMeta
 // Copyright (c) 2013-2020 Rob Norris and Contributors
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
@@ -21,6 +22,7 @@ package object doobie
   object implicits
     extends free.Instances
        with generic.AutoDerivation
+       with LegacyMeta
        with syntax.AllSyntax {
 
     // re-export these instances so `Meta` takes priority, must be in the object
@@ -28,6 +30,15 @@ package object doobie
     implicit def metaProjectionPut[A](implicit m: Meta[A]): Put[A] = Put.metaProjectionWrite
     implicit def fromGetRead[A](implicit G: Get[A]): Read[A] = Read.fromGet
     implicit def fromPutWrite[A](implicit P: Put[A]): Write[A] = Write.fromPut
+
+    /**
+     * Use this import if:
+     * 1. You're NOT using one of the database doobie directly integrate with (postgres/mysql)
+     * 2. Your driver natively supports java.time.* types
+     * 
+     * If your driver doesn't support java.time.* types, use [[doobie.implicits.legacy.instant/localdate]] instead
+     */
+    object javatimedrivernative extends MetaConstructors with TimeMetaInstances
   }
 
 }

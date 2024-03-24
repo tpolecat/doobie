@@ -222,12 +222,12 @@ object analysis {
     // the Postgres driver does not return *WithTimezone JDBC types for *tz column types
     // https://github.com/pgjdbc/pgjdbc/issues/2485
     // https://github.com/pgjdbc/pgjdbc/issues/1766
-    case JdbcType.Time if vendorTypeName.compareToIgnoreCase("timetz") == 0 => JdbcType.TimeWithTimezone
-    case JdbcType.Timestamp if vendorTypeName.compareToIgnoreCase("timestamptz") == 0 => JdbcType.TimestampWithTimezone
+    case JdbcType.Time if vendorTypeName.equalsIgnoreCase("timetz") => JdbcType.TimeWithTimezone
+    case JdbcType.Timestamp if vendorTypeName.equalsIgnoreCase("timestamptz") => JdbcType.TimestampWithTimezone
 
     // MySQL timestamp columns are returned as Timestamp
     case JdbcType.Timestamp
-      if vendorTypeName.compareToIgnoreCase("timestamp") == 0 && driver == MySQLDriverName => JdbcType.TimestampWithTimezone
+      if vendorTypeName.equalsIgnoreCase("timestamp") && driver == MySQLDriverName => JdbcType.TimestampWithTimezone
 
     case t => t
   }
