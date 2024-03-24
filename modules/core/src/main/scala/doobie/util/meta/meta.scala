@@ -39,7 +39,6 @@ final class Meta[A](val get: Get[A], val put: Put[A]) {
 object Meta extends MetaConstructors
                with MetaInstances
                with SqlMetaInstances
-               with TimeMetaInstances
 {
 
   /** Summon the `Meta` instance if possible. */
