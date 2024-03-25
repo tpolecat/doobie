@@ -6,13 +6,16 @@ package doobie.postgres
 
 import java.math.{BigDecimal => JBigDecimal}
 import java.net.InetAddress
-import java.time.ZoneOffset
+import java.time.{LocalDate, LocalDateTime, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 import doobie._
 import doobie.implicits._
 import doobie.postgres.enums._
 import doobie.postgres.implicits._
 import doobie.postgres.pgisimplicits._
+import doobie.postgres.rangeimplicits._
+import doobie.postgres.types.{EmptyRange, NonEmptyRange, Range}
+import doobie.postgres.types.Range.Edge._
 import doobie.postgres.util.arbitraries.SQLArbitraries._
 import doobie.postgres.util.arbitraries.TimeArbitraries._
 import doobie.util.arbitraries.StringArbitraries._
@@ -209,13 +212,29 @@ class TypesSuite extends munit.ScalaCheckSuite {
   skip("structs")
 
   // 8.17 Range Types
-  skip("int4range")
-  skip("int8range")
-  skip("numrange")
-  skip("tsrange")
-  skip("tstzrange")
-  skip("daterange")
-  skip("custom")
+  testInOutWithCustomGen[Range[Int]]("int4range", EmptyRange)
+  testInOutWithCustomGen[Range[Long]]("int8range", EmptyRange)
+  testInOutWithCustomGen[Range[BigDecimal]]("numrange", EmptyRange)
+  testInOutWithCustomGen[Range[LocalDate]]("daterange", EmptyRange)
+  testInOutWithCustomGen[Range[LocalDateTime]]("tsrange", EmptyRange)
+  testInOutWithCustomGen[Range[OffsetDateTime]]("tstzrange", EmptyRange)
+  testInOutWithCustomGen[Range[Int]]("int4range", Range(11, 22, ExclExcl), _ => Range(12, 22, InclExcl))
+  testInOutWithCustomGen[Range[Int]]("int4range", Range(11, 22, InclExcl), _ => Range(11, 22, InclExcl))
+  testInOutWithCustomGen[Range[Int]]("int4range", Range(11, 22, ExclIncl), _ => Range(12, 23, InclExcl))
+  testInOutWithCustomGen[Range[Int]]("int4range", Range(11, 22, InclIncl), _ => Range(11, 23, InclExcl))
+  testInOut[Range[Int]]("int4range", Range(11, 22))
+  testInOut[Range[Long]]("int8range", Range(111, 222))
+  testInOut[Range[BigDecimal]]("numrange", Range(111.111, 222.222, ExclExcl))
+  testInOut[Range[LocalDate]]("daterange", Range(LocalDate.now.minusDays(10), LocalDate.now, InclExcl))
+  testInOut[Range[LocalDateTime]]("tsrange", Range(LocalDateTime.now.minusDays(10), LocalDateTime.now, ExclExcl))
+  testInOut[Range[OffsetDateTime]]("tstzrange", Range(OffsetDateTime.now.minusDays(10), OffsetDateTime.now, ExclExcl))
+  testInOutWithCustomGen[Range[Int]]("int4range", NonEmptyRange[Int](None, Some(1), InclExcl), _ => NonEmptyRange[Int](None, Some(1), ExclExcl))
+  testInOutWithCustomGen[Range[Int]]("int4range", NonEmptyRange[Int](Some(1), None, ExclIncl), _ => NonEmptyRange[Int](Some(2), None, InclExcl))
+
+  // Custom byte range
+  implicit val byteRangeMeta: Meta[Range[Byte]] = rangeMeta[Byte]("int4range")(_.toString, java.lang.Byte.parseByte)
+
+  testInOut[Range[Byte]]("int4range", Range(-128, 127))
 
   // PostGIS geometry types
 

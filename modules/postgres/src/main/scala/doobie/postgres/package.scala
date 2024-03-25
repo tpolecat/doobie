@@ -16,6 +16,9 @@ package object postgres
        with syntax.ToFragmentOps
        with syntax.ToPostgresExplainOps
 
+  object rangeimplicits
+    extends RangeInstances
+
   object pgisimplicits
     extends PgisInstances
 

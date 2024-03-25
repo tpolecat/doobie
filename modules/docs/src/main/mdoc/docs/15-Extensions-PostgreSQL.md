@@ -230,7 +230,59 @@ implicit val geographyPoint: Meta[Point] =
 - MultiPolygon
 - MultiLineString
 
+### Range types
 
+The following range types are supported, and map to **doobie** generic `Range[T]` class:
+
+- the `int4range` schema type maps to `Range[Int]`
+- the `int8range` schema type maps to `Range[Long]`
+- the `numrange`  schema type maps to `Range[BigDecimal]`
+- the `daterange` schema type maps to `Range[java.time.LocalDate]`
+- the `tsrange`   schema type maps to `Range[java.time.LocalDateTime]`
+- the `tstzrange` schema type maps to `Range[java.time.OffsetDateTime]`
+
+Non empty range maps to:
+```scala mdoc:silent
+case class NonEmptyRange[T](lowerBound: Option[T], upperBound: Option[T], edge: Edge) extends Range[T]
+```
+
+Empty range maps to:
+```scala mdoc:silent
+case object EmptyRange extends Range[Nothing]
+```
+To control the inclusive and exclusive bounds according to the [PostgreSQL](https://www.postgresql.org/docs/current/rangetypes.html#RANGETYPES-INCLUSIVITY) specification you need to use a special `Edge` enumeration when creating a `Range`:
+
+```scala mdoc:silent
+object Edge {
+  case object ExclExcl extends Edge
+  case object ExclIncl extends Edge
+  case object InclExcl extends Edge
+  case object InclIncl extends Edge
+}
+```
+
+> In the text form of a range, an inclusive lower bound is represented by '[' while an exclusive lower bound is represented by '('. Likewise, an inclusive upper bound is represented by ']', while an exclusive upper bound is represented by ')'.
+---
+Note: the [range types](https://www.postgresql.org/docs/current/rangetypes.html#RANGETYPES) mappings are defined in a different object (`rangeimplicits`). To enable it you must import them explicitly:
+
+```scala mdoc:silent
+import doobie.postgres.rangeimplicits._
+```
+
+To create for example custom implementation of `Range[Byte]` you can use the public method which declared in the following package `doobie.postgres.rangeimplicits`:
+
+```scala mdoc:silent
+def rangeMeta[T](sqlRangeType: String)(encode: T => String, decode: String => T): Meta[Range[T]]
+```
+
+For a `Range[Byte]`, the meta and bounds encoder and decoder would appear as follows:
+```scala mdoc:silent
+import doobie.postgres.rangeimplicits._
+
+implicit val byteRangeMeta: Meta[Range[Byte]] = rangeMeta[Byte]("int4range")(_.toString, _.toByte)
+
+val int4rangeWithByteBoundsQuery = sql"select '[-128, 127)'::int4range".query[Range[Byte]]
+```
 ### Other Nonstandard Types
 
 - The `uuid` schema type is supported and maps to `java.util.UUID`.
