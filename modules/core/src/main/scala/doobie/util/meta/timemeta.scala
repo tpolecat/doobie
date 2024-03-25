@@ -5,11 +5,12 @@
 package doobie.util.meta
 
 import doobie.enumerated.JdbcType._
+import doobie.util.meta.MetaConstructors.Basic
 
 /**
  * Instances for Java time classes that follow the JDBC specification.
  */
-trait TimeMetaInstances { this: MetaConstructors =>
+trait TimeMetaInstances {
   import Predef.classOf
 
   /** @group Instances */

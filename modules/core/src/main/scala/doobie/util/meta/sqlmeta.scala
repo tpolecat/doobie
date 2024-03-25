@@ -5,8 +5,9 @@
 package doobie.util.meta
 
 import doobie.enumerated.JdbcType._
+import MetaConstructors.Basic
 
-trait SqlMetaInstances { this: MetaConstructors =>
+trait SqlMetaInstances {
 
   /** @group Instances */
   implicit val DateMeta: Meta[java.sql.Date] =

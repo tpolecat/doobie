@@ -202,3 +202,19 @@ implicit val nesMeta: Meta[NonEmptyString] = {
   distinct.string("nes").imap(NonEmptyString.apply)(_.value)
 }
 ```
+
+## How do I use `java.time` types with Doobie?
+
+The following imports will provide `Meta` instances for common java.time.* types:
+
+| Database driver                  | Import                        |
+| ---                              |-------------------------------|
+| Postgres (org.postgresql.Driver) | `doobie.postgres.implicits.*` |
+| MySQL (com.mysql.jdbc.Driver)    | `doobie.mysql.implicits.*`    |
+
+For other databases, if your JDBC driver supports the java.time types natively, 
+you can use `import doobie.implicits.javatimedrivernative._`.
+
+References:
+
+- [Postgres JDBC - Using Java 8 Date and Time classes](https://jdbc.postgresql.org/documentation/query/#using-java-8-date-and-time-classes)

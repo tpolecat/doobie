@@ -4,6 +4,7 @@
 
 package doobie
 
+import doobie.util.meta.TimeMetaInstances
 import org.h2.jdbcx.JdbcConnectionPool
 
 package object h2 {
@@ -13,5 +14,6 @@ package object h2 {
   object implicits
     extends Instances
        with syntax.ToH2TransactorOps
+       with TimeMetaInstances
 
 }

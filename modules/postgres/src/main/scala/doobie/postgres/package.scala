@@ -4,6 +4,8 @@
 
 package doobie
 
+import doobie.util.meta.TimeMetaInstances
+
 package object postgres
   extends postgres.free.Types
      with postgres.free.Modules
@@ -15,6 +17,7 @@ package object postgres
        with syntax.ToPostgresMonadErrorOps
        with syntax.ToFragmentOps
        with syntax.ToPostgresExplainOps
+       with TimeMetaInstances
 
   object pgisimplicits
     extends PgisInstances
