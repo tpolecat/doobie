@@ -240,6 +240,10 @@ object transactor  {
       val strategy = strategy0
     }
 
+    def withLogHandler(logHandler: LogHandler[M])(implicit ev: WeakAsync[M]): Transactor.Aux[M, A] = copy(interpret0=
+      KleisliInterpreter[M](logHandler).ConnectionInterpreter
+    )
+
     /*
      * Convert the effect type of this transactor from M to M0
      */
