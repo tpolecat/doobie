@@ -14,7 +14,7 @@ class LOSuite extends munit.FunSuite with FileEquality {
   import PostgresTestTransactor.xa
 
   // A big file. Contents are irrelevant.
-  val in = new File("init/test-db.sql")
+  val in = new File("init/postgres/test-db.sql")
 
   test("large object support should allow round-trip from file to large object and back") {
     val out  = File.createTempFile("doobie", "tst")

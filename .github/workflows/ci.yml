@@ -80,11 +80,11 @@ jobs:
 
       - name: Make target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
-        run: mkdir -p modules/weaver/target modules/scalatest/target modules/refined/target modules/postgres/target modules/log4cats/target modules/postgres-circe/target modules/h2/target modules/hikari/target modules/munit/target modules/h2-circe/target modules/core/target modules/specs2/target modules/free/target project/target
+        run: mkdir -p modules/weaver/target modules/scalatest/target modules/refined/target modules/postgres/target modules/log4cats/target modules/postgres-circe/target modules/h2/target modules/hikari/target modules/munit/target modules/h2-circe/target modules/mysql/target modules/core/target modules/specs2/target modules/free/target project/target
 
       - name: Compress target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
-        run: tar cf targets.tar modules/weaver/target modules/scalatest/target modules/refined/target modules/postgres/target modules/log4cats/target modules/postgres-circe/target modules/h2/target modules/hikari/target modules/munit/target modules/h2-circe/target modules/core/target modules/specs2/target modules/free/target project/target
+        run: tar cf targets.tar modules/weaver/target modules/scalatest/target modules/refined/target modules/postgres/target modules/log4cats/target modules/postgres-circe/target modules/h2/target modules/hikari/target modules/munit/target modules/h2-circe/target modules/mysql/target modules/core/target modules/specs2/target modules/free/target project/target
 
       - name: Upload target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')

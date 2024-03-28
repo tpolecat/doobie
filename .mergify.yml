@@ -95,6 +95,14 @@ pull_request_rules:
       add:
       - munit
       remove: []
+- name: Label mysql PRs
+  conditions:
+  - files~=^modules/mysql/
+  actions:
+    label:
+      add:
+      - mysql
+      remove: []
 - name: Label postgres PRs
   conditions:
   - files~=^modules/postgres/
