@@ -387,6 +387,7 @@ lazy val hikari = project
   .settings(
     name := "doobie-hikari",
     description := "Hikari support for doobie.",
+    scalacOptions --= Seq("-Xlint:unused", "-Wunused:nowarn"),
     libraryDependencies ++= Seq(
       //needs to be excluded, otherwise coursier may resolve slf4j-api 2 if > Java 11
       "com.zaxxer"     % "HikariCP"   % hikariVersion exclude("org.slf4j", "slf4j-api"),
