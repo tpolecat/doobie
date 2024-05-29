@@ -4,7 +4,7 @@ import scala.annotation.nowarn
 import scala.sys.process._
 
 // Library versions all in one place, for convenience and sanity.
-lazy val catsVersion          = "2.10.0"
+lazy val catsVersion          = "2.12.0"
 lazy val catsEffectVersion    = "3.5.4"
 lazy val circeVersion         = "0.14.7"
 lazy val fs2Version           = "3.10.2"
