@@ -9,7 +9,6 @@ import doobie.util.io.IOActions
 import java.io.{File, InputStream, OutputStream}
 import doobie.postgres.free.{largeobject => IPFLO}
 
-
 object largeobject {
   import implicits._
 

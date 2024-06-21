@@ -38,8 +38,7 @@ object Instances {
         checkedVendorType = Some("JSON")
       )
         .temap(a =>
-          parse(a.show).leftMap(_.show)
-        )
+          parse(a.show).leftMap(_.show))
 
     def h2EncoderPutT[A: Encoder]: Put[A] =
       Put[Json].tcontramap(_.asJson)

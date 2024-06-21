@@ -11,8 +11,8 @@ package object h2 {
   type H2Transactor[M[_]] = Transactor.Aux[M, JdbcConnectionPool]
 
   object implicits
-    extends Instances
-       with syntax.ToH2TransactorOps
-       with H2JavaTimeMetaInstances
+      extends Instances
+      with syntax.ToH2TransactorOps
+      with H2JavaTimeMetaInstances
 
 }

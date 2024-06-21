@@ -19,26 +19,25 @@ import doobie.util.analysis.ColumnMeta
 import doobie.util.analysis.ParameterMeta
 import doobie.util.compat.propertiesToScala
 import doobie.util.stream.repeatEvalChunks
-import doobie.util.{ Get, Put, Read, Write }
+import doobie.util.{Get, Put, Read, Write}
 import fs2.Stream
-import fs2.Stream.{ eval, bracket }
+import fs2.Stream.{eval, bracket}
 import doobie.hi.{preparedstatement => IHPS}
 import doobie.free.{
-  preparedstatement => IFPS, 
+  preparedstatement => IFPS,
   connection => IFC,
-  resultset => IFRS, 
+  resultset => IFRS,
   databasemetadata => IFDMD,
   statement => IFS,
   callablestatement => IFCS
 }
 
-import java.sql.{ Savepoint, PreparedStatement, ResultSet }
+import java.sql.{Savepoint, PreparedStatement, ResultSet}
 import scala.collection.immutable.Map
 
-/**
- * Module of high-level constructors for `ConnectionIO` actions.
- * @group Modules
- */
+/** Module of high-level constructors for `ConnectionIO` actions.
+  * @group Modules
+  */
 
 object connection {
   import implicits._
@@ -48,10 +47,11 @@ object connection {
     IFC.delay(a)
 
   private def liftStream[A: Read](
-    chunkSize: Int,
-    create: ConnectionIO[PreparedStatement],
-    prep:   PreparedStatementIO[Unit],
-    exec:   PreparedStatementIO[ResultSet]): Stream[ConnectionIO, A] = {
+      chunkSize: Int,
+      create: ConnectionIO[PreparedStatement],
+      prep: PreparedStatementIO[Unit],
+      exec: PreparedStatementIO[ResultSet]
+  ): Stream[ConnectionIO, A] = {
 
     def prepared(ps: PreparedStatement): Stream[ConnectionIO, PreparedStatement] =
       eval[ConnectionIO, PreparedStatement] {
@@ -72,36 +72,45 @@ object connection {
 
   }
 
-  /**
-   * Construct a prepared statement from the given `sql`, configure it with the given `PreparedStatementIO`
-   * action, and return results via a `Stream`.
-   * @group Prepared Statements
-   */
+  /** Construct a prepared statement from the given `sql`, configure it with the given `PreparedStatementIO` action, and
+    * return results via a `Stream`.
+    * @group Prepared Statements
+    */
   def stream[A: Read](sql: String, prep: PreparedStatementIO[Unit], chunkSize: Int): Stream[ConnectionIO, A] =
     liftStream(chunkSize, IFC.prepareStatement(sql), prep, IFPS.executeQuery)
 
-  /**
-   * Construct a prepared update statement with the given return columns (and readable destination
-   * type `A`) and sql source, configure it with the given `PreparedStatementIO` action, and return
-   * the generated key results via a
-   * `Stream`.
-   * @group Prepared Statements
-   */
-  def updateWithGeneratedKeys[A: Read](cols: List[String])(sql: String, prep: PreparedStatementIO[Unit], chunkSize: Int): Stream[ConnectionIO, A] =
+  /** Construct a prepared update statement with the given return columns (and readable destination type `A`) and sql
+    * source, configure it with the given `PreparedStatementIO` action, and return the generated key results via a
+    * `Stream`.
+    * @group Prepared Statements
+    */
+  def updateWithGeneratedKeys[A: Read](cols: List[String])(
+      sql: String,
+      prep: PreparedStatementIO[Unit],
+      chunkSize: Int
+  ): Stream[ConnectionIO, A] =
     liftStream(chunkSize, IFC.prepareStatement(sql, cols.toArray), prep, IFPS.executeUpdate *> IFPS.getGeneratedKeys)
 
   /** @group Prepared Statements */
-  def updateManyWithGeneratedKeys[F[_]: Foldable, A: Write, B: Read](cols: List[String])(sql: String, prep: PreparedStatementIO[Unit], fa: F[A], chunkSize: Int): Stream[ConnectionIO, B] =
-    liftStream[B](chunkSize, IFC.prepareStatement(sql, cols.toArray), prep, IHPS.addBatchesAndExecute(fa) *> IFPS.getGeneratedKeys)
+  def updateManyWithGeneratedKeys[F[_]: Foldable, A: Write, B: Read](cols: List[String])(
+      sql: String,
+      prep: PreparedStatementIO[Unit],
+      fa: F[A],
+      chunkSize: Int
+  ): Stream[ConnectionIO, B] =
+    liftStream[B](
+      chunkSize,
+      IFC.prepareStatement(sql, cols.toArray),
+      prep,
+      IHPS.addBatchesAndExecute(fa) *> IFPS.getGeneratedKeys)
 
   /** @group Transaction Control */
   val commit: ConnectionIO[Unit] =
     IFC.commit
 
-  /**
-   * Construct an analysis for the provided `sql` query, given writable parameter type `A` and
-   * readable resultset row type `B`.
-   */
+  /** Construct an analysis for the provided `sql` query, given writable parameter type `A` and readable resultset row
+    * type `B`.
+    */
   def prepareQueryAnalysis[A: Write, B: Read](sql: String): ConnectionIO[Analysis] =
     prepareAnalysis(sql, IHPS.getParameterMappings[A], IHPS.getColumnMappings[B])
 
@@ -115,9 +124,9 @@ object connection {
     prepareAnalysis(sql, IFPS.pure(Nil), IFPS.pure(Nil))
 
   private def prepareAnalysis(
-    sql: String,
-    params: PreparedStatementIO[List[(Put[_], Nullability.NullabilityKnown) Ior ParameterMeta]],
-    columns: PreparedStatementIO[List[(Get[_], Nullability.NullabilityKnown) Ior ColumnMeta]],
+      sql: String,
+      params: PreparedStatementIO[List[(Put[_], Nullability.NullabilityKnown) Ior ParameterMeta]],
+      columns: PreparedStatementIO[List[(Get[_], Nullability.NullabilityKnown) Ior ColumnMeta]]
   ) = {
     val mappings = prepareStatement(sql) {
       (params, columns).tupled
@@ -126,7 +135,6 @@ object connection {
       Analysis(driver, sql, p, c)
     }
   }
-
 
   /** @group Statements */
   def createStatement[A](k: StatementIO[A]): ConnectionIO[A] =
@@ -137,7 +145,11 @@ object connection {
     IFC.createStatement(rst.toInt, rsc.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFS.close))
 
   /** @group Statements */
-  def createStatement[A](rst: ResultSetType, rsc: ResultSetConcurrency, rsh: Holdability)(k: StatementIO[A]): ConnectionIO[A] =
+  def createStatement[A](
+      rst: ResultSetType,
+      rsc: ResultSetConcurrency,
+      rsh: Holdability
+  )(k: StatementIO[A]): ConnectionIO[A] =
     IFC.createStatement(rst.toInt, rsc.toInt, rsh.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFS.close))
 
   /** @group Connection Properties */
@@ -169,7 +181,11 @@ object connection {
     IFC.isReadOnly
 
   /** @group Callable Statements */
-  def prepareCall[A](sql: String, rst: ResultSetType, rsc: ResultSetConcurrency)(k: CallableStatementIO[A]): ConnectionIO[A] =
+  def prepareCall[A](
+      sql: String,
+      rst: ResultSetType,
+      rsc: ResultSetConcurrency
+  )(k: CallableStatementIO[A]): ConnectionIO[A] =
     IFC.prepareCall(sql, rst.toInt, rsc.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFCS.close))
 
   /** @group Callable Statements */
@@ -177,11 +193,20 @@ object connection {
     IFC.prepareCall(sql).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFCS.close))
 
   /** @group Callable Statements */
-  def prepareCall[A](sql: String, rst: ResultSetType, rsc: ResultSetConcurrency, rsh: Holdability)(k: CallableStatementIO[A]): ConnectionIO[A] =
+  def prepareCall[A](
+      sql: String,
+      rst: ResultSetType,
+      rsc: ResultSetConcurrency,
+      rsh: Holdability
+  )(k: CallableStatementIO[A]): ConnectionIO[A] =
     IFC.prepareCall(sql, rst.toInt, rsc.toInt, rsh.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFCS.close))
 
   /** @group Prepared Statements */
-  def prepareStatement[A](sql: String, rst: ResultSetType, rsc: ResultSetConcurrency)(k: PreparedStatementIO[A]): ConnectionIO[A] =
+  def prepareStatement[A](
+      sql: String,
+      rst: ResultSetType,
+      rsc: ResultSetConcurrency
+  )(k: PreparedStatementIO[A]): ConnectionIO[A] =
     IFC.prepareStatement(sql, rst.toInt, rsc.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFPS.close))
 
   /** @group Prepared Statements */
@@ -189,8 +214,14 @@ object connection {
     IFC.prepareStatement(sql).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFPS.close))
 
   /** @group Prepared Statements */
-  def prepareStatement[A](sql: String, rst: ResultSetType, rsc: ResultSetConcurrency, rsh: Holdability)(k: PreparedStatementIO[A]): ConnectionIO[A] =
-    IFC.prepareStatement(sql, rst.toInt, rsc.toInt, rsh.toInt).bracket(s => IFC.embed(s, k))(s => IFC.embed(s, IFPS.close))
+  def prepareStatement[A](
+      sql: String,
+      rst: ResultSetType,
+      rsc: ResultSetConcurrency,
+      rsh: Holdability
+  )(k: PreparedStatementIO[A]): ConnectionIO[A] =
+    IFC.prepareStatement(sql, rst.toInt, rsc.toInt, rsh.toInt).bracket(s => IFC.embed(s, k))(s =>
+      IFC.embed(s, IFPS.close))
 
   /** @group Prepared Statements */
   def prepareStatement[A](sql: String, agk: AutoGeneratedKeys)(k: PreparedStatementIO[A]): ConnectionIO[A] =

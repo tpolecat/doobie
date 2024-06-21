@@ -11,10 +11,7 @@ import doobie.free.{PreparedStatementIO, ResultSetIO}
 import java.sql.{PreparedStatement, ResultSet}
 import doobie.util.fragment.Fragment
 import doobie.util.fragment.Elem
-import doobie.free.{
-  preparedstatement => IFPS,
-  resultset => IFRS
-}
+import doobie.free.{preparedstatement => IFPS, resultset => IFRS}
 
 import scala.annotation.implicitNotFound
 
@@ -47,10 +44,10 @@ And find the missing instance and construct it as needed. Refer to Chapter 12
 of the book of doobie for more information.
 """)
 sealed abstract class Write[A](
-  val puts: List[(Put[_], NullabilityKnown)],
-  val toList: A => List[Any],
-  val unsafeSet: (PreparedStatement, Int, A) => Unit,
-  val unsafeUpdate: (ResultSet, Int, A) => Unit
+    val puts: List[(Put[_], NullabilityKnown)],
+    val toList: A => List[Any],
+    val unsafeSet: (PreparedStatement, Int, A) => Unit,
+    val unsafeUpdate: (ResultSet, Int, A) => Unit
 ) {
 
   lazy val length = puts.length
@@ -77,13 +74,12 @@ sealed abstract class Write[A](
       { case (rs, n, (a, b)) => unsafeUpdate(rs, n, a); fb.unsafeUpdate(rs, n + length, b) }
     ) {}
 
-  /**
-   * Given a value of type `A` and an appropriately parameterized SQL string we can construct a
-   * `Fragment`. If `sql` is unspecified a comma-separated list of `length` placeholders will be used.
-   */
+  /** Given a value of type `A` and an appropriately parameterized SQL string we can construct a `Fragment`. If `sql` is
+    * unspecified a comma-separated list of `length` placeholders will be used.
+    */
   def toFragment(a: A, sql: String = List.fill(length)("?").mkString(",")): Fragment = {
     val elems: List[Elem] = (puts zip toList(a)).map {
-      case ((p: Put[a], NoNulls), a) => Elem.Arg(a.asInstanceOf[a], p)
+      case ((p: Put[a], NoNulls), a)  => Elem.Arg(a.asInstanceOf[a], p)
       case ((p: Put[a], Nullable), a) => Elem.Opt(a.asInstanceOf[Option[a]], p)
     }
     Fragment(sql, elems, None)
@@ -94,10 +90,10 @@ sealed abstract class Write[A](
 object Write {
 
   def apply[A](
-    puts: List[(Put[_], NullabilityKnown)],
-    toList: A => List[Any],
-    unsafeSet: (PreparedStatement, Int, A) => Unit,
-    unsafeUpdate: (ResultSet, Int, A) => Unit
+      puts: List[(Put[_], NullabilityKnown)],
+      toList: A => List[Any],
+      unsafeSet: (PreparedStatement, Int, A) => Unit,
+      unsafeUpdate: (ResultSet, Int, A) => Unit
   ): Write[A] = new Write(puts, toList, unsafeSet, unsafeUpdate) {}
 
   def apply[A](implicit A: Write[A]): Write[A] = A
@@ -117,7 +113,7 @@ object Write {
   private def doNothing[P, A](p: P, i: Int, a: A): Unit = {
     void(p, i, a)
   }
-  
+
   private def empty[A](a: A): List[Any] = {
     void(a)
     List.empty
@@ -125,7 +121,7 @@ object Write {
 
   implicit val unitComposite: Write[Unit] =
     Write[Unit](Nil, empty _, doNothing _, doNothing _)
-    
+
   implicit val optionUnit: Write[Option[Unit]] =
     Write[Option[Unit]](Nil, empty _, doNothing _, doNothing _)
 
@@ -148,10 +144,10 @@ object Write {
 }
 
 final class MkWrite[A](
-  override val puts: List[(Put[_], NullabilityKnown)],
-  override val toList: A => List[Any],
-  override val unsafeSet: (PreparedStatement, Int, A) => Unit,
-  override val unsafeUpdate: (ResultSet, Int, A) => Unit
+    override val puts: List[(Put[_], NullabilityKnown)],
+    override val toList: A => List[Any],
+    override val unsafeSet: (PreparedStatement, Int, A) => Unit,
+    override val unsafeUpdate: (ResultSet, Int, A) => Unit
 ) extends Write[A](puts, toList, unsafeSet, unsafeUpdate)
 object MkWrite extends WritePlatform {
 

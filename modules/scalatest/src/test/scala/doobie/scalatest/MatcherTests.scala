@@ -9,7 +9,6 @@ import doobie.syntax.string._
 import doobie.util.transactor.Transactor
 import org.scalatest._
 
-
 trait MatcherChecks[M[_]] extends funsuite.AnyFunSuite
     with matchers.must.Matchers
     with AnalysisMatchers[M] {
@@ -17,8 +16,8 @@ trait MatcherChecks[M[_]] extends funsuite.AnyFunSuite
   lazy val transactor = Transactor.fromDriverManager[M](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 

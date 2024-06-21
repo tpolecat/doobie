@@ -21,8 +21,8 @@ class RefinedSuite extends munit.FunSuite {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:refined;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
@@ -77,8 +77,8 @@ class RefinedSuite extends munit.FunSuite {
 
   def insertOptionalPositiveInt(v: Option[PositiveInt]) = {
     val queryRes = for {
-      _  <- Update0(s"CREATE LOCAL TEMPORARY TABLE TEST (value INT)", None).run
-      _  <- sql"INSERT INTO TEST VALUES ($v)".update.run
+      _ <- Update0(s"CREATE LOCAL TEMPORARY TABLE TEST (value INT)", None).run
+      _ <- sql"INSERT INTO TEST VALUES ($v)".update.run
     } yield ()
     queryRes.transact(xa).unsafeRunSync()
   }

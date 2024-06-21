@@ -26,14 +26,13 @@ class LOStreamingSuite extends munit.ScalaCheckSuite {
     forAll(genFiniteStream[Pure, Byte]) { data =>
       val data0 = data.covary[ConnectionIO]
 
-      val result = Stream.bracket(PHLOS.createLOFromStream(data0))(
-        oid => PHC.pgGetLargeObjectAPI(PFLOM.unlink(oid))
-      ).flatMap(oid => PHLOS.createStreamFromLO(oid, chunkSize = 1024 * 10))
-        .compile.toVector.transact(xa).unsafeRunSync()
+      val result =
+        Stream.bracket(PHLOS.createLOFromStream(data0))(oid => PHC.pgGetLargeObjectAPI(PFLOM.unlink(oid))).flatMap(
+          oid => PHLOS.createStreamFromLO(oid, chunkSize = 1024 * 10))
+          .compile.toVector.transact(xa).unsafeRunSync()
 
       assertEquals(result, data.toVector)
     }
   }
-
 
 }

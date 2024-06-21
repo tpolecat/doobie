@@ -11,7 +11,7 @@ import munit.CatsEffectSuite
 import scala.concurrent.duration._
 
 class WeakAsyncSuite extends CatsEffectSuite {
-  
+
   test("WeakAsync#liftK propagates cancelation") {
     val test = WeakAsync.liftK[IO, IO].use { fk =>
       fk(IO.never).timeoutTo(1.second, IO.unit)

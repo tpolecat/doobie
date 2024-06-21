@@ -15,8 +15,8 @@ class StrategySuite extends munit.FunSuite {
   val baseXa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
@@ -26,9 +26,9 @@ class StrategySuite extends munit.FunSuite {
 
     object Connection {
       var autoCommit: Option[Boolean] = None
-      var close:      Option[Unit]    = None
-      var commit:     Option[Unit]    = None
-      var rollback:   Option[Unit]    = None
+      var close: Option[Unit] = None
+      var commit: Option[Unit] = None
+      var rollback: Option[Unit] = None
     }
 
     object PreparedStatement {
@@ -90,7 +90,6 @@ class StrategySuite extends munit.FunSuite {
     assertEquals(i.Connection.rollback, Some(()))
   }
 
-
   test("[Streaming] Connection.autoCommit should be set to false") {
     val i = new Interp
     sql"select 1".query[Int].stream.compile.toList.transact(xa(i)).unsafeRunSync()
@@ -141,7 +140,9 @@ class StrategySuite extends munit.FunSuite {
 
   test("[Streaming] PreparedStatement.close should be called on failure") {
     val i = new Interp
-    assertEquals(sql"select 'x'".query[Int].stream.compile.toList.transact(xa(i)).attempt.unsafeRunSync().toOption, None)
+    assertEquals(
+      sql"select 'x'".query[Int].stream.compile.toList.transact(xa(i)).attempt.unsafeRunSync().toOption,
+      None)
     assertEquals(i.PreparedStatement.close, Some(()))
   }
 
@@ -165,7 +166,9 @@ class StrategySuite extends munit.FunSuite {
 
   test("[Streaming] ResultSet.close should be called on failure") {
     val i = new Interp
-    assertEquals(sql"select 'x'".query[Int].stream.compile.toList.transact(xa(i)).attempt.unsafeRunSync().toOption, None)
+    assertEquals(
+      sql"select 'x'".query[Int].stream.compile.toList.transact(xa(i)).attempt.unsafeRunSync().toOption,
+      None)
     assertEquals(i.ResultSet.close, Some(()))
   }
 

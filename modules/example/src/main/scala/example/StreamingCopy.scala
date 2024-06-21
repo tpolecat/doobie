@@ -14,42 +14,37 @@ import doobie._
 import doobie.implicits._
 import fs2.Stream
 
-/**
- * Example of resource-safe transactional database-to-database copy with fs2. If you induce failures
- * on either side (by putting a typo in the `read` or `write` statements) both transactions will
- * roll back.
- */
+/** Example of resource-safe transactional database-to-database copy with fs2. If you induce failures on either side (by
+  * putting a typo in the `read` or `write` statements) both transactions will roll back.
+  */
 object StreamingCopy extends IOApp.Simple {
 
-  /**
-   * Cross-transactor streaming when the `source` and `sink` have the same schema.
-   */
+  /** Cross-transactor streaming when the `source` and `sink` have the same schema.
+    */
   def fuseMap[F[_], A, B](
-    source: Stream[ConnectionIO, A],
-    sink:   A => ConnectionIO[B]
+      source: Stream[ConnectionIO, A],
+      sink: A => ConnectionIO[B]
   )(
-    sourceXA: Transactor[F],
-    sinkXA:   Transactor[F]
+      sourceXA: Transactor[F],
+      sinkXA: Transactor[F]
   )(
-    implicit ev: MonadCancelThrow[F]
+      implicit ev: MonadCancelThrow[F]
   ): Stream[F, B] =
     fuseMapGeneric(source, identity[A], sink)(sourceXA, sinkXA)
 
-  /**
-   * Stream from `source` through `sink`, where source and sink run on distinct transactors. To do
-   * this we have to wrap one transactor around the other.
-   * The source output and sink input types can differ. This enables data transformations involving
-   * potentially different database schemas.
-   */
+  /** Stream from `source` through `sink`, where source and sink run on distinct transactors. To do this we have to wrap
+    * one transactor around the other. The source output and sink input types can differ. This enables data
+    * transformations involving potentially different database schemas.
+    */
   def fuseMapGeneric[F[_], A, B, C](
-    source:       Stream[ConnectionIO, A],
-    sourceToSink: A => B,
-    sink:         B => ConnectionIO[C]
+      source: Stream[ConnectionIO, A],
+      sourceToSink: A => B,
+      sink: B => ConnectionIO[C]
   )(
-    sourceXA: Transactor[F],
-    sinkXA:   Transactor[F]
+      sourceXA: Transactor[F],
+      sinkXA: Transactor[F]
   )(
-    implicit ev: MonadCancelThrow[F]
+      implicit ev: MonadCancelThrow[F]
   ): Stream[F, C] = {
 
     // Interpret a ConnectionIO into a Kleisli arrow for F via the sink interpreter.
@@ -68,9 +63,9 @@ object StreamingCopy extends IOApp.Simple {
         Stream.eval(interpS(f)(c)).drain
 
       // And can thus lift all the sink operations into Stream of F
-      val sinkʹ  = (a: A) => evalS(sink(sourceToSink(a)))
+      val sinkʹ = (a: A) => evalS(sink(sourceToSink(a)))
       val before = evalS(sinkXA.strategy.before)
-      val after  = evalS(sinkXA.strategy.after )
+      val after = evalS(sinkXA.strategy.after)
       def oops(t: Throwable) = evalS(sinkXA.strategy.oops <* FC.raiseError(t))
 
       // And construct our final stream.
@@ -97,13 +92,12 @@ object StreamingCopy extends IOApp.Simple {
     val update: State[Transactor[F], Unit] =
       for {
         _ <- before %= printBefore(name, "before - setting up the connection")
-        _ <- after  %= printBefore(name, "after - committing")
-        _ <- oops   %= printBefore(name, "oops - rolling back")
+        _ <- after %= printBefore(name, "after - committing")
+        _ <- oops %= printBefore(name, "oops - rolling back")
         _ <- always %= printBefore(name, "always - closing")
       } yield ()
     update.runS(xa).value
   }
-
 
   // A data type to move.
   final case class City(id: Int, name: String, countrycode: String, district: String, population: Int)
@@ -138,16 +132,23 @@ object StreamingCopy extends IOApp.Simple {
       )
     """.update.run.void
 
-
   // A postges transactor for our source. We assume the WORLD database is set up already.
   val pg = addLogging("Postgres")(Transactor.fromDriverManager[IO](
-    driver = "org.postgresql.Driver", url = "jdbc:postgresql:world", user = "postgres", password = "password", logHandler = None
+    driver = "org.postgresql.Driver",
+    url = "jdbc:postgresql:world",
+    user = "postgres",
+    password = "password",
+    logHandler = None
   ))
 
   // An h2 transactor for our sink.
   val h2 = addLogging("H2") {
     val xa = Transactor.fromDriverManager[IO](
-      driver = "org.h2.Driver", url = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", user = "sa", password = "", logHandler = None
+      driver = "org.h2.Driver",
+      url = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
+      user = "sa",
+      password = "",
+      logHandler = None
     )
     Transactor.before.modify(xa, _ *> ddl) // Run our DDL on every connection
   }

@@ -21,7 +21,7 @@ object Instances {
     implicit val jsonbPut: Put[Json] =
       Put.Advanced.other[PGobject](
         NonEmptyList.of("jsonb")
-      ).tcontramap{a =>
+      ).tcontramap { a =>
         val o = new PGobject
         o.setType("jsonb")
         o.setValue(a.noSpaces)
@@ -32,8 +32,7 @@ object Instances {
       Get.Advanced.other[PGobject](
         NonEmptyList.of("jsonb")
       ).temap(a =>
-        parse(a.getValue).leftMap(_.show)
-      )
+        parse(a.getValue).leftMap(_.show))
 
     def pgEncoderPutT[A: Encoder]: Put[A] =
       Put[Json].tcontramap(_.asJson)
@@ -53,7 +52,7 @@ object Instances {
     implicit val jsonPut: Put[Json] =
       Put.Advanced.other[PGobject](
         NonEmptyList.of("json")
-      ).tcontramap{a =>
+      ).tcontramap { a =>
         val o = new PGobject
         o.setType("json")
         o.setValue(a.noSpaces)
@@ -64,8 +63,7 @@ object Instances {
       Get.Advanced.other[PGobject](
         NonEmptyList.of("json")
       ).temap(a =>
-        parse(a.getValue).leftMap(_.show)
-      )
+        parse(a.getValue).leftMap(_.show))
 
     def pgEncoderPutT[A: Encoder]: Put[A] =
       Put[Json].tcontramap(_.asJson)

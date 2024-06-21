@@ -4,36 +4,32 @@
 
 package doobie.hi
 
-import cats.{ Alternative, Monad }
+import cats.{Alternative, Monad}
 import cats.data.NonEmptyList
 import cats.syntax.all._
 
 import doobie.enumerated.Holdability
 import doobie.enumerated.FetchDirection
-import doobie.util.{ Read, Write }
+import doobie.util.{Read, Write}
 import doobie.util.compat.FactoryCompat
 import doobie.util.invariant._
 import doobie.util.stream.repeatEvalChunks
-import doobie.free.{
-  resultset => IFRS
-}
+import doobie.free.{resultset => IFRS}
 
 import fs2.Stream
 
-import java.sql.{ ResultSetMetaData, SQLWarning }
+import java.sql.{ResultSetMetaData, SQLWarning}
 
-/**
- * Module of high-level constructors for `ResultSetIO` actions.
- * @group Modules
- */
+/** Module of high-level constructors for `ResultSetIO` actions.
+  * @group Modules
+  */
 
 object resultset {
   import implicits._
 
-  /**
-   * Non-strict unit for capturing effects.
-   * @group Constructors (Lifting)
-   */
+  /** Non-strict unit for capturing effects.
+    * @group Constructors (Lifting)
+    */
   def delay[A](a: => A): ResultSetIO[A] =
     IFRS.delay(a)
 
@@ -65,26 +61,22 @@ object resultset {
   val first: ResultSetIO[Boolean] =
     IFRS.first
 
-  /**
-   * Read a value of type `A` starting at column `n`.
-   * @group Results
-   */
+  /** Read a value of type `A` starting at column `n`.
+    * @group Results
+    */
   def get[A](n: Int)(implicit A: Read[A]): ResultSetIO[A] =
     A.get(n)
 
-  /**
-   * Read a value of type `A` starting at column 1.
-   * @group Results
-   */
+  /** Read a value of type `A` starting at column 1.
+    * @group Results
+    */
   def get[A: Read]: ResultSetIO[A] =
     get(1)
 
-
-  /**
-   * Consumes the remainder of the resultset, reading each row as a value of type `A` and
-   * accumulating them in a standard library collection via `CanBuildFrom`.
-   * @group Results
-   */
+  /** Consumes the remainder of the resultset, reading each row as a value of type `A` and accumulating them in a
+    * standard library collection via `CanBuildFrom`.
+    * @group Results
+    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def build[F[_], A](implicit F: FactoryCompat[A, F[A]], A: Read[A]): ResultSetIO[F[A]] =
     IFRS.raw { rs =>
@@ -94,11 +86,10 @@ object resultset {
       b.result()
     }
 
-  /**
-   * Consumes the remainder of the resultset, reading each row as a value of type `(A, B)` and
-   * accumulating them in a standard library collection via `CanBuildFrom`.
-   * @group Results
-   */
+  /** Consumes the remainder of the resultset, reading each row as a value of type `(A, B)` and accumulating them in a
+    * standard library collection via `CanBuildFrom`.
+    * @group Results
+    */
   def buildPair[F[_, _], A, B](implicit F: FactoryCompat[(A, B), F[A, B]], A: Read[(A, B)]): ResultSetIO[F[A, B]] =
     IFRS.raw { rs =>
       val b = F.newBuilder
@@ -107,13 +98,11 @@ object resultset {
       b.result()
     }
 
-  /**
-   * Consumes the remainder of the resultset, reading each row as a value of type `A`, mapping to
-   * `B`, and accumulating them in a standard library collection via `CanBuildFrom`. This unusual
-   * constructor is a workaround for the CanBuildFrom not having a sensible contravariant functor
-   * instance.
-   * @group Results
-   */
+  /** Consumes the remainder of the resultset, reading each row as a value of type `A`, mapping to `B`, and accumulating
+    * them in a standard library collection via `CanBuildFrom`. This unusual constructor is a workaround for the
+    * CanBuildFrom not having a sensible contravariant functor instance.
+    * @group Results
+    */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
   def buildMap[F[_], A, B](f: A => B)(implicit F: FactoryCompat[B, F[B]], A: Read[A]): ResultSetIO[F[B]] =
     IFRS.raw { rs =>
@@ -123,70 +112,63 @@ object resultset {
       b.result()
     }
 
-  /**
-   * Consumes the remainder of the resultset, reading each row as a value of type `A` and
-   * accumulating them in a `Vector`.
-   * @group Results
-   */
+  /** Consumes the remainder of the resultset, reading each row as a value of type `A` and accumulating them in a
+    * `Vector`.
+    * @group Results
+    */
   def vector[A: Read]: ResultSetIO[Vector[A]] =
     build[Vector, A]
 
-  /**
-   * Consumes the remainder of the resultset, reading each row as a value of type `A` and
-   * accumulating them in a `List`.
-   * @group Results
-   */
+  /** Consumes the remainder of the resultset, reading each row as a value of type `A` and accumulating them in a
+    * `List`.
+    * @group Results
+    */
   def list[A: Read]: ResultSetIO[List[A]] =
     build[List, A]
 
-  /**
-   * Like `getNext` but loops until the end of the resultset, gathering results in a `MonadPlus`.
-   * @group Results
-   */
+  /** Like `getNext` but loops until the end of the resultset, gathering results in a `MonadPlus`.
+    * @group Results
+    */
   def accumulate[G[_]: Alternative, A: Read]: ResultSetIO[G[A]] =
     get[A].whileM(next)
 
-  /**
-   * Updates a value of type `A` starting at column `n`.
-   * @group Updating
-   */
-  def update[A](n: Int, a:A)(implicit A: Write[A]): ResultSetIO[Unit] =
+  /** Updates a value of type `A` starting at column `n`.
+    * @group Updating
+    */
+  def update[A](n: Int, a: A)(implicit A: Write[A]): ResultSetIO[Unit] =
     A.update(n, a)
 
-  /**
-   * Updates a value of type `A` starting at column 1.
-   * @group Updating
-   */
+  /** Updates a value of type `A` starting at column 1.
+    * @group Updating
+    */
   def update[A](a: A)(implicit A: Write[A]): ResultSetIO[Unit] =
     A.update(1, a)
 
-  /**
-   * Similar to `next >> get` but lifted into `Option`; returns `None` when no more rows are
-   * available.
-   * @group Results
-   */
+  /** Similar to `next >> get` but lifted into `Option`; returns `None` when no more rows are available.
+    * @group Results
+    */
   def getNext[A: Read]: ResultSetIO[Option[A]] =
     next >>= {
       case true  => get[A].map(Some(_))
       case false => Monad[ResultSetIO].pure(None)
     }
 
-  /**
-   * Similar to `getNext` but reads `chunkSize` rows at a time (the final chunk in a resultset may
-   * be smaller). A non-positive `chunkSize` yields an empty `Seq` and consumes no rows. This method
-   * delegates to `getNextChunkV` and widens to `Seq` for easier interoperability with streaming
-   * libraries that like `Seq` better.
-   * @group Results
-   */
+  /** Similar to `getNext` but reads `chunkSize` rows at a time (the final chunk in a resultset may be smaller). A
+    * non-positive `chunkSize` yields an empty `Seq` and consumes no rows. This method delegates to `getNextChunkV` and
+    * widens to `Seq` for easier interoperability with streaming libraries that like `Seq` better.
+    * @group Results
+    */
   def getNextChunk[A: Read](chunkSize: Int): ResultSetIO[Seq[A]] =
     getNextChunkV[A](chunkSize).widen[Seq[A]]
 
-  /**
-   * Similar to `getNext` but reads `chunkSize` rows at a time (the final chunk in a resultset may
-   * be smaller). A non-positive `chunkSize` yields an empty `Vector` and consumes no rows.
-   * @group Results
-   */
-  @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While", "org.wartremover.warts.NonUnitStatements"))
+  /** Similar to `getNext` but reads `chunkSize` rows at a time (the final chunk in a resultset may be smaller). A
+    * non-positive `chunkSize` yields an empty `Vector` and consumes no rows.
+    * @group Results
+    */
+  @SuppressWarnings(Array(
+    "org.wartremover.warts.Var",
+    "org.wartremover.warts.While",
+    "org.wartremover.warts.NonUnitStatements"))
   def getNextChunkV[A](chunkSize: Int)(implicit A: Read[A]): ResultSetIO[Vector[A]] =
     IFRS.raw { rs =>
       var n = chunkSize
@@ -198,11 +180,11 @@ object resultset {
       b.result()
     }
 
-  /**
-   * Equivalent to `getNext`, but verifies that there is exactly one row remaining.
-   * @throws UnexpectedCursorPosition if there is not exactly one row remaining
-   * @group Results
-   */
+  /** Equivalent to `getNext`, but verifies that there is exactly one row remaining.
+    * @throws UnexpectedCursorPosition
+    *   if there is not exactly one row remaining
+    * @group Results
+    */
   def getUnique[A: Read]: ResultSetIO[A] =
     (getNext[A], next).tupled.flatMap {
       case (Some(a), false) => IFRS.delay(a)
@@ -210,11 +192,11 @@ object resultset {
       case (None, _)        => IFRS.raiseError(UnexpectedEnd)
     }
 
-  /**
-   * Equivalent to `getNext`, but verifies that there is at most one row remaining.
-   * @throws UnexpectedContinuation if there is more than one row remaining
-   * @group Results
-   */
+  /** Equivalent to `getNext`, but verifies that there is at most one row remaining.
+    * @throws UnexpectedContinuation
+    *   if there is more than one row remaining
+    * @group Results
+    */
   def getOption[A: Read]: ResultSetIO[Option[A]] =
     (getNext[A], next).tupled.flatMap {
       case (a @ Some(_), false) => IFRS.delay(a)
@@ -222,9 +204,9 @@ object resultset {
       case (None, _)            => IFRS.delay(None)
     }
 
-  /**
-    * Consumes the remainder of the resultset, but verifies that there is at least one row remaining.
-    * @throws UnexpectedEnd if there is not at least one row remaining
+  /** Consumes the remainder of the resultset, but verifies that there is at least one row remaining.
+    * @throws UnexpectedEnd
+    *   if there is not at least one row remaining
     * @group Results
     */
   def nel[A: Read]: ResultSetIO[NonEmptyList[A]] =
@@ -233,11 +215,10 @@ object resultset {
       case (None, _)     => IFRS.raiseError(UnexpectedEnd)
     }
 
-  /**
-   * Stream that reads from the `ResultSet` and returns a stream of `A`s. This is the preferred
-   * mechanism for dealing with query results.
-   * @group Results
-   */
+  /** Stream that reads from the `ResultSet` and returns a stream of `A`s. This is the preferred mechanism for dealing
+    * with query results.
+    * @group Results
+    */
   def stream[A: Read](chunkSize: Int): Stream[ResultSetIO, A] =
     repeatEvalChunks(getNextChunk[A](chunkSize))
 

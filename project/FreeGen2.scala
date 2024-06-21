@@ -13,8 +13,10 @@ object FreeGen2 {
   lazy val freeGen2Dir = settingKey[File]("directory where free algebras go")
   lazy val freeGen2Package = settingKey[String]("package where free algebras go")
   lazy val freeGen2Renames = settingKey[Map[Class[_], String]]("map of imports that must be renamed")
-  lazy val freeGen2AllImportExcludes = settingKey[Set[Class[_]]]("Imports to exclude for the generator for all generaated files")
-  lazy val freeGen2KleisliInterpreterImportExcludes = settingKey[Set[Class[_]]]("Imports to exclude for the generator kleisliinterpreter.scala file (to avoid unused import warning) ")
+  lazy val freeGen2AllImportExcludes =
+    settingKey[Set[Class[_]]]("Imports to exclude for the generator for all generaated files")
+  lazy val freeGen2KleisliInterpreterImportExcludes = settingKey[Set[Class[_]]](
+    "Imports to exclude for the generator kleisliinterpreter.scala file (to avoid unused import warning) ")
   lazy val freeGen2 = taskKey[Seq[File]]("generate free algebras")
 
   lazy val freeGen2Settings = Seq(
@@ -32,18 +34,18 @@ object FreeGen2 {
         freeGen2AllImportExcludes.value,
         freeGen2KleisliInterpreterImportExcludes.value,
         state.value.log
-      ).gen(freeGen2Dir.value),
+      ).gen(freeGen2Dir.value)
   )
 
 }
 
 class FreeGen2(
-  managed: List[Class[_]],
-  pkg: String,
-  renames: Map[Class[_], String],
-  allImportExcludes: Set[Class[_]],
-  kleisliImportExcludes: Set[Class[_]],
-  log: Logger
+    managed: List[Class[_]],
+    pkg: String,
+    renames: Map[Class[_], String],
+    allImportExcludes: Set[Class[_]],
+    kleisliImportExcludes: Set[Class[_]],
+    log: Logger
 ) {
 
   // These Java classes will have non-Java names in our generated code
@@ -60,44 +62,43 @@ class FreeGen2(
 
   def tparams(t: Type): List[String] =
     t match {
-      case t: GenericArrayType => tparams(t.getGenericComponentType)
+      case t: GenericArrayType  => tparams(t.getGenericComponentType)
       case t: ParameterizedType => t.getActualTypeArguments.toList.flatMap(tparams)
-      case t: TypeVariable[_] => List(t.toString)
-      case _ => Nil
+      case t: TypeVariable[_]   => List(t.toString)
+      case _                    => Nil
     }
 
   def toScalaType(t: Type): String =
     t match {
       case t: GenericArrayType => s"Array[${toScalaType(t.getGenericComponentType)}]"
-      case t: ParameterizedType => s"${toScalaType(t.getRawType)}${t.getActualTypeArguments.map(toScalaType).mkString("[", ", ", "]")}"
+      case t: ParameterizedType =>
+        s"${toScalaType(t.getRawType)}${t.getActualTypeArguments.map(toScalaType).mkString("[", ", ", "]")}"
       case t: WildcardType =>
         t.getUpperBounds.toList.filterNot(_ == classOf[Object]) match {
           case (c: Class[_]) :: Nil => s"_ <: ${c.getName}"
-          case Nil => "_"
-          case cs => sys.error("unhandled upper bounds: " + cs.toList)
+          case Nil                  => "_"
+          case cs                   => sys.error("unhandled upper bounds: " + cs.toList)
         }
       case t: TypeVariable[_] => t.toString
-      case ClassVoid => "Unit"
-      case ClassBoolean => "Boolean"
-      case ClassByte => "Byte"
-      case ClassShort => "Short"
-      case ClassInt => "Int"
-      case ClassLong => "Long"
-      case ClassFloat => "Float"
-      case ClassDouble => "Double"
-      case ClassObject => "AnyRef"
-      case ClassChar => "Char"
+      case ClassVoid          => "Unit"
+      case ClassBoolean       => "Boolean"
+      case ClassByte          => "Byte"
+      case ClassShort         => "Short"
+      case ClassInt           => "Int"
+      case ClassLong          => "Long"
+      case ClassFloat         => "Float"
+      case ClassDouble        => "Double"
+      case ClassObject        => "AnyRef"
+      case ClassChar          => "Char"
       case x: Class[_] =>
         if (x.isArray) {
           s"Array[${toScalaType(x.getComponentType)}]"
         } else if (x.getName == "java.util.Map") {
           x.getName
-        }
-        else {
+        } else {
           renames.getOrElse(x, x.getSimpleName)
         }
     }
-
 
   // Each constructor for our algebra maps to an underlying method, and an index is provided to
   // disambiguate in cases of overloading.
@@ -135,7 +136,7 @@ class FreeGen2(
     def ctor(opname: String): String =
       ((cparams match {
         case Nil => s"|case object $cname"
-        case ps => s"|final case class $cname$ctparams(${cargs.mkString(", ")})"
+        case ps  => s"|final case class $cname$ctparams(${cargs.mkString(", ")})"
       }) +
         s""" extends ${opname}[$ret] {
            |      def visit[F[_]](v: Visitor[F]) = v.$mname${if (args.isEmpty) "" else s"($args)"}
@@ -149,15 +150,15 @@ class FreeGen2(
     def pat: String =
       cparams match {
         case Nil => s"object $cname"
-        case ps => s"class  $cname(${cargs.mkString(", ")})"
+        case ps  => s"class  $cname(${cargs.mkString(", ")})"
       }
 
     // Case clause mapping this constructor to the corresponding primitive action
     def prim(sname: String): String =
-      (if (cargs.isEmpty)
+      if (cargs.isEmpty)
         s"case $cname => primitive(_.$mname)"
       else
-        s"case $cname($args) => primitive(_.$mname($args))")
+        s"case $cname($args) => primitive(_.$mname($args))"
 
     // Smart constructor
     def lifted(ioname: String): String =
@@ -168,17 +169,25 @@ class FreeGen2(
       }
 
     def visitor: String =
-      if (cargs.isEmpty) s"|      def $mname: F[$ret]"
-      else s"|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret]"
+      if (cargs.isEmpty)
+        s"|      def $mname: F[$ret]"
+      else
+        s"|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret]"
 
     def stub: String =
-      if (cargs.isEmpty) s"""|      def $mname: F[$ret] = sys.error("Not implemented: $mname")"""
-      else s"""|      def $mname$ctparams(${cargs.mkString(", ")}): F[$ret] = sys.error("Not implemented: $mname$ctparams(${cparams.mkString(", ")})")"""
+      if (cargs.isEmpty)
+        s"""|      def $mname: F[$ret] = sys.error("Not implemented: $mname")"""
+      else {
+        val cargsStr = cargs.mkString(", ")
+        val cparamsStr = cparams.mkString(", ")
+        s"""|      def $mname$ctparams($cargsStr): F[$ret] = sys.error("Not implemented: $mname$ctparams($cparamsStr)")"""
+      }
 
     def kleisliImpl(oname: String): String =
-      if (cargs.isEmpty) s"|    override def $mname: Kleisli[M, $oname, $ret] = primitive(_.$mname)"
-      else s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
-
+      if (cargs.isEmpty)
+        s"|    override def $mname: Kleisli[M, $oname, $ret] = primitive(_.$mname)"
+      else
+        s"|    override def $mname$ctparams(${cargs.mkString(", ")}) = primitive(_.$mname($args))"
   }
 
   // This class, plus any superclasses and interfaces, "all the way up"
@@ -210,7 +219,7 @@ class FreeGen2(
   def renameImport(c: Class[_]): String = {
     val origName = c.getSimpleName
     renames.get(c) match {
-      case None => s"import ${c.getName}"
+      case None          => s"import ${c.getName}"
       case Some(renamed) => s"import ${c.getPackage.getName}.{ $origName => $renamed }"
     }
   }
@@ -236,6 +245,9 @@ class FreeGen2(
     val ioname = s"${oname}IO"
     val mname = oname.toLowerCase
     s"""
+    |
+    |// format: off
+    |
     |package $pkg
     |
     |import cats.{~>, Applicative, Semigroup, Monoid}
@@ -424,6 +436,9 @@ class FreeGen2(
   // The Embedded definition for all modules.
   def embeds: String =
     s"""
+       |
+       |// format: off
+       |
        |package $pkg
        |
        |import cats.free.Free
@@ -494,10 +509,22 @@ class FreeGen2(
     s"lazy val ${oname}Interpreter: ${opname} ~> Kleisli[M, $sname, *] = new ${oname}Interpreter { }"
   }
 
-
   // template for a kleisli interpreter
-  def kleisliInterpreter: String =
+  def kleisliInterpreter: String = {
+    val extraImports =
+      managed.map(ClassTag(_))
+        .flatMap { c => imports(kleisliImportExcludes ++ allImportExcludes)(c) }
+        .distinct.sorted.mkString("\n")
+
+    val kleisliInterpreterEmbedMatch =
+      managed.map(_.getSimpleName)
+        .map { n => s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))" }
+        .mkString("\n      ")
+
     s"""
+       |
+       |// format: off
+       |
        |package $pkg
        |
        |// Library imports
@@ -511,7 +538,7 @@ class FreeGen2(
        |import scala.concurrent.duration.FiniteDuration
        |
        |// Types referenced in the JDBC API
-       |${managed.map(ClassTag(_)).flatMap(c => imports(kleisliImportExcludes ++ allImportExcludes)(c)).distinct.sorted.mkString("\n")}
+       |$extraImports
        |
        |// Algebras and free monads thereof referenced by our interpreter.
        |${managed.map(_.getSimpleName).map(c => s"import ${pkg}.${c.toLowerCase}.{ ${c}IO, ${c}Op }").mkString("\n")}
@@ -570,7 +597,7 @@ class FreeGen2(
        |  )
        |  def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
        |    e match {
-       |      ${managed.map(_.getSimpleName).map(n => s"case Embedded.${n}(j, fa) => Kleisli(_ => fa.foldMap(${n}Interpreter).run(j))").mkString("\n      ")}
+       |      $kleisliInterpreterEmbedMatch
        |    }
        |
        |  // Interpreters
@@ -578,6 +605,7 @@ class FreeGen2(
        |
        |}
        |""".trim.stripMargin
+  }
 
   def gen(base: File): Seq[java.io.File] = {
     import java.io._

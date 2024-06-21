@@ -6,6 +6,6 @@ package doobie
 
 import cats.effect.IO
 
-package object weaver {  
+package object weaver {
   type IOChecker = Checker[IO]
 }

@@ -22,7 +22,6 @@ trait RangeInstances {
       .optionalEnd()
       .toFormatter()
 
-
   private val date2TzDateTimeFormatter =
     new DateTimeFormatterBuilder()
       .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -32,32 +31,34 @@ trait RangeInstances {
       .appendOffset("+HH:mm", "+00")
       .toFormatter()
 
-  implicit val Int4RangeType: Meta[Range[Int]]       = rangeMeta("int4range")(_.toString, java.lang.Integer.parseInt)
-  implicit val Int8RangeType: Meta[Range[Long]]      = rangeMeta("int8range")(_.toString, java.lang.Long.parseLong)
+  implicit val Int4RangeType: Meta[Range[Int]] = rangeMeta("int4range")(_.toString, java.lang.Integer.parseInt)
+  implicit val Int8RangeType: Meta[Range[Long]] = rangeMeta("int8range")(_.toString, java.lang.Long.parseLong)
   implicit val NumRangeType: Meta[Range[BigDecimal]] = rangeMeta("numrange")(_.toString, BigDecimal.exact)
 
-  implicit val DateRangeType: Meta[Range[LocalDate]]      = rangeMeta("daterange")(
+  implicit val DateRangeType: Meta[Range[LocalDate]] = rangeMeta("daterange")(
     encode = toEndless[LocalDate](LocalDate.MIN, LocalDate.MAX, _.format(DateTimeFormatter.ISO_LOCAL_DATE)),
-    decode = fromEndless(LocalDate.MIN, LocalDate.MAX, LocalDate.parse(_, DateTimeFormatter.ISO_LOCAL_DATE)))
+    decode = fromEndless(LocalDate.MIN, LocalDate.MAX, LocalDate.parse(_, DateTimeFormatter.ISO_LOCAL_DATE))
+  )
 
-  implicit val TsRangeType: Meta[Range[LocalDateTime]]    = rangeMeta("tsrange")(
+  implicit val TsRangeType: Meta[Range[LocalDateTime]] = rangeMeta("tsrange")(
     encode = toEndless[LocalDateTime](LocalDateTime.MIN, LocalDateTime.MAX, _.format(date2DateTimeFormatter)),
-    decode = fromEndless(LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.parse(_, date2DateTimeFormatter)))
+    decode = fromEndless(LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.parse(_, date2DateTimeFormatter))
+  )
 
   implicit val TstzRangeType: Meta[Range[OffsetDateTime]] = rangeMeta("tstzrange")(
     encode = toEndless[OffsetDateTime](OffsetDateTime.MIN, OffsetDateTime.MAX, _.format(date2TzDateTimeFormatter)),
-    decode = fromEndless(OffsetDateTime.MIN, OffsetDateTime.MAX, OffsetDateTime.parse(_, date2TzDateTimeFormatter)))
+    decode = fromEndless(OffsetDateTime.MIN, OffsetDateTime.MAX, OffsetDateTime.parse(_, date2TzDateTimeFormatter))
+  )
 
   def rangeMeta[T](sqlRangeType: String)(encode: T => String, decode: String => T): Meta[Range[T]] =
-    Meta.Advanced.other[PGobject](sqlRangeType).timap[Range[T]](
-      o => Range.decode[T](o.getValue)(decode).toOption.orNull)(
-      a => Option(a).map { a =>
+    Meta.Advanced.other[PGobject](sqlRangeType).timap[Range[T]](o =>
+      Range.decode[T](o.getValue)(decode).toOption.orNull)(a =>
+      Option(a).map { a =>
         val o = new PGobject
         o.setType(sqlRangeType)
         o.setValue(Range.encode[T](a)(encode))
         o
-      }.orNull
-    )
+      }.orNull)
 
   private def toEndless[T](min: T, max: T, encode: T => String): T => String = {
     case `min`  => "-infinity"

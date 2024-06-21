@@ -15,7 +15,9 @@ class ReadSuite extends munit.FunSuite with ReadSuitePlatform {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:;DB_CLOSE_DELAY=-1",
-    user = "sa", password = "", logHandler = None
+    user = "sa",
+    password = "",
+    logHandler = None
   )
 
   test("Read should exist for some fancy types") {
@@ -91,16 +93,16 @@ class ReadSuite extends munit.FunSuite with ReadSuitePlatform {
 
     assertEquals(p.gets, (readInt.gets ++ readString.gets))
   }
-  
+
   /*
   FIXME: test cases
-  
+
   case class with nested Option case class field
    */
-  
+
   test("Read should read correct columns for instances with Option (None)") {
     import doobie.implicits._
-    
+
     val frag = sql"SELECT 1, NULL, 3, NULL"
     val q1 = frag.query[Option[(Int, Option[Int], Int, Option[Int])]].to[List]
     val o1 = q1.transact(xa).unsafeRunSync()
@@ -108,7 +110,7 @@ class ReadSuite extends munit.FunSuite with ReadSuitePlatform {
     // nullable, so the correct result is Some((1, None, 3, None))
     // But with how things are wired at the moment this isn't possible
     assertEquals(o1, List(None))
-    
+
     val q2 = frag.query[Option[(Int, Int, Int, Int)]].to[List]
     val o2 = q2.transact(xa).unsafeRunSync()
     assertEquals(o2, List(None))
@@ -124,7 +126,7 @@ class ReadSuite extends munit.FunSuite with ReadSuitePlatform {
 
     val q2 = frag.query[Option[(Int, Int, Int, Int)]].to[List]
     val o2 = q2.transact(xa).unsafeRunSync()
-    assertEquals(o2, List(Some((1,2,3,4))))
+    assertEquals(o2, List(Some((1, 2, 3, 4))))
   }
 
   test("Read should select correct columns when combined with `ap`") {
@@ -153,5 +155,5 @@ class ReadSuite extends munit.FunSuite with ReadSuitePlatform {
 
     assertEquals(o, List((1, (2, 3))))
   }
-  
+
 }

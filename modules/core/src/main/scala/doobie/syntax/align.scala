@@ -12,10 +12,10 @@ final class AlignSyntax[A](as: List[A]) {
     @tailrec
     def go(as: List[A], bs: List[B], acc: List[A Ior B]): List[A Ior B] =
       (as, bs) match {
-        case (a :: as, b :: bs) => go(as , bs , Ior.Both(a, b) :: acc)
-        case (a :: as, Nil    ) => go(as , Nil, Ior.Left(a)    :: acc)
-        case (Nil    , b :: bs) => go(Nil, bs , Ior.Right(b)    :: acc)
-        case (Nil    , Nil    ) => acc.reverse
+        case (a :: as, b :: bs) => go(as, bs, Ior.Both(a, b) :: acc)
+        case (a :: as, Nil)     => go(as, Nil, Ior.Left(a) :: acc)
+        case (Nil, b :: bs)     => go(Nil, bs, Ior.Right(b) :: acc)
+        case (Nil, Nil)         => acc.reverse
       }
     go(as, bs, Nil)
   }

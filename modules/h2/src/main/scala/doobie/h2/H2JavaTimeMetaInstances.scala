@@ -8,9 +8,8 @@ import doobie.enumerated.JdbcType._
 import doobie.util.meta.Meta
 import doobie.util.meta.MetaConstructors.Basic
 
-/**
- * Instances for Java time classes that follow the JDBC specification.
- */
+/** Instances for Java time classes that follow the JDBC specification.
+  */
 trait H2JavaTimeMetaInstances {
   import Predef.classOf
 
@@ -18,7 +17,7 @@ trait H2JavaTimeMetaInstances {
     Basic.oneObject(
       jdbcType = TimestampWithTimezone,
       checkedVendorType = Some("TIMESTAMP WITH TIME ZONE"),
-      clazz = classOf[java.time.OffsetDateTime],
+      clazz = classOf[java.time.OffsetDateTime]
     )
 
   implicit val JavaLocalDateMeta: Meta[java.time.LocalDate] =
@@ -28,7 +27,10 @@ trait H2JavaTimeMetaInstances {
     Basic.oneObject(jdbcType = Time, checkedVendorType = Some("TIME"), clazz = classOf[java.time.LocalTime])
 
   implicit val JavaLocalDateTimeMeta: Meta[java.time.LocalDateTime] =
-    Basic.oneObject(jdbcType = Timestamp, checkedVendorType = Some("TIMESTAMP"), clazz = classOf[java.time.LocalDateTime])
+    Basic.oneObject(
+      jdbcType = Timestamp,
+      checkedVendorType = Some("TIMESTAMP"),
+      clazz = classOf[java.time.LocalDateTime])
 
   implicit val JavaOffsetTimeMeta: Meta[java.time.OffsetTime] =
     Basic.oneObject(
@@ -40,7 +42,7 @@ trait H2JavaTimeMetaInstances {
   implicit val JavaInstantMeta: Meta[java.time.Instant] =
     JavaOffsetDateTimeMeta.timap(_.toInstant)(_.atOffset(java.time.ZoneOffset.UTC))
 
-  implicit val JavaTimeZoneId: Meta[java.time.ZoneId] = 
+  implicit val JavaTimeZoneId: Meta[java.time.ZoneId] =
     doobie.implicits.javatimedrivernative.JavaTimeZoneId
 
 }

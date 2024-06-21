@@ -37,7 +37,7 @@ class PGCopySuite extends munit.FunSuite {
     val prog: ConnectionIO[String] =
       for {
         out <- Sync[ConnectionIO].delay(new ByteArrayOutputStream)
-        _   <- PHC.pgGetCopyAPI(PFCM.copyOut(query, out))
+        _ <- PHC.pgGetCopyAPI(PFCM.copyOut(query, out))
       } yield new String(out.toByteArray, "UTF-8")
 
     assertEquals(prog.transact(xa).unsafeRunSync(), fixture)

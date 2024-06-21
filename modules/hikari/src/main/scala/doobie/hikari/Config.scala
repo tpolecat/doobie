@@ -17,10 +17,9 @@ import javax.sql.DataSource
 import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 
-/** Configuration case class, susceptible to PureConfig.
-  * Helps with creating `com.zaxxer.hikari.HikariConfig`,
-  * which in turn is used to create `doobie.hikari.HikariTransactor`.
-  * See the method `HikariTransactor.fromConfigAutoEc` */
+/** Configuration case class, susceptible to PureConfig. Helps with creating `com.zaxxer.hikari.HikariConfig`, which in
+  * turn is used to create `doobie.hikari.HikariTransactor`. See the method `HikariTransactor.fromConfigAutoEc`
+  */
 // Whenever you add a new field to maintain backward compatibility:
 //  * add the field to `copy`
 //  * create a new `apply`
@@ -30,73 +29,73 @@ import scala.concurrent.duration.Duration
 // But they still need to be present to enable tools like PureConfig.
 @nowarn("msg=(never used|unused)")
 final case class Config private (
-  jdbcUrl: String,
-  catalog: Option[String] = None,
-  connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
-  idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
-  leakDetectionThreshold: Duration = Duration.Zero,
-  maximumPoolSize: Int = 10,
-  maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
-  minimumIdle: Int = 10,
-  password: Option[String] = None,
-  poolName: Option[String] = None,
-  username: Option[String] = None,
-  validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
-  allowPoolSuspension: Boolean = false,
-  autoCommit: Boolean = true,
-  connectionInitSql: Option[String] = None,
-  connectionTestQuery: Option[String] = None,
-  dataSourceClassName: Option[String] = None,
-  dataSourceJNDI: Option[String] = None,
-  driverClassName: Option[String] = None,
-  initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
-  isolateInternalQueries: Boolean = false,
-  readOnly: Boolean = false,
-  registerMbeans: Boolean = false,
-  schema: Option[String] = None,
-  transactionIsolation: Option[TransactionIsolation] = None,
-){
+    jdbcUrl: String,
+    catalog: Option[String] = None,
+    connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
+    idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
+    leakDetectionThreshold: Duration = Duration.Zero,
+    maximumPoolSize: Int = 10,
+    maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
+    minimumIdle: Int = 10,
+    password: Option[String] = None,
+    poolName: Option[String] = None,
+    username: Option[String] = None,
+    validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
+    allowPoolSuspension: Boolean = false,
+    autoCommit: Boolean = true,
+    connectionInitSql: Option[String] = None,
+    connectionTestQuery: Option[String] = None,
+    dataSourceClassName: Option[String] = None,
+    dataSourceJNDI: Option[String] = None,
+    driverClassName: Option[String] = None,
+    initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
+    isolateInternalQueries: Boolean = false,
+    readOnly: Boolean = false,
+    registerMbeans: Boolean = false,
+    schema: Option[String] = None,
+    transactionIsolation: Option[TransactionIsolation] = None
+) {
   @nowarn("msg=(never used|unused)")
   private def copy(
-    jdbcUrl: String,
-    catalog: Option[String],
-    connectionTimeout: Duration,
-    idleTimeout: Duration,
-    leakDetectionThreshold: Duration,
-    maximumPoolSize: Int,
-    maxLifetime: Duration,
-    minimumIdle: Int,
-    password: Option[String],
-    poolName: Option[String],
-    username: Option[String],
-    validationTimeout: Duration,
-    allowPoolSuspension: Boolean,
-    autoCommit: Boolean,
-    connectionInitSql: Option[String],
-    connectionTestQuery: Option[String],
-    dataSourceClassName: Option[String],
-    dataSourceJNDI: Option[String],
-    driverClassName: Option[String],
-    initializationFailTimeout: Duration,
-    isolateInternalQueries: Boolean,
-    readOnly: Boolean,
-    registerMbeans: Boolean,
-    schema: Option[String],
-    transactionIsolation: Option[TransactionIsolation],
+      jdbcUrl: String,
+      catalog: Option[String],
+      connectionTimeout: Duration,
+      idleTimeout: Duration,
+      leakDetectionThreshold: Duration,
+      maximumPoolSize: Int,
+      maxLifetime: Duration,
+      minimumIdle: Int,
+      password: Option[String],
+      poolName: Option[String],
+      username: Option[String],
+      validationTimeout: Duration,
+      allowPoolSuspension: Boolean,
+      autoCommit: Boolean,
+      connectionInitSql: Option[String],
+      connectionTestQuery: Option[String],
+      dataSourceClassName: Option[String],
+      dataSourceJNDI: Option[String],
+      driverClassName: Option[String],
+      initializationFailTimeout: Duration,
+      isolateInternalQueries: Boolean,
+      readOnly: Boolean,
+      registerMbeans: Boolean,
+      schema: Option[String],
+      transactionIsolation: Option[TransactionIsolation]
   ): Any = this
 }
 
 object Config {
   def makeHikariConfig[F[_]](
-    config: Config,
-    dataSource: Option[DataSource] = None,
-    dataSourceProperties: Option[Properties] = None,
-    healthCheckProperties: Option[Properties] = None,
-    healthCheckRegistry: Option[Object] = None,
-    metricRegistry: Option[Object] = None,
-    metricsTrackerFactory: Option[MetricsTrackerFactory] = None,
-    scheduledExecutor: Option[ScheduledExecutorService] = None,
-    threadFactory: Option[ThreadFactory] = None,
+      config: Config,
+      dataSource: Option[DataSource] = None,
+      dataSourceProperties: Option[Properties] = None,
+      healthCheckProperties: Option[Properties] = None,
+      healthCheckRegistry: Option[Object] = None,
+      metricRegistry: Option[Object] = None,
+      metricsTrackerFactory: Option[MetricsTrackerFactory] = None,
+      scheduledExecutor: Option[ScheduledExecutorService] = None,
+      threadFactory: Option[ThreadFactory] = None
   )(implicit F: Sync[F]): F[HikariConfig] =
     F.delay {
       val c = new HikariConfig()
@@ -142,31 +141,31 @@ object Config {
     }
 
   def apply(
-    jdbcUrl: String,
-    catalog: Option[String] = None,
-    connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
-    idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
-    leakDetectionThreshold: Duration = Duration.Zero,
-    maximumPoolSize: Int = 10,
-    maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
-    minimumIdle: Int = 10,
-    password: Option[String] = None,
-    poolName: Option[String] = None,
-    username: Option[String] = None,
-    validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
-    allowPoolSuspension: Boolean = false,
-    autoCommit: Boolean = true,
-    connectionInitSql: Option[String] = None,
-    connectionTestQuery: Option[String] = None,
-    dataSourceClassName: Option[String] = None,
-    dataSourceJNDI: Option[String] = None,
-    driverClassName: Option[String] = None,
-    initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
-    isolateInternalQueries: Boolean = false,
-    readOnly: Boolean = false,
-    registerMbeans: Boolean = false,
-    schema: Option[String] = None,
-    transactionIsolation: Option[TransactionIsolation] = None,
+      jdbcUrl: String,
+      catalog: Option[String] = None,
+      connectionTimeout: Duration = Duration(30, TimeUnit.SECONDS),
+      idleTimeout: Duration = Duration(10, TimeUnit.MINUTES),
+      leakDetectionThreshold: Duration = Duration.Zero,
+      maximumPoolSize: Int = 10,
+      maxLifetime: Duration = Duration(30, TimeUnit.MINUTES),
+      minimumIdle: Int = 10,
+      password: Option[String] = None,
+      poolName: Option[String] = None,
+      username: Option[String] = None,
+      validationTimeout: Duration = Duration(5, TimeUnit.SECONDS),
+      allowPoolSuspension: Boolean = false,
+      autoCommit: Boolean = true,
+      connectionInitSql: Option[String] = None,
+      connectionTestQuery: Option[String] = None,
+      dataSourceClassName: Option[String] = None,
+      dataSourceJNDI: Option[String] = None,
+      driverClassName: Option[String] = None,
+      initializationFailTimeout: Duration = Duration(1, TimeUnit.MILLISECONDS),
+      isolateInternalQueries: Boolean = false,
+      readOnly: Boolean = false,
+      registerMbeans: Boolean = false,
+      schema: Option[String] = None,
+      transactionIsolation: Option[TransactionIsolation] = None
   ): Config = new Config(
     jdbcUrl = jdbcUrl,
     catalog = catalog,
@@ -199,7 +198,7 @@ object Config {
   def fromProduct(p: Product): Config = p.productArity match {
     case 25 =>
       Config(
-        p.productElement(0).asInstanceOf[String], 
+        p.productElement(0).asInstanceOf[String],
         p.productElement(1).asInstanceOf[Option[String]],
         p.productElement(2).asInstanceOf[Duration],
         p.productElement(3).asInstanceOf[Duration],
@@ -223,7 +222,7 @@ object Config {
         p.productElement(21).asInstanceOf[Boolean],
         p.productElement(22).asInstanceOf[Boolean],
         p.productElement(23).asInstanceOf[Option[String]],
-        p.productElement(24).asInstanceOf[Option[TransactionIsolation]],
+        p.productElement(24).asInstanceOf[Option[TransactionIsolation]]
       )
   }
 

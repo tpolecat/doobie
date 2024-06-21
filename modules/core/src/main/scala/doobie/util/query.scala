@@ -13,21 +13,14 @@ import doobie._
 import doobie.implicits._
 import doobie.util.analysis.Analysis
 import doobie.util.compat.FactoryCompat
-import doobie.util.log.{ LogEvent, ExecFailure, ProcessingFailure, Success }
+import doobie.util.log.{LogEvent, ExecFailure, ProcessingFailure, Success}
 import doobie.util.pos.Pos
-import doobie.free.{
-  preparedstatement => IFPS,
-  resultset => IFRS,
-}
-import doobie.hi.{
-  connection => IHC,
-  preparedstatement => IHPS,
-  resultset => IHRS
-}
+import doobie.free.{preparedstatement => IFPS, resultset => IFRS}
+import doobie.hi.{connection => IHC, preparedstatement => IHPS, resultset => IHRS}
 
 import fs2.Stream
 import scala.Predef.longWrapper
-import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
+import scala.concurrent.duration.{FiniteDuration, NANOSECONDS}
 import scala.collection.immutable.Map
 import doobie.util.MultiVersionTypeSupport.=:=
 
@@ -36,11 +29,10 @@ object query {
 
   val DefaultChunkSize = 512
 
-  /**
-   * A query parameterized by some input type `A` yielding values of type `B`. We define here the
-   * core operations that are needed. Additional operations are provided on `[[Query0]]` which is the
-   * residual query after applying an `A`. This is the type constructed by the `sql` interpolator.
-   */
+  /** A query parameterized by some input type `A` yielding values of type `B`. We define here the core operations that
+    * are needed. Additional operations are provided on `[[Query0]]` which is the residual query after applying an `A`.
+    * This is the type constructed by the `sql` interpolator.
+    */
   trait Query[A, B] { outer =>
 
     protected implicit val write: Write[A]
@@ -60,11 +52,12 @@ object query {
 
       for {
         t0 <- now
-        eet <- IFPS.executeQuery.flatMap(rs => (for {
-          t1 <- now
-          et <- IFPS.embed(rs, k).attempt
-          t2 <- now
-        } yield (t1, et, t2)).guarantee(IFPS.embed(rs, IFRS.close))).attempt
+        eet <- IFPS.executeQuery.flatMap(rs =>
+          (for {
+            t1 <- now
+            et <- IFPS.embed(rs, k).attempt
+            t2 <- now
+          } yield (t1, et, t2)).guarantee(IFPS.embed(rs, IFRS.close))).attempt
         tuple <- eet.liftTo[PreparedStatementIO].onError { case e =>
           for {
             t1 <- now
@@ -72,22 +65,22 @@ object query {
           } yield ()
         }
         (t1, et, t2) = tuple
-        t <- et.liftTo[PreparedStatementIO].onError { case e => log(ProcessingFailure(sql, args, label, diff(t1, t0), diff(t2, t1), e)) }
-        _  <- log(Success(sql, args, label, diff(t1, t0), diff(t2, t1)))
+        t <- et.liftTo[PreparedStatementIO].onError { case e =>
+          log(ProcessingFailure(sql, args, label, diff(t1, t0), diff(t2, t1), e))
+        }
+        _ <- log(Success(sql, args, label, diff(t1, t0), diff(t2, t1)))
       } yield t
     }
 
-    /**
-     * The SQL string.
-     * @group Diagnostics
-     */
+    /** The SQL string.
+      * @group Diagnostics
+      */
     def sql: String
 
-    /**
-     * An optional `[[Pos]]` indicating the source location where this `[[Query]]` was
-     * constructed. This is used only for diagnostic purposes.
-     * @group Diagnostics
-     */
+    /** An optional `[[Pos]]` indicating the source location where this `[[Query]]` was constructed. This is used only
+      * for diagnostic purposes.
+      * @group Diagnostics
+      */
     def pos: Option[Pos]
 
     /** Convert this Query to a `Fragment`. */
@@ -97,99 +90,79 @@ object query {
     /** Label to be used during logging */
     val label: String
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and asserted parameter and
-     * column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and asserted parameter and column types.
+      * @group Diagnostics
+      */
     def analysis: ConnectionIO[Analysis] =
       IHC.prepareQueryAnalysis[A, B](sql)
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and result set column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and result set column types.
+      * @group Diagnostics
+      */
     def outputAnalysis: ConnectionIO[Analysis] =
       IHC.prepareQueryAnalysis0[B](sql)
 
-    /**
-     * Program to construct an inspection of the query. Given arguments `a`, calls `f` with the SQL
-     * representation of the query and a statement with all arguments set. Returns the result
-     * of the `ConnectionIO` program constructed.
-     *
-     * @group Diagnostics
-     */
+    /** Program to construct an inspection of the query. Given arguments `a`, calls `f` with the SQL representation of
+      * the query and a statement with all arguments set. Returns the result of the `ConnectionIO` program constructed.
+      *
+      * @group Diagnostics
+      */
     def inspect[R](a: A)(f: (String, PreparedStatementIO[Unit]) => ConnectionIO[R]): ConnectionIO[R] =
       f(sql, IHPS.set(a))
 
-    /**
-     * Apply the argument `a` to construct a `Stream` with the given chunking factor, with
-     * effect type  `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding elements of
-     * type `B`.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a `Stream` with the given chunking factor, with effect type
+      * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding elements of type `B`.
+      * @group Results
+      */
     def streamWithChunkSize(a: A, chunkSize: Int): Stream[ConnectionIO, B] =
       IHC.stream[B](sql, IHPS.set(a), chunkSize)
 
-    /**
-     * Apply the argument `a` to construct a `Stream` with `DefaultChunkSize`, with
-     * effect type  `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding elements of
-     * type `B`.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a `Stream` with `DefaultChunkSize`, with effect type
+      * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding elements of type `B`.
+      * @group Results
+      */
     def stream(a: A): Stream[ConnectionIO, B] =
       streamWithChunkSize(a, DefaultChunkSize)
 
-    /**
-     * Apply the argument `a` to construct a program in
-     *`[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]` accumulated
-     * via the provided `CanBuildFrom`. This is the fastest way to accumulate a collection.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an `F[B]` accumulated via the provided `CanBuildFrom`. This is the fastest way to accumulate a collection.
+      * @group Results
+      */
     def to[F[_]](a: A)(implicit f: FactoryCompat[B, F[B]]): ConnectionIO[F[B]] =
-      IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.build[F,B]))
+      IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.build[F, B]))
 
-    /**
-     * Apply the argument `a` to construct a program in
-     *`[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `Map[(K, V)]` accumulated
-     * via the provided `CanBuildFrom`. This is the fastest way to accumulate a collection.
-     * this function can call only when B is (K, V).
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an `Map[(K, V)]` accumulated via the provided `CanBuildFrom`. This is the fastest way to accumulate a
+      * collection. this function can call only when B is (K, V).
+      * @group Results
+      */
     def toMap[K, V](a: A)(implicit ev: B =:= (K, V), f: FactoryCompat[(K, V), Map[K, V]]): ConnectionIO[Map[K, V]] =
       IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.buildPair[Map, K, V](f, read.map(ev))))
 
-    /**
-     * Apply the argument `a` to construct a program in
-     * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]` accumulated
-     * via `MonadPlus` append. This method is more general but less efficient than `to`.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an `F[B]` accumulated via `MonadPlus` append. This method is more general but less efficient than `to`.
+      * @group Results
+      */
     def accumulate[F[_]: Alternative](a: A): ConnectionIO[F[B]] =
       IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.accumulate[F, B]))
 
-    /**
-     * Apply the argument `a` to construct a program in
-     * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding a unique `B` and
-     * raising an exception if the resultset does not have exactly one row. See also `option`.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * a unique `B` and raising an exception if the resultset does not have exactly one row. See also `option`.
+      * @group Results
+      */
     def unique(a: A): ConnectionIO[B] =
       IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.getUnique[B]))
 
-    /**
-     * Apply the argument `a` to construct a program in
-     * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an optional `B` and
-     * raising an exception if the resultset has more than one row. See also `unique`.
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an optional `B` and raising an exception if the resultset has more than one row. See also `unique`.
+      * @group Results
+      */
     def option(a: A): ConnectionIO[Option[B]] =
       IHC.prepareStatement(sql)(IHPS.set(a) *> executeQuery(a, IHRS.getOption[B]))
 
-    /**
-      * Apply the argument `a` to construct a program in
-      * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `NonEmptyList[B]` and
-      * raising an exception if the resultset does not have at least one row. See also `unique`.
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an `NonEmptyList[B]` and raising an exception if the resultset does not have at least one row. See also
+      * `unique`.
       * @group Results
       */
     def nel(a: A): ConnectionIO[NonEmptyList[B]] =
@@ -199,7 +172,7 @@ object query {
     def map[C](f: B => C): Query[A, C] =
       new Query[A, C] {
         val write = outer.write
-        val read  = outer.read.map(f)
+        val read = outer.read.map(f)
         def sql = outer.sql
         def pos = outer.pos
         val label = outer.label
@@ -209,16 +182,15 @@ object query {
     def contramap[C](f: C => A): Query[C, B] =
       new Query[C, B] {
         val write = outer.write.contramap(f)
-        val read  = outer.read
+        val read = outer.read
         def sql = outer.sql
         def pos = outer.pos
         val label = outer.label
       }
 
-    /**
-     * Apply an argument, yielding a residual `[[Query0]]`.
-     * @group Transformations
-     */
+    /** Apply an argument, yielding a residual `[[Query0]]`.
+      * @group Transformations
+      */
     @SuppressWarnings(Array("org.wartremover.warts.Recursion"))
     def toQuery0(a: A): Query0[B] =
       new Query0[B] {
@@ -242,14 +214,16 @@ object query {
 
   object Query {
 
-    /**
-     * Construct a `Query` with the given SQL string, an optional `Pos` for diagnostic
-     * purposes, and type arguments for writable input and readable output types. Note that the
-     * most common way to construct a `Query` is via the `sql` interpolator.
-     * @group Constructors
-     */
+    /** Construct a `Query` with the given SQL string, an optional `Pos` for diagnostic purposes, and type arguments for
+      * writable input and readable output types. Note that the most common way to construct a `Query` is via the `sql`
+      * interpolator.
+      * @group Constructors
+      */
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
-    def apply[A, B](sql: String, pos: Option[Pos] = None, label: String = unlabeled)(implicit A: Write[A], B: Read[B]): Query[A, B] = {
+    def apply[A, B](sql: String, pos: Option[Pos] = None, label: String = unlabeled)(implicit
+        A: Write[A],
+        B: Read[B]
+    ): Query[A, B] = {
       val sql0 = sql
       val label0 = label
       val pos0 = pos
@@ -265,7 +239,7 @@ object query {
     /** @group Typeclass Instances */
     implicit val queryProfunctor: Profunctor[Query] =
       new Profunctor[Query] {
-        def dimap[A, B, C, D](fab: Query[A,B])(f: C => A)(g: B => D): Query[C,D] =
+        def dimap[A, B, C, D](fab: Query[A, B])(f: C => A)(g: B => D): Query[C, D] =
           fab.contramap(f).map(g)
       }
 
@@ -285,107 +259,89 @@ object query {
 
   }
 
-  /**
-   * An abstract query closed over its input arguments and yielding values of type `B`, without a
-   * specified disposition. Methods provided on `[[Query0]]` allow the query to be interpreted as a
-   * stream or program in `CollectionIO`.
-   */
+  /** An abstract query closed over its input arguments and yielding values of type `B`, without a specified
+    * disposition. Methods provided on `[[Query0]]` allow the query to be interpreted as a stream or program in
+    * `CollectionIO`.
+    */
   trait Query0[B] { outer =>
 
-    /**
-     * The SQL string.
-     * @group Diagnostics
-     */
+    /** The SQL string.
+      * @group Diagnostics
+      */
     def sql: String
 
-    /**
-     * An optional `Pos` indicating the source location where this `Query` was
-     * constructed. This is used only for diagnostic purposes.
-     * @group Diagnostics
-     */
+    /** An optional `Pos` indicating the source location where this `Query` was constructed. This is used only for
+      * diagnostic purposes.
+      * @group Diagnostics
+      */
     def pos: Option[Pos]
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and asserted parameter and
-     * column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and asserted parameter and column types.
+      * @group Diagnostics
+      */
     def analysis: ConnectionIO[Analysis]
 
     /** Convert this Query0 to a `Fragment`. */
     def toFragment: Fragment
 
-    /**
-     * Program to construct an inspection of the query. Calls `f` with the SQL
-     * representation of the query and a statement with all statement arguments set. Returns the result
-     * of the `ConnectionIO` program constructed.
-     *
-     * @group Diagnostics
-     */
+    /** Program to construct an inspection of the query. Calls `f` with the SQL representation of the query and a
+      * statement with all statement arguments set. Returns the result of the `ConnectionIO` program constructed.
+      *
+      * @group Diagnostics
+      */
     def inspect[R](f: (String, PreparedStatementIO[Unit]) => ConnectionIO[R]): ConnectionIO[R]
 
-    /**
-     * Program to construct an analysis of this query's SQL statement and result set column types.
-     * @group Diagnostics
-     */
+    /** Program to construct an analysis of this query's SQL statement and result set column types.
+      * @group Diagnostics
+      */
     def outputAnalysis: ConnectionIO[Analysis]
 
-    /**
-     * `Stream` with default chunk factor, with effect type
-     * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding  elements of type `B`.
-     * @group Results
-     */
-    def stream : Stream[ConnectionIO, B] =
+    /** `Stream` with default chunk factor, with effect type `[[doobie.free.connection.ConnectionIO ConnectionIO]]`
+      * yielding elements of type `B`.
+      * @group Results
+      */
+    def stream: Stream[ConnectionIO, B] =
       streamWithChunkSize(DefaultChunkSize)
 
-    /**
-     * `Stream` with given chunk factor, with effect type
-     * `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding  elements of type `B`.
-     * @group Results
-     */
+    /** `Stream` with given chunk factor, with effect type `[[doobie.free.connection.ConnectionIO ConnectionIO]]`
+      * yielding elements of type `B`.
+      * @group Results
+      */
     def streamWithChunkSize(n: Int): Stream[ConnectionIO, B]
 
-    /**
-     * Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]`
-     * accumulated via the provided `CanBuildFrom`. This is the fastest way to accumulate a
-     * collection.
-     * @group Results
-     */
+    /** Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]` accumulated via the
+      * provided `CanBuildFrom`. This is the fastest way to accumulate a collection.
+      * @group Results
+      */
     def to[F[_]](implicit f: FactoryCompat[B, F[B]]): ConnectionIO[F[B]]
 
-    /**
-     * Apply the argument `a` to construct a program in
-     *`[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `Map[(K, V)]` accumulated
-     * via the provided `CanBuildFrom`. This is the fastest way to accumulate a collection.
-     * this function can call only when B is (K, V).
-     * @group Results
-     */
+    /** Apply the argument `a` to construct a program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding
+      * an `Map[(K, V)]` accumulated via the provided `CanBuildFrom`. This is the fastest way to accumulate a
+      * collection. this function can call only when B is (K, V).
+      * @group Results
+      */
     def toMap[K, V](implicit ev: B =:= (K, V), f: FactoryCompat[(K, V), Map[K, V]]): ConnectionIO[Map[K, V]]
 
-    /**
-     * Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]`
-     * accumulated via `MonadPlus` append. This method is more general but less efficient than `to`.
-     * @group Results
-     */
+    /** Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an `F[B]` accumulated via `MonadPlus`
+      * append. This method is more general but less efficient than `to`.
+      * @group Results
+      */
     def accumulate[F[_]: Alternative]: ConnectionIO[F[B]]
 
-    /**
-     * Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding a unique `B` and
-     * raising an exception if the resultset does not have exactly one row. See also `option`.
-     * @group Results
-     */
+    /** Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding a unique `B` and raising an exception
+      * if the resultset does not have exactly one row. See also `option`.
+      * @group Results
+      */
     def unique: ConnectionIO[B]
 
-    /**
-     * Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an optional `B`
-     * and raising an exception if the resultset has more than one row. See also `unique`.
-     * @group Results
-     */
+    /** Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding an optional `B` and raising an
+      * exception if the resultset has more than one row. See also `unique`.
+      * @group Results
+      */
     def option: ConnectionIO[Option[B]]
 
-    /**
-      * Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding a `NonEmptyList[B]`
-      * and raising an exception if the resultset does not have at least one row. See also `unique`.
+    /** Program in `[[doobie.free.connection.ConnectionIO ConnectionIO]]` yielding a `NonEmptyList[B]` and raising an
+      * exception if the resultset does not have at least one row. See also `unique`.
       * @group Results
       */
     def nel: ConnectionIO[NonEmptyList[B]]
@@ -397,15 +353,13 @@ object query {
 
   object Query0 {
 
-    /**
-     * Construct a `Query` with the given SQL string, an optional `Pos` for diagnostic
-     * purposes, with no parameters. Note that the most common way to construct a `Query` is via the
-     * `sql`interpolator.
-     * @group Constructors
-     */
+    /** Construct a `Query` with the given SQL string, an optional `Pos` for diagnostic purposes, with no parameters.
+      * Note that the most common way to construct a `Query` is via the `sql`interpolator.
+      * @group Constructors
+      */
     @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
     def apply[A: Read](sql: String, pos: Option[Pos] = None, label: String = unlabeled): Query0[A] =
-       Query[Unit, A](sql, pos, label).toQuery0(())
+      Query[Unit, A](sql, pos, label).toQuery0(())
 
     /** @group Typeclass Instances */
     implicit val queryFunctor: Functor[Query0] =

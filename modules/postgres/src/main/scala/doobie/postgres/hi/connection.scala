@@ -7,9 +7,9 @@ package doobie.postgres.hi
 import cats.~>
 import cats.data.Kleisli
 import cats.free.Free
-import org.postgresql.{ PGConnection, PGNotification }
+import org.postgresql.{PGConnection, PGNotification}
 import doobie._, doobie.implicits._
-import doobie.postgres.free.{ Embeddable, KleisliInterpreter }
+import doobie.postgres.free.{Embeddable, KleisliInterpreter}
 import doobie.postgres.free.{pgconnection => IPFPC}
 import doobie.postgres.hi.{pgconnection => IPHPC}
 
@@ -44,40 +44,32 @@ object connection {
   def pgSetPrepareThreshold(threshold: Int): ConnectionIO[Unit] =
     pgGetConnection(IPHPC.setPrepareThreshold(threshold))
 
-  /**
-   * Construct a program that notifies on the given channel. Note that the channel is NOT sanitized;
-   * it cannot be passed as a parameter and is simply interpolated into the statement. DO NOT pass
-   * user input here.
-   */
+  /** Construct a program that notifies on the given channel. Note that the channel is NOT sanitized; it cannot be
+    * passed as a parameter and is simply interpolated into the statement. DO NOT pass user input here.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def pgNotify(channel: String): ConnectionIO[Unit] =
     execVoid("NOTIFY " + channel)
 
-  /**
-   * Construct a program that notifies on the given channel, with a payload. Note that neither the
-   * channel nor the payload are sanitized; neither can be passed as parameters and are simply
-   * interpolated into the statement. DO NOT pass user input here.
-   */
+  /** Construct a program that notifies on the given channel, with a payload. Note that neither the channel nor the
+    * payload are sanitized; neither can be passed as parameters and are simply interpolated into the statement. DO NOT
+    * pass user input here.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Overloading"))
   def pgNotify(channel: String, payload: String): ConnectionIO[Unit] =
     execVoid(s"NOTIFY $channel, '$payload'")
 
-  /**
-   * Construct a program that starts listening on the given channel. Note that the channel is NOT
-   * sanitized; it cannot be passed as a parameter and is simply interpolated into the statement.
-   * DO NOT pass user input here.
-   */
+  /** Construct a program that starts listening on the given channel. Note that the channel is NOT sanitized; it cannot
+    * be passed as a parameter and is simply interpolated into the statement. DO NOT pass user input here.
+    */
   def pgListen(channel: String): ConnectionIO[Unit] =
     execVoid("LISTEN " + channel)
 
-  /**
-   * Construct a program that stops listening on the given channel. Note that the channel is NOT
-   * sanitized; it cannot be passed as a parameter and is simply interpolated into the statement.
-   * DO NOT pass user input here.
-   */
+  /** Construct a program that stops listening on the given channel. Note that the channel is NOT sanitized; it cannot
+    * be passed as a parameter and is simply interpolated into the statement. DO NOT pass user input here.
+    */
   def pgUnlisten(channel: String): ConnectionIO[Unit] =
     execVoid("UNLISTEN " + channel)
-
 
   // a helper
   private def execVoid(sql: String): ConnectionIO[Unit] =

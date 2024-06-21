@@ -20,29 +20,27 @@ import fs2.text.utf8.encode
 
 class FragmentOps(f: Fragment) {
 
-  /**
-   * Given a fragment of the form `COPY table (col, ...) FROM STDIN` construct a
-   * `ConnectionIO` that inserts the values provided in `fa`, returning the number of affected
-   * rows.
-   */
+  /** Given a fragment of the form `COPY table (col, ...) FROM STDIN` construct a `ConnectionIO` that inserts the values
+    * provided in `fa`, returning the number of affected rows.
+    */
   def copyIn[F[_]: Foldable, A](fa: F[A])(implicit ev: Text[A]): ConnectionIO[Long] = {
     // Fold with a StringBuilder and unsafeEncode to minimize allocations. Note that inserting no
     // rows is an error so we shortcut on empty input.
     // TODO: stream this rather than constructing the string in memory.
-    if (fa.isEmpty) 0L.pure[ConnectionIO] else {
+    if (fa.isEmpty) 0L.pure[ConnectionIO]
+    else {
       val data = foldToString(fa)
       IPHC.pgGetCopyAPI(IPFCM.copyIn(f.query[Unit].sql, new StringReader(data)))
     }
   }
 
-  /**
-   * Given a fragment of the form `COPY table (col, ...) FROM STDIN` construct a
-   * `ConnectionIO` that inserts the values provided by `stream`, returning the number of affected
-   * rows. Chunks input `stream` for more efficient sending to `STDIN` with `minChunkSize`.
-   */
+  /** Given a fragment of the form `COPY table (col, ...) FROM STDIN` construct a `ConnectionIO` that inserts the values
+    * provided by `stream`, returning the number of affected rows. Chunks input `stream` for more efficient sending to
+    * `STDIN` with `minChunkSize`.
+    */
   def copyIn[A: Text](
-    stream: Stream[ConnectionIO, A],
-    minChunkSize: Int
+      stream: Stream[ConnectionIO, A],
+      minChunkSize: Int
   ): ConnectionIO[Long] = {
 
     val byteStream: Stream[ConnectionIO, Byte] =
@@ -52,15 +50,14 @@ class FragmentOps(f: Fragment) {
     // we need to run that in the finalizer of the `bracket`, and the result from that is ignored.
     Ref.of[ConnectionIO, Long](-1L).flatMap { numRowsRef =>
       val copyAll: ConnectionIO[Unit] =
-        Stream.bracketCase(IPHC.pgGetCopyAPI(IPFCM.copyIn(f.query[Unit].sql))){
+        Stream.bracketCase(IPHC.pgGetCopyAPI(IPFCM.copyIn(f.query[Unit].sql))) {
           case (copyIn, Resource.ExitCase.Succeeded) =>
             IPHC.embed(copyIn, IPFCI.endCopy).flatMap(numRowsRef.set)
           case (copyIn, _) =>
             IPHC.embed(copyIn, IPFCI.cancelCopy)
         }.flatMap { copyIn =>
           byteStream.chunks.evalMap(bytes =>
-            IPHC.embed(copyIn, IPFCI.writeToCopy(bytes.toArray, 0, bytes.size))
-          )
+            IPHC.embed(copyIn, IPFCI.writeToCopy(bytes.toArray, 0, bytes.size)))
         }.compile.drain
 
       copyAll.flatMap(_ => numRowsRef.get)

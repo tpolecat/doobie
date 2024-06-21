@@ -15,22 +15,20 @@ import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
-/**
- * Instances for JSR-310 date time types.
- *
- * Note that to ensure instants are preserved you may need to use one of the solutions described
- * in [[https://docs.oracle.com/cd/E17952_01/connector-j-8.0-en/connector-j-time-instants.html]].
- *
- * OffsetTime instance is not supported as there is no semantically equivalent
- * type on the MySQL side.
- */
+/** Instances for JSR-310 date time types.
+  *
+  * Note that to ensure instants are preserved you may need to use one of the solutions described in
+  * [[https://docs.oracle.com/cd/E17952_01/connector-j-8.0-en/connector-j-time-instants.html]].
+  *
+  * OffsetTime instance is not supported as there is no semantically equivalent type on the MySQL side.
+  */
 trait MysqlJavaTimeInstances {
 
   implicit val JavaTimeOffsetDateTimeMeta: Meta[OffsetDateTime] =
     Basic.oneObject(
       JdbcType.Timestamp,
       Some("TIMESTAMP"),
-      classOf[OffsetDateTime],
+      classOf[OffsetDateTime]
     )
 
   implicit val JavaTimeInstantMeta: Meta[Instant] =
@@ -40,7 +38,7 @@ trait MysqlJavaTimeInstances {
     Basic.oneObject(
       jdbcType = JdbcType.Timestamp,
       Some("DATETIME"),
-      clazz = classOf[LocalDateTime],
+      clazz = classOf[LocalDateTime]
     )
 
   implicit val JavaTimeLocalDateMeta: Meta[LocalDate] =

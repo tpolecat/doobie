@@ -7,13 +7,10 @@ package doobie.util.meta
 import doobie.enumerated.JdbcType._
 import doobie.util.meta.MetaConstructors.Basic
 
-/**
- * Basic instances for Java time classes that follow the JDBC specification.
- * These instances lack more precise type checking (by checking against the 
- * vendor type name for columns and parameters) so this should only be used if
- * you're not using one of the databases which doobie has more precise
- * Meta instances for. (e.g. PostgreSQL / MySQL)
- */
+/** Basic instances for Java time classes that follow the JDBC specification. These instances lack more precise type
+  * checking (by checking against the vendor type name for columns and parameters) so this should only be used if you're
+  * not using one of the databases which doobie has more precise Meta instances for. (e.g. PostgreSQL / MySQL)
+  */
 trait TimeMetaInstances {
   import Predef.classOf
 
@@ -22,7 +19,7 @@ trait TimeMetaInstances {
     Basic.oneObject(
       jdbcType = Timestamp,
       checkedVendorType = None,
-      clazz = classOf[java.time.OffsetDateTime],
+      clazz = classOf[java.time.OffsetDateTime]
     )
 
   /** @group Instances */
@@ -45,11 +42,12 @@ trait TimeMetaInstances {
 
   /** @group Instances */
   implicit val JavaTimeZoneId: Meta[java.time.ZoneId] = {
-    def parse(str: String) = try {
-      Right(java.time.ZoneId.of(str))
-    } catch {
-      case e: java.time.DateTimeException => Left(e.getMessage)
-    }
+    def parse(str: String) =
+      try {
+        Right(java.time.ZoneId.of(str))
+      } catch {
+        case e: java.time.DateTimeException => Left(e.getMessage)
+      }
 
     Meta[String].tiemap(parse(_))(_.getId)
   }

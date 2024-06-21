@@ -27,7 +27,7 @@ object HikariExample extends IOApp.Simple {
     } yield transactor
 
   def run: IO[Unit] =
-    // Note how we allocate the Transactor once (`use`) and reuse it 
+    // Note how we allocate the Transactor once (`use`) and reuse it
     // throughout our application
     transactorRes.use { transactor =>
       val personService = new UserService(transactor)

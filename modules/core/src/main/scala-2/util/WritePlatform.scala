@@ -4,14 +4,14 @@
 
 package doobie.util
 
-import shapeless.{ HList, HNil, ::, Generic, Lazy, <:!<, OrElse }
-import shapeless.labelled.{ FieldType }
+import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
+import shapeless.labelled.{FieldType}
 
 trait WritePlatform extends LowerPriorityWrite {
 
   // Derivation base case for product types (1-element)
   implicit def productBase[H](
-    implicit H: Write[H] OrElse MkWrite[H],
+      implicit H: Write[H] OrElse MkWrite[H]
   ): MkWrite[H :: HNil] = {
     val head = H.unify
 
@@ -25,7 +25,7 @@ trait WritePlatform extends LowerPriorityWrite {
 
   // Derivation base case for shapelss record (1-element)
   implicit def recordBase[K <: Symbol, H](
-    implicit H: Write[H] OrElse MkWrite[H],
+      implicit H: Write[H] OrElse MkWrite[H]
   ): MkWrite[FieldType[K, H] :: HNil] = {
     val head = H.unify
 
@@ -41,10 +41,11 @@ trait WritePlatform extends LowerPriorityWrite {
 
 trait LowerPriorityWrite extends EvenLowerPriorityWrite {
 
-  // Derivation inductive case for product types 
+  // Derivation inductive case for product types
   implicit def product[H, T <: HList](
-    implicit H: Write[H] OrElse MkWrite[H],
-              T: MkWrite[T]
+      implicit
+      H: Write[H] OrElse MkWrite[H],
+      T: MkWrite[T]
   ): MkWrite[H :: T] = {
     val head = H.unify
 
@@ -65,10 +66,11 @@ trait LowerPriorityWrite extends EvenLowerPriorityWrite {
       (rs, n, b) => A.value.unsafeUpdate(rs, n, gen.to(b))
     )
 
-  // Derivation inductive case for shapeless records  
+  // Derivation inductive case for shapeless records
   implicit def record[K <: Symbol, H, T <: HList](
-    implicit H: Write[H] OrElse MkWrite[H],
-    T: MkWrite[T]
+      implicit
+      H: Write[H] OrElse MkWrite[H],
+      T: MkWrite[T]
   ): MkWrite[FieldType[K, H] :: T] = {
     val head = H.unify
 
@@ -82,12 +84,13 @@ trait LowerPriorityWrite extends EvenLowerPriorityWrite {
 
   // Derivation base case for Option of product types (1-element)
   implicit def optProductBase[H](
-    implicit H: Write[Option[H]] OrElse MkWrite[Option[H]],
-    N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Write[Option[H]] OrElse MkWrite[Option[H]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkWrite[Option[H :: HNil]] = {
     void(N)
     val head = H.unify
-    
+
     def withHead[A](opt: Option[H :: HNil])(f: Option[H] => A): A = {
       f(opt.map(_.head))
     }
@@ -103,22 +106,22 @@ trait LowerPriorityWrite extends EvenLowerPriorityWrite {
 
   // Derivation base case for Option of product types (where the head element is Option)
   implicit def optProductOptBase[H](
-    implicit H: Write[Option[H]] OrElse MkWrite[Option[H]],
+      implicit H: Write[Option[H]] OrElse MkWrite[Option[H]]
   ): MkWrite[Option[Option[H] :: HNil]] = {
     val head = H.unify
 
     def withHead[A](opt: Option[Option[H] :: HNil])(f: Option[H] => A): A = {
       opt match {
         case Some(h :: _) => f(h)
-        case None => f(None)
+        case None         => f(None)
       }
     }
 
     new MkWrite(
       head.puts,
-      withHead(_) { h => head.toList(h)},
-      (ps, n, i) => withHead(i){ h => head.unsafeSet(ps, n, h) },
-      (rs, n, i) => withHead(i){ h => head.unsafeUpdate(rs, n, h) }
+      withHead(_) { h => head.toList(h) },
+      (ps, n, i) => withHead(i) { h => head.unsafeSet(ps, n, h) },
+      (rs, n, i) => withHead(i) { h => head.unsafeUpdate(rs, n, h) }
     )
 
   }
@@ -129,9 +132,10 @@ trait EvenLowerPriorityWrite {
 
   // Write[Option[H]], Write[Option[T]] implies Write[Option[H *: T]]
   implicit def optPorduct[H, T <: HList](
-    implicit H: Write[Option[H]] OrElse MkWrite[Option[H]],
-             T: MkWrite[Option[T]],
-             N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Write[Option[H]] OrElse MkWrite[Option[H]],
+      T: MkWrite[Option[T]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkWrite[Option[H :: T]] = {
     void(N)
     val head = H.unify
@@ -150,8 +154,9 @@ trait EvenLowerPriorityWrite {
 
   // Write[Option[H]], Write[Option[T]] implies Write[Option[Option[H] *: T]]
   implicit def optProductOpt[H, T <: HList](
-    implicit H: Write[Option[H]] OrElse MkWrite[Option[H]],
-             T: MkWrite[Option[T]]
+      implicit
+      H: Write[Option[H]] OrElse MkWrite[Option[H]],
+      T: MkWrite[Option[T]]
   ): MkWrite[Option[Option[H] :: T]] = {
     val head = H.unify
 
@@ -169,8 +174,9 @@ trait EvenLowerPriorityWrite {
 
   // Derivation for optional of product types (i.e. case class)
   implicit def ogeneric[B, A <: HList](
-    implicit G: Generic.Aux[B, A],
-             A: Lazy[MkWrite[Option[A]]]
+      implicit
+      G: Generic.Aux[B, A],
+      A: Lazy[MkWrite[Option[A]]]
   ): MkWrite[Option[B]] =
     new MkWrite(
       A.value.puts,

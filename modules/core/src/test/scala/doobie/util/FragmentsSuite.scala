@@ -9,7 +9,6 @@ import cats.syntax.all._
 import doobie._, doobie.implicits._
 import cats.effect.IO
 
-
 class FragmentsSuite extends munit.FunSuite {
   import Fragments._
   import cats.effect.unsafe.implicits.global
@@ -17,19 +16,19 @@ class FragmentsSuite extends munit.FunSuite {
   val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
-  val nelInt  = NonEmptyList.of(1,2,3)
+  val nelInt = NonEmptyList.of(1, 2, 3)
   val listInt = nelInt.toList
   val nel1 = NonEmptyList.of(1).map(i => sql"$i")
-  val nel  = NonEmptyList.of(1,2,3).map(i => sql"$i")
-  val fs   = nel.toList
+  val nel = NonEmptyList.of(1, 2, 3).map(i => sql"$i")
+  val fs = nel.toList
   val someF: Option[Fragment] = Some(sql"${1}")
   val noneF: Option[Fragment] = None
-  val ofs  = List(Some(sql"${1}"), None, Some(sql"${3}"))
+  val ofs = List(Some(sql"${1}"), None, Some(sql"${3}"))
 
   test("values for one column") {
     assertEquals(values(nelInt).query[Unit].sql, "VALUES (?) , (?) , (?) ")
@@ -38,9 +37,9 @@ class FragmentsSuite extends munit.FunSuite {
   test("values for two columns") {
     assertEquals(values(NonEmptyList.of((1, true), (2, false))).query[Unit].sql, "VALUES (?,?) , (?,?) ")
   }
-  
+
   test("in (1-column varargs)") {
-    assertEquals(in(sql"foo", 1,2,3).query[Unit].sql, "(foo IN (? , ? , ? ) ) ")
+    assertEquals(in(sql"foo", 1, 2, 3).query[Unit].sql, "(foo IN (? , ? , ? ) ) ")
   }
 
   test("in (1-column Reducible many)") {
@@ -74,7 +73,7 @@ class FragmentsSuite extends munit.FunSuite {
   test("notInOpt (Foldable empty)") {
     assertEquals(notInOpt(sql"foo", List.empty[Int]).map(_.query[Unit].sql), None)
   }
-  
+
   test("notInOpt (Foldable 1)") {
     assertEquals(notInOpt(sql"foo", List(1)).map(_.query[Unit].sql), Some("(foo NOT IN (? ) ) "))
   }
@@ -122,7 +121,7 @@ class FragmentsSuite extends munit.FunSuite {
   test("andOpt (list empty)") {
     assertEquals(andOpt(List.empty[Fragment]).map(_.query[Unit].sql), None)
   }
-  
+
   test("andFallbackTrue (empty)") {
     assertEquals(andFallbackTrue(List.empty[Fragment]).query[Unit].sql, "TRUE ")
   }
@@ -186,11 +185,11 @@ class FragmentsSuite extends munit.FunSuite {
   test("whereAnd (varargs many)") {
     assertEquals(whereAnd(fs(0), fs(0), fs(0)).query[Unit].sql, "WHERE (?) AND (?) AND (?)")
   }
-  
+
   test("whereAnd (Reducible 1)") {
     assertEquals(whereAnd(nel1).query[Unit].sql, "WHERE (?)")
   }
-  
+
   test("whereAnd (Reducible many)") {
     assertEquals(whereAnd(nel).query[Unit].sql, "WHERE (?) AND (?) AND (?)")
   }
@@ -206,7 +205,7 @@ class FragmentsSuite extends munit.FunSuite {
   test("whereAndOpt (varargs all none)") {
     assertEquals(whereAndOpt(None, None).query[Unit].sql, "")
   }
-  
+
   test("whereAndOpt (Foldable empty)") {
     assertEquals(whereAndOpt(List.empty[Fragment]).query[Unit].sql, "")
   }
@@ -250,7 +249,7 @@ class FragmentsSuite extends munit.FunSuite {
   test("whereOrOpt (Foldable many)") {
     assertEquals(whereOrOpt(fs).query[Unit].sql, "WHERE (?) OR (?) OR (?)")
   }
-  
+
   test("orderBy (varargs 1)") {
     assertEquals(orderBy(fr0"a").query[Unit].sql, "ORDER BY a")
   }
@@ -282,9 +281,11 @@ class FragmentsSuite extends munit.FunSuite {
   test("orderByOpt (Foldable many) ") {
     assertEquals(orderByOpt(List(fr0"a", fr0"b")).query[Unit].sql, "ORDER BY a, b")
   }
-  
+
   test("Usage test: whereAndOpt") {
-    assertEquals(whereAndOpt(Some(sql"hi"), orOpt(List.empty[Fragment]), orOpt(List(sql"a", sql"b"))).query[Unit].sql, "WHERE (hi) AND (((a) OR (b)) )")
+    assertEquals(
+      whereAndOpt(Some(sql"hi"), orOpt(List.empty[Fragment]), orOpt(List(sql"a", sql"b"))).query[Unit].sql,
+      "WHERE (hi) AND (((a) OR (b)) )")
   }
 
   case class Person(name: String, age: Int)

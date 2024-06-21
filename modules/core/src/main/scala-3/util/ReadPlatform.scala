@@ -11,9 +11,10 @@ trait ReadPlatform:
 
   // Generic Read for products.
   given derived[P <: Product, A](
-    using m: Mirror.ProductOf[P],
-    i: A =:= m.MirroredElemTypes,
-    w: MkRead[A]
+      using
+      m: Mirror.ProductOf[P],
+      i: A =:= m.MirroredElemTypes,
+      w: MkRead[A]
   ): MkRead[P] = {
     val read = w.map(a => m.fromProduct(i(a)))
     MkRead.lift(read)
@@ -21,9 +22,10 @@ trait ReadPlatform:
 
   // Generic Read for option of products.
   given derivedOption[P <: Product, A](
-    using m: Mirror.ProductOf[P],
-    i: A =:= m.MirroredElemTypes,
-    w: MkRead[Option[A]]
+      using
+      m: Mirror.ProductOf[P],
+      i: A =:= m.MirroredElemTypes,
+      w: MkRead[Option[A]]
   ): MkRead[Option[P]] = {
     val read = w.map(a => a.map(a => m.fromProduct(i(a))))
     MkRead.lift(read)
@@ -31,7 +33,7 @@ trait ReadPlatform:
 
   // Derivation base case for product types (1-element)
   given productBase[H](
-    using H: Read[H] OrElse MkRead[H],
+      using H: Read[H] OrElse MkRead[H]
   ): MkRead[H *: EmptyTuple] = {
     val head = H.unify
     new MkRead(
@@ -42,8 +44,9 @@ trait ReadPlatform:
 
   // Read for head and tail.
   given product[H, T <: Tuple](
-    using H: Read[H] OrElse MkRead[H],
-          T: MkRead[T]
+      using
+      H: Read[H] OrElse MkRead[H],
+      T: MkRead[T]
   ): MkRead[H *: T] = {
     val head = H.unify
 
@@ -54,7 +57,7 @@ trait ReadPlatform:
   }
 
   given optProductBase[H](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
+      using H: Read[Option[H]] OrElse MkRead[Option[H]]
   ): MkRead[Option[H *: EmptyTuple]] = {
     val head = H.unify
     MkRead[Option[H *: EmptyTuple]](
@@ -62,10 +65,11 @@ trait ReadPlatform:
       (rs, n) => head.unsafeGet(rs, n).map(_ *: EmptyTuple)
     )
   }
-  
+
   given optProduct[H, T <: Tuple](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
-          T: MkRead[Option[T]],
+      using
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: MkRead[Option[T]]
   ): MkRead[Option[H *: T]] = {
     val head = H.unify
 
@@ -78,9 +82,9 @@ trait ReadPlatform:
         } yield h *: t
     )
   }
-  
+
   given optProductOptBase[H](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
+      using H: Read[Option[H]] OrElse MkRead[Option[H]]
   ): MkRead[Option[Option[H] *: EmptyTuple]] = {
     val head = H.unify
 
@@ -89,10 +93,11 @@ trait ReadPlatform:
       (rs, n) => head.unsafeGet(rs, n).map(h => Some(h) *: EmptyTuple)
     )
   }
-  
+
   given optProductOpt[H, T <: Tuple](
-    using H: Read[Option[H]] OrElse MkRead[Option[H]],
-          T: MkRead[Option[T]]
+      using
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: MkRead[Option[T]]
   ): MkRead[Option[Option[H] *: T]] = {
     val head = H.unify
 

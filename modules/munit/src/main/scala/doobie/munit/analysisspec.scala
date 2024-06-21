@@ -12,22 +12,21 @@ import doobie.util.testing._
 import org.tpolecat.typename._
 import munit.{Assertions, Location}
 
-/**
- * Module with a mix-in trait for specifications that enables checking of doobie `Query` and `Update` values.
- *
- * {{{
- * class ExampleSuite extends FunSuite with IOChecker {
- *
- *   // The transactor to use for the tests.
- *   val transactor = Transactor.fromDriverManager[IO](...)
- *
- *   // Now just mention the queries. Arguments are not used.
- *   test("findByNameAndAge") { check(MyDaoModule.findByNameAndAge(null, 0)) }
- *   test("allWoozles") { check(MyDaoModule.allWoozles) }
- *
- * }
- * }}}
- */
+/** Module with a mix-in trait for specifications that enables checking of doobie `Query` and `Update` values.
+  *
+  * {{{
+  * class ExampleSuite extends FunSuite with IOChecker {
+  *
+  *   // The transactor to use for the tests.
+  *   val transactor = Transactor.fromDriverManager[IO](...)
+  *
+  *   // Now just mention the queries. Arguments are not used.
+  *   test("findByNameAndAge") { check(MyDaoModule.findByNameAndAge(null, 0)) }
+  *   test("allWoozles") { check(MyDaoModule.allWoozles) }
+  *
+  * }
+  * }}}
+  */
 object analysisspec {
 
   trait Checker[M[_]] extends CheckerBase[M] { this: Assertions =>
@@ -36,12 +35,18 @@ object analysisspec {
 
     def checkOutput[A: TypeName](q: Query0[A])(implicit loc: Location): Unit =
       checkImpl(AnalysisArgs(
-        s"Query0[${typeName[A]}]", q.pos, q.sql, q.outputAnalysis
+        s"Query0[${typeName[A]}]",
+        q.pos,
+        q.sql,
+        q.outputAnalysis
       ))
 
     def checkOutput[A: TypeName, B: TypeName](q: Query[A, B])(implicit loc: Location): Unit =
       checkImpl(AnalysisArgs(
-        s"Query[${typeName[A]}, ${typeName[B]}]", q.pos, q.sql, q.outputAnalysis
+        s"Query[${typeName[A]}, ${typeName[B]}]",
+        q.pos,
+        q.sql,
+        q.outputAnalysis
       ))
 
     private def checkImpl(args: AnalysisArgs)(implicit loc: Location): Unit = {

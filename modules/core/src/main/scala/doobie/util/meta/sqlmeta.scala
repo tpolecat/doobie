@@ -14,21 +14,27 @@ trait SqlMetaInstances {
     Basic.one[java.sql.Date](
       Date,
       List(Char, VarChar, LongVarChar, Timestamp),
-      _.getDate(_), _.setDate(_, _), _.updateDate(_, _))
+      _.getDate(_),
+      _.setDate(_, _),
+      _.updateDate(_, _))
 
   /** @group Instances */
   implicit val TimeMeta: Meta[java.sql.Time] =
     Basic.one[java.sql.Time](
       Time,
       List(Char, VarChar, LongVarChar, Timestamp),
-      _.getTime(_), _.setTime(_, _), _.updateTime(_, _))
+      _.getTime(_),
+      _.setTime(_, _),
+      _.updateTime(_, _))
 
   /** @group Instances */
   implicit val TimestampMeta: Meta[java.sql.Timestamp] =
     Basic.one[java.sql.Timestamp](
       Timestamp,
       List(Char, VarChar, LongVarChar, Date, Time),
-      _.getTimestamp(_), _.setTimestamp(_, _), _.updateTimestamp(_, _))
+      _.getTimestamp(_),
+      _.setTimestamp(_, _),
+      _.updateTimestamp(_, _))
 
   /** @group Instances */
   implicit val JavaUtilDateMeta: Meta[java.util.Date] =

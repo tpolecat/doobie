@@ -19,15 +19,15 @@ trait CheckerChecks[M[_]] extends FunSuite with Checker[M] {
   lazy val transactor = Transactor.fromDriverManager[M](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 
   test("trivial") { check(sql"select 1".query[Int]) }
   test("fail".fail) { check(sql"select 1".query[String]) }
 
-  test ("trivial case-class") {
+  test("trivial case-class") {
     import doobie.generic.auto._
 
     check(sql"select 1".query[CheckerChecks.Foo[cats.Id]])
@@ -64,5 +64,4 @@ object CheckerChecks {
   final case class Foo[F[_]](x: Int)
 }
 
-class IOCheckerCheck extends CheckerChecks[IO] with IOChecker {
-}
+class IOCheckerCheck extends CheckerChecks[IO] with IOChecker {}

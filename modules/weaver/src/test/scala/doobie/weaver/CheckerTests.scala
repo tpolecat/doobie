@@ -14,11 +14,13 @@ import cats.effect.kernel.Resource
 object CheckerTests extends IOSuite with IOChecker {
 
   override type Res = Transactor[IO]
-  override def sharedResource: Resource[IO,Res] =
+  override def sharedResource: Resource[IO, Res] =
     Resource.pure(Transactor.fromDriverManager[IO](
       driver = "org.h2.Driver",
       url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-      user = "sa", password = "", logHandler = None
+      user = "sa",
+      password = "",
+      logHandler = None
     ))
 
   test("trivial") { implicit transactor =>
@@ -27,13 +29,12 @@ object CheckerTests extends IOSuite with IOChecker {
 
   test("fail") { implicit transactor =>
     check(sql"select 1".query[String]).map(expectation =>
-      expectation.xor(success)
-    )
+      expectation.xor(success))
   }
 
   final case class Foo[F[_]](x: Int)
 
-  test ("trivial case-class") { implicit transactor =>
+  test("trivial case-class") { implicit transactor =>
     import doobie.generic.auto._
 
     check(sql"select 1".query[Foo[cats.Id]])

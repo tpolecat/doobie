@@ -5,26 +5,20 @@
 package example
 
 import cats.data.NonEmptyList
-import cats.effect.{ IO, IOApp }
+import cats.effect.{IO, IOApp}
 import doobie._
 import doobie.enumerated.JdbcType
 import doobie.implicits._
 import org.postgresql.util._
 
-/**
- * The normal string mapping doesn't work for enums defined in another schema. Here we have
- *
- *   CREATE TYPE returns_data.return_status AS ENUM (
- *     'INITIAL',
- *     'IN_PROGRESS',
- *     'FINISHED'
- *   );
- *
- */
+/** The normal string mapping doesn't work for enums defined in another schema. Here we have
+  *
+  * CREATE TYPE returns_data.return_status AS ENUM ( 'INITIAL', 'IN_PROGRESS', 'FINISHED' );
+  */
 object OtherSchema extends IOApp.Simple {
 
   // Ok this mapping goes via String when reading and PGObject when writing, and it understands
-  // when the JDBC type is reported as OTHER and uses the venderTypeName for setting parameters 
+  // when the JDBC type is reported as OTHER and uses the venderTypeName for setting parameters
   // and typechecking.
   def wackyPostgresMapping(venderTypeName: String): Meta[String] =
     Meta.Advanced.many[String](
@@ -58,9 +52,13 @@ object OtherSchema extends IOApp.Simple {
 
     // Some setup
     val xa = Transactor.fromDriverManager[IO](
-      driver = "org.postgresql.Driver", url = "jdbc:postgresql:world", user = "postgres", password = "password", logHandler = None
+      driver = "org.postgresql.Driver",
+      url = "jdbc:postgresql:world",
+      user = "postgres",
+      password = "password",
+      logHandler = None
     )
-    val y  = xa.yolo
+    val y = xa.yolo
     import y._
 
     // Check as column value only

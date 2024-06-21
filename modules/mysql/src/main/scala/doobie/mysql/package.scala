@@ -7,5 +7,5 @@ package doobie
 package object mysql {
 
   object implicits
-    extends MysqlJavaTimeInstances
+      extends MysqlJavaTimeInstances
 }

@@ -5,8 +5,16 @@
 package doobie.hi
 
 trait Modules {
-  /** @group Module Aliases - High level (safer) API */ val HC  = doobie.hi.connection
-  /** @group Module Aliases - High level (safer) API */ val HS  = doobie.hi.statement
-  /** @group Module Aliases - High level (safer) API */ val HPS = doobie.hi.preparedstatement
-  /** @group Module Aliases - High level (safer) API */ val HRS = doobie.hi.resultset
+
+  /** @group Module Aliases - High level (safer) API */
+  val HC = doobie.hi.connection
+
+  /** @group Module Aliases - High level (safer) API */
+  val HS = doobie.hi.statement
+
+  /** @group Module Aliases - High level (safer) API */
+  val HPS = doobie.hi.preparedstatement
+
+  /** @group Module Aliases - High level (safer) API */
+  val HRS = doobie.hi.resultset
 }

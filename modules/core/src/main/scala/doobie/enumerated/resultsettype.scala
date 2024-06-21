@@ -18,9 +18,14 @@ sealed abstract class ResultSetType(val toInt: Int) extends Product with Seriali
 /** @group Modules */
 object ResultSetType {
 
-  /** @group Values */ case object TypeForwardOnly       extends ResultSetType(TYPE_FORWARD_ONLY)
-  /** @group Values */ case object TypeScrollInsensitive extends ResultSetType(TYPE_SCROLL_INSENSITIVE)
-  /** @group Values */ case object TypeScrollSensitive   extends ResultSetType(TYPE_SCROLL_SENSITIVE)
+  /** @group Values */
+  case object TypeForwardOnly extends ResultSetType(TYPE_FORWARD_ONLY)
+
+  /** @group Values */
+  case object TypeScrollInsensitive extends ResultSetType(TYPE_SCROLL_INSENSITIVE)
+
+  /** @group Values */
+  case object TypeScrollSensitive extends ResultSetType(TYPE_SCROLL_SENSITIVE)
 
   def fromInt(n: Int): Option[ResultSetType] =
     Some(n) collect {

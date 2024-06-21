@@ -21,7 +21,7 @@ import scala.util.Try
   [lower-bound,upper-bound)
   [lower-bound,upper-bound]
   empty
-*/
+ */
 sealed trait Range[+T]
 
 case object EmptyRange extends Range[Nothing]
@@ -37,7 +37,6 @@ object Range {
     case object InclExcl extends Edge
     case object InclIncl extends Edge
   }
-
 
   def empty[T]: Range[T] = EmptyRange
 
@@ -66,11 +65,13 @@ object Range {
       val decodeBound: String => Either[InvalidValue[String, Range[T]], Option[T]] = s =>
         Try(Option(s).filter(_.nonEmpty).map(D))
           .toEither
-          .leftMap { error => InvalidValue(value = range, reason = Option(error.getMessage).getOrElse("unknown reason")) }
+          .leftMap { error =>
+            InvalidValue(value = range, reason = Option(error.getMessage).getOrElse("unknown reason"))
+          }
 
       for {
         start <- decodeBound(start)
-        end   <- decodeBound(end)
+        end <- decodeBound(end)
       } yield NonEmptyRange[T](start, end, edge)
     }
 
@@ -80,7 +81,7 @@ object Range {
       case ExclExclRange(start, end) => decodeRange(start, end, ExclExcl)
       case InclInclRange(start, end) => decodeRange(start, end, InclIncl)
       case EmptyRangeStr             => Right(Range.empty)
-      case _                         => Left(InvalidValue(value = range, reason = "the value does not conform to the range type"))
+      case _ => Left(InvalidValue(value = range, reason = "the value does not conform to the range type"))
     }
   }
 

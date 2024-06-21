@@ -18,10 +18,13 @@ sealed abstract class ResultSetConcurrency(val toInt: Int) extends Product with 
 /** @group Modules */
 object ResultSetConcurrency {
 
-  /** @group Values */ case object ConcurReadOnly  extends ResultSetConcurrency(CONCUR_READ_ONLY)
-  /** @group Values */ case object ConcurUpdatable extends ResultSetConcurrency(CONCUR_UPDATABLE)
+  /** @group Values */
+  case object ConcurReadOnly extends ResultSetConcurrency(CONCUR_READ_ONLY)
 
-  def fromInt(n:Int): Option[ResultSetConcurrency] =
+  /** @group Values */
+  case object ConcurUpdatable extends ResultSetConcurrency(CONCUR_UPDATABLE)
+
+  def fromInt(n: Int): Option[ResultSetConcurrency] =
     Some(n) collect {
       case ConcurReadOnly.toInt  => ConcurReadOnly
       case ConcurUpdatable.toInt => ConcurUpdatable
@@ -32,6 +35,5 @@ object ResultSetConcurrency {
 
   implicit val EqResultSetConcurrency: Eq[ResultSetConcurrency] =
     Eq.by(_.toInt)
-
 
 }

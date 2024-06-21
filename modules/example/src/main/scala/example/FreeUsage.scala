@@ -6,7 +6,7 @@ package example
 
 import java.io.File
 
-import cats.effect.{ IO, IOApp }
+import cats.effect.{IO, IOApp}
 import cats.effect.syntax.monadCancel._
 import cats.syntax.all._
 import doobie._
@@ -19,7 +19,11 @@ object FreeUsage extends IOApp.Simple {
 
   def run: IO[Unit] = {
     val db = Transactor.fromDriverManager[IO](
-      "org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "sa", "", logHandler = None
+      "org.h2.Driver",
+      "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
+      "sa",
+      "",
+      logHandler = None
     )
     db.trans.apply(examples.void)
   }
@@ -44,8 +48,8 @@ object FreeUsage extends IOApp.Simple {
 
   def speakerPS(s: String, p: Double): PreparedStatementIO[List[CountryCode]] =
     for {
-      _  <- FPS.setString(1, s)
-      _  <- FPS.setDouble(2, p)
+      _ <- FPS.setString(1, s)
+      _ <- FPS.setDouble(2, p)
       l <- FPS.executeQuery.bracket { rs =>
         FPS.embed(rs, unroll(FRS.getString(1).map(CountryCode(_))))
       }(FPS.embed(_, FRS.close))

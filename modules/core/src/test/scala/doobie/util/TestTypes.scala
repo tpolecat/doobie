@@ -16,8 +16,8 @@ object TestTypes {
   }
 
   case object CaseObj
-  
-  case class SimpleCaseClass(i: Option[Int], s: String, os: Option[String]) 
+
+  case class SimpleCaseClass(i: Option[Int], s: String, os: Option[String])
   case class ComplexCaseClass(sc: SimpleCaseClass, osc: Option[SimpleCaseClass], i: Option[Int], s: String)
 
 }

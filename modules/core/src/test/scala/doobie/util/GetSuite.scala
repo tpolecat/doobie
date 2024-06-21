@@ -52,7 +52,6 @@ class GetSuite extends munit.FunSuite with GetSuitePlatform {
 final case class Foo(s: String)
 final case class Bar(n: Int)
 
-
 class GetDBSuite extends munit.FunSuite {
   import cats.effect.unsafe.implicits.global
   import doobie.syntax.all._
@@ -60,8 +59,8 @@ class GetDBSuite extends munit.FunSuite {
   lazy val xa = Transactor.fromDriverManager[IO](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 

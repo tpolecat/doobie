@@ -10,19 +10,15 @@ import doobie.enumerated.FetchDirection
 import doobie.enumerated.ResultSetConcurrency
 import doobie.enumerated.ResultSetType
 import doobie.implicits._
-import doobie.free.{
-  statement => IFS,
-  resultset => IFRS
-}
+import doobie.free.{statement => IFS, resultset => IFRS}
 
 import java.sql.SQLWarning
 
 import scala.Predef.intArrayOps
 
-/**
- * Module of high-level constructors for `StatementIO` actions.
- * @group Modules
- */
+/** Module of high-level constructors for `StatementIO` actions.
+  * @group Modules
+  */
 object statement {
 
   /** @group Batching */

@@ -12,9 +12,8 @@ import cats.syntax.functor._
 import doobie.enumerated.SqlState
 import java.sql.SQLException
 
-/**
- * Module of additional combinators for `ApplicativeError`, specific to `SQLException`.
- */
+/** Module of additional combinators for `ApplicativeError`, specific to `SQLException`.
+  */
 object catchsql {
 
   /** Like `attempt` but catches only `SQLException`. */
@@ -25,13 +24,16 @@ object catchsql {
 
   /** Like `attemptSql` but yields only the exception's `SqlState`. */
   def attemptSqlState[M[_], A](ma: M[A])(
-    implicit ev: ApplicativeError[M, Throwable]
+      implicit ev: ApplicativeError[M, Throwable]
   ): M[Either[SqlState, A]] =
     attemptSql(ma).map(_.leftMap(e => SqlState(e.getSQLState)))
 
-  def attemptSomeSqlState[M[_], A, B](ma: M[A])(f: PartialFunction[SqlState, B])(implicit AE: ApplicativeError[M, Throwable]): M[Either[B, A]] =
+  def attemptSomeSqlState[M[_], A, B](ma: M[A])(f: PartialFunction[SqlState, B])(implicit
+      AE: ApplicativeError[M, Throwable]
+  ): M[Either[B, A]] =
     ma.map(_.asRight[B]).recoverWith {
-      case e: SQLException => f.lift(SqlState(e.getSQLState)).fold(AE.raiseError[Either[B, A]](e))(b => AE.pure(b.asLeft))
+      case e: SQLException =>
+        f.lift(SqlState(e.getSQLState)).fold(AE.raiseError[Either[B, A]](e))(b => AE.pure(b.asLeft))
     }
 
   /** Executes the handler, for exceptions propagating from `ma`. */
@@ -42,12 +44,14 @@ object catchsql {
 
   /** Executes the handler, for exceptions propagating from `ma`. */
   def exceptSqlState[M[_], A](ma: M[A])(handler: SqlState => M[A])(
-    implicit ev: ApplicativeError[M, Throwable]
+      implicit ev: ApplicativeError[M, Throwable]
   ): M[A] =
     exceptSql(ma)(e => handler(SqlState(e.getSQLState)))
 
   /** Executes the handler where defined, for exceptions propagating from `ma`. */
-  def exceptSomeSqlState[M[_], A](ma: M[A])(pf: PartialFunction[SqlState, M[A]])(implicit AE: ApplicativeError[M, Throwable]): M[A] =
+  def exceptSomeSqlState[M[_], A](ma: M[A])(pf: PartialFunction[SqlState, M[A]])(implicit
+      AE: ApplicativeError[M, Throwable]
+  ): M[A] =
     exceptSql(ma) { e =>
       pf.lift(SqlState(e.getSQLState)).fold(AE.raiseError[A](e))(a => a)
     }

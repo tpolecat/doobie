@@ -4,14 +4,14 @@
 
 package doobie.util
 
-import shapeless.{ HList, HNil, ::, Generic, Lazy, <:!<, OrElse }
-import shapeless.labelled.{ field, FieldType }
+import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
+import shapeless.labelled.{field, FieldType}
 
 trait ReadPlatform extends LowerPriorityRead {
 
   // Derivation base case for product types (1-element)
   implicit def productBase[H](
-    implicit H:Read[H] OrElse MkRead[H],
+      implicit H: Read[H] OrElse MkRead[H]
   ): MkRead[H :: HNil] = {
     val head = H.unify
 
@@ -23,7 +23,7 @@ trait ReadPlatform extends LowerPriorityRead {
 
   // Derivation base case for shapeless record (1-element)
   implicit def recordBase[K <: Symbol, H](
-    implicit H: Read[H] OrElse MkRead[H],
+      implicit H: Read[H] OrElse MkRead[H]
   ): MkRead[FieldType[K, H] :: HNil] = {
     val head = H.unify
 
@@ -36,10 +36,11 @@ trait ReadPlatform extends LowerPriorityRead {
 
 trait LowerPriorityRead extends EvenLowerPriorityRead {
 
-  // Derivation inductive case for product types 
+  // Derivation inductive case for product types
   implicit def product[H, T <: HList](
-    implicit H: Read[H] OrElse MkRead[H],
-              T: MkRead[T]
+      implicit
+      H: Read[H] OrElse MkRead[H],
+      T: MkRead[T]
   ): MkRead[H :: T] = {
     val head = H.unify
 
@@ -49,10 +50,11 @@ trait LowerPriorityRead extends EvenLowerPriorityRead {
     )
   }
 
-  // Derivation inductive case for shapeless records  
+  // Derivation inductive case for shapeless records
   implicit def record[K <: Symbol, H, T <: HList](
-    implicit H: Read[H] OrElse MkRead[H],
-    T:MkRead[T]
+      implicit
+      H: Read[H] OrElse MkRead[H],
+      T: MkRead[T]
   ): MkRead[FieldType[K, H] :: T] = {
     val head = H.unify
 
@@ -68,8 +70,9 @@ trait LowerPriorityRead extends EvenLowerPriorityRead {
 
   // Derivation base case for Option of product types (1-element)
   implicit def optProductBase[H](
-    implicit H: Read[Option[H]] OrElse MkRead[Option[H]],
-    N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkRead[Option[H :: HNil]] = {
     void(N)
     val head = H.unify
@@ -83,7 +86,7 @@ trait LowerPriorityRead extends EvenLowerPriorityRead {
 
   // Derivation base case for Option of product types (where the head element is Option)
   implicit def optProductOptBase[H](
-    implicit H: Read[Option[H]] OrElse MkRead[Option[H]],
+      implicit H: Read[Option[H]] OrElse MkRead[Option[H]]
   ): MkRead[Option[Option[H] :: HNil]] = {
     val head = H.unify
 
@@ -99,9 +102,10 @@ trait EvenLowerPriorityRead {
 
   // Read[Option[H]], Read[Option[T]] implies Read[Option[H *: T]]
   implicit def optProduct[H, T <: HList](
-    implicit H: Read[Option[H]] OrElse MkRead[Option[H]],
-              T: MkRead[Option[T]],
-              N: H <:!< Option[α] forSome { type α }
+      implicit
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: MkRead[Option[T]],
+      N: H <:!< Option[α] forSome { type α }
   ): MkRead[Option[H :: T]] = {
     void(N)
     val head = H.unify
@@ -118,8 +122,9 @@ trait EvenLowerPriorityRead {
 
   // Read[Option[H]], Read[Option[T]] implies Read[Option[Option[H] *: T]]
   implicit def optProductOpt[H, T <: HList](
-    implicit H: Read[Option[H]] OrElse MkRead[Option[H]],
-              T: MkRead[Option[T]]
+      implicit
+      H: Read[Option[H]] OrElse MkRead[Option[H]],
+      T: MkRead[Option[T]]
   ): MkRead[Option[Option[H] :: T]] = {
     val head = H.unify
 
@@ -131,10 +136,10 @@ trait EvenLowerPriorityRead {
 
   // Derivation for optional of product types (i.e. case class)
   implicit def ogeneric[A, Repr <: HList](
-    implicit G: Generic.Aux[A, Repr],
-              B: Lazy[MkRead[Option[Repr]]]
+      implicit
+      G: Generic.Aux[A, Repr],
+      B: Lazy[MkRead[Option[Repr]]]
   ): MkRead[Option[A]] =
     new MkRead[Option[A]](B.value.gets, B.value.unsafeGet(_, _).map(G.from))
 
 }
-

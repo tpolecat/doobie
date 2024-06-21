@@ -18,13 +18,13 @@ class TypesSuite extends munit.ScalaCheckSuite {
   import cats.effect.unsafe.implicits.global
   import MySQLTestTransactor.xa
 
-  def inOut[A: Get : Put](col: String, a: A): ConnectionIO[A] = for {
-      _ <- Update0(s"CREATE TEMPORARY TABLE test (value $col NOT NULL)", None).run
-      _ <- Update[A](s"INSERT INTO test VALUES (?)", None).run(a)
-      a0 <- Query0[A](s"SELECT value FROM test", None).unique
-    } yield a0
+  def inOut[A: Get: Put](col: String, a: A): ConnectionIO[A] = for {
+    _ <- Update0(s"CREATE TEMPORARY TABLE test (value $col NOT NULL)", None).run
+    _ <- Update[A](s"INSERT INTO test VALUES (?)", None).run(a)
+    a0 <- Query0[A](s"SELECT value FROM test", None).unique
+  } yield a0
 
-  def inOutOpt[A: Get : Put](col: String, a: Option[A]): ConnectionIO[Option[A]] =
+  def inOutOpt[A: Get: Put](col: String, a: Option[A]): ConnectionIO[Option[A]] =
     for {
       _ <- Update0(s"CREATE TEMPORARY TABLE test (value $col)", None).run
       _ <- Update[Option[A]](s"INSERT INTO test VALUES (?)", None).run(a)
@@ -32,13 +32,13 @@ class TypesSuite extends munit.ScalaCheckSuite {
     } yield a0
 
   private def testInOut[A](col: String)(implicit m: Get[A], p: Put[A], arbitrary: Arbitrary[A]): Unit = {
-    testInOutCustomize(col )
+    testInOutCustomize(col)
   }
 
   private def testInOutCustomize[A](
-    col: String,
-    skipNone: Boolean = false,
-    expected: A => A = identity[A](_)
+      col: String,
+      skipNone: Boolean = false,
+      expected: A => A = identity[A](_)
   )(implicit m: Get[A], p: Put[A], arbitrary: Arbitrary[A]): Unit = {
     val gen = arbitrary.arbitrary
 
@@ -61,7 +61,6 @@ class TypesSuite extends munit.ScalaCheckSuite {
     }
   }
 
-
   testInOutCustomize[java.time.OffsetDateTime](
     "timestamp(6)",
     skipNone = true, // returns the current timestamp, lol
@@ -69,7 +68,7 @@ class TypesSuite extends munit.ScalaCheckSuite {
   )
   testInOutCustomize[java.time.Instant](
     "timestamp(6)",
-    skipNone = true, // returns the current timestamp, lol
+    skipNone = true // returns the current timestamp, lol
   )
 
   testInOut[java.sql.Timestamp]("datetime(6)")

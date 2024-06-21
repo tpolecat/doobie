@@ -15,8 +15,8 @@ trait CheckerChecks[M[_]] extends Specification with Checker[M] {
   lazy val transactor = Transactor.fromDriverManager[M](
     driver = "org.h2.Driver",
     url = "jdbc:h2:mem:queryspec;DB_CLOSE_DELAY=-1",
-    user = "sa", 
-    password = "", 
+    user = "sa",
+    password = "",
     logHandler = None
   )
 

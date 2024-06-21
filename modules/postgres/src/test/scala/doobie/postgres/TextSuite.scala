@@ -50,10 +50,10 @@ class TextSuite extends munit.ScalaCheckSuite {
   // filter chars pg can't cope with
   def filter(s: String): String =
     s.replace("\u0000", "") // NUL
-     .toList
-     .map { c => if (Character.isSpaceChar(c)) ' ' else c } // high space
-     .filterNot(c => c >= 0x0E && c <= 0x1F) // low ctrl
-     .mkString
+      .toList
+      .map { c => if (Character.isSpaceChar(c)) ' ' else c } // high space
+      .filterNot(c => c >= 0x0e && c <= 0x1f) // low ctrl
+      .mkString
 
   val genRow: Gen[Row] =
     for {
@@ -71,7 +71,7 @@ class TextSuite extends munit.ScalaCheckSuite {
     } yield Row(a, b, c, d, e, f, g, h, i, j, k)
 
   val genRows: Gen[List[Row]] =
-    Gen.choose(0,50).flatMap(Gen.listOfN(_, genRow))
+    Gen.choose(0, 50).flatMap(Gen.listOfN(_, genRow))
 
   test("copyIn should correctly insert batches of rows") {
     forAll(genRows) { rs =>
@@ -82,7 +82,8 @@ class TextSuite extends munit.ScalaCheckSuite {
 
   test("correctly insert batches of rows via Stream") {
     forAll(genRows) { rs =>
-      val rsʹ = (create *> insert.copyIn(Stream.emits[ConnectionIO, Row](rs), 100) *> selectAll).transact(xa).unsafeRunSync()
+      val rsʹ =
+        (create *> insert.copyIn(Stream.emits[ConnectionIO, Row](rs), 100) *> selectAll).transact(xa).unsafeRunSync()
       assertEquals(rs, rsʹ)
     }
   }
@@ -100,17 +101,17 @@ class TextSuite extends munit.ScalaCheckSuite {
 object TextSuite {
   // A test type to insert, all optional so we can check NULL
   final case class Row(
-    a: Option[String],
-    b: Option[Short],
-    c: Option[Int],
-    d: Option[Long],
-    e: Option[Float],
-    f: Option[Double],
-    g: Option[BigDecimal],
-    h: Option[Boolean],
-    i: Option[List[Byte]],
-    j: Option[List[String]],
-    k: Option[List[Int]]
+      a: Option[String],
+      b: Option[Short],
+      c: Option[Int],
+      d: Option[Long],
+      e: Option[Float],
+      f: Option[Double],
+      g: Option[BigDecimal],
+      h: Option[Boolean],
+      i: Option[List[Byte]],
+      j: Option[List[String]],
+      k: Option[List[Int]]
   )
 
 }

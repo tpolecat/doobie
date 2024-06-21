@@ -7,7 +7,7 @@ package doobie.syntax
 import cats.data.{EitherT, Kleisli, OptionT}
 import cats.effect.kernel.MonadCancelThrow
 import cats.syntax.functor._
-import doobie.ConnectionIO 
+import doobie.ConnectionIO
 import doobie.implicits._
 import doobie.util.transactor.Transactor
 import doobie.hi.{connection => IHC}

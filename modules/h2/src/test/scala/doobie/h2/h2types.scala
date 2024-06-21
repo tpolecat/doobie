@@ -29,14 +29,14 @@ class h2typesspec extends munit.ScalaCheckSuite {
     logHandler = None
   )
 
-  def inOut[A: Put : Get](col: String, a: A): ConnectionIO[A] =
+  def inOut[A: Put: Get](col: String, a: A): ConnectionIO[A] =
     for {
       _ <- Update0(s"CREATE LOCAL TEMPORARY TABLE TEST (value $col NOT NULL)", None).run
       _ <- sql"INSERT INTO TEST VALUES ($a)".update.run
       a0 <- sql"SELECT value FROM TEST".query[A].unique
     } yield (a0)
 
-  def inOutOpt[A: Put : Get](col: String, a: Option[A]): ConnectionIO[Option[A]] =
+  def inOutOpt[A: Put: Get](col: String, a: Option[A]): ConnectionIO[Option[A]] =
     for {
       _ <- Update0(s"CREATE LOCAL TEMPORARY TABLE TEST (value $col)", None).run
       _ <- sql"INSERT INTO TEST VALUES ($a)".update.run
@@ -49,13 +49,15 @@ class h2typesspec extends munit.ScalaCheckSuite {
 
   def testInOutWithCustomGen[A](col: String, gen: Gen[A])(implicit m: Get[A], p: Put[A]) = {
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as ${m.typeStack}") {
-      forAll(gen) { (t: A) => assertEquals(  inOut(col, t).transact(xa).attempt.unsafeRunSync(), Right(t)) }
+      forAll(gen) { (t: A) => assertEquals(inOut(col, t).transact(xa).attempt.unsafeRunSync(), Right(t)) }
     }
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as Option[${m.typeStack}] (Some)") {
-      forAll(gen) { (t: A) => assertEquals(  inOutOpt[A](col, Some(t)).transact(xa).attempt.unsafeRunSync(), Right(Some(t))) }
+      forAll(gen) { (t: A) =>
+        assertEquals(inOutOpt[A](col, Some(t)).transact(xa).attempt.unsafeRunSync(), Right(Some(t)))
+      }
     }
     test(s"Mapping for $col as ${m.typeStack} - write+read $col as Option[${m.typeStack}] (None)") {
-      assertEquals(  inOutOpt[A](col, None).transact(xa).attempt.unsafeRunSync(), Right(None))
+      assertEquals(inOutOpt[A](col, None).transact(xa).attempt.unsafeRunSync(), Right(None))
     }
   }
 
@@ -203,7 +205,8 @@ class h2typesspec extends munit.ScalaCheckSuite {
   private def analyzeTime[R: Read] = analyze(sql"select '01:02:03'::TIME".query[R])
   private def analyzeTimeWithTimeZone[R: Read] = analyze(sql"select '01:02:03+04:05'::TIME WITH TIME ZONE".query[R])
   private def analyzeTimestamp[R: Read] = analyze(sql"select '2000-01-02T01:02:03'::TIMESTAMP".query[R])
-  private def analyzeTimestampWithTimeZone[R: Read] = analyze(sql"select '2000-01-02T01:02:03+04:05'::TIMESTAMP WITH TIME ZONE".query[R])
+  private def analyzeTimestampWithTimeZone[R: Read] =
+    analyze(sql"select '2000-01-02T01:02:03+04:05'::TIMESTAMP WITH TIME ZONE".query[R])
 
   private def analyze[R](q: Query0[R]) = q.analysis.transact(xa).unsafeRunSync()
 

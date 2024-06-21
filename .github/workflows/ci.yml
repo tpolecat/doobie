@@ -60,6 +60,10 @@ jobs:
       - name: Check that workflows are up to date
         run: sbt githubWorkflowCheck
 
+      - name: Check formatting
+        if: matrix.java == 'temurin@11' && matrix.os == 'ubuntu-latest'
+        run: sbt '++ ${{ matrix.scala }}' scalafmtCheckAll 'project /' scalafmtSbtCheck
+
       - name: Test
         run: sbt '++ ${{ matrix.scala }}' freeGen2 test
 

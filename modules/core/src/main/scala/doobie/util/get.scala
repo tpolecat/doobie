@@ -4,31 +4,32 @@
 
 package doobie.util
 
-import cats.{ Functor, Show }
+import cats.{Functor, Show}
 import cats.data.NonEmptyList
 import cats.free.Coyoneda
 import doobie.enumerated.JdbcType
-import doobie.util.invariant.{ InvalidObjectMapping, InvalidValue, NonNullableColumnRead }
+import doobie.util.invariant.{InvalidObjectMapping, InvalidValue, NonNullableColumnRead}
 import java.sql.ResultSet
 import scala.reflect.ClassTag
 import org.tpolecat.typename._
 import doobie.util.meta.Meta
 
-/**
- * 
- * @param typeStack List of types which provides the lineage of this Get instance
- * @param jdbcSources Allowed JDBC types for query typechecking purposes
- * @param jdbcSourceSecondary Alternative allowed JDBC types for query typechecking (warns)
- * @param vendorTypeNames If non-empty, the column/parameter type reported 
- *                        by the database will be checked to match this list
- *                        during typechecking against the database.
- */
+/** @param typeStack
+  *   List of types which provides the lineage of this Get instance
+  * @param jdbcSources
+  *   Allowed JDBC types for query typechecking purposes
+  * @param jdbcSourceSecondary
+  *   Alternative allowed JDBC types for query typechecking (warns)
+  * @param vendorTypeNames
+  *   If non-empty, the column/parameter type reported by the database will be checked to match this list during
+  *   typechecking against the database.
+  */
 sealed abstract class Get[A](
-  val typeStack: NonEmptyList[Option[String]],
-  val jdbcSources: NonEmptyList[JdbcType],
-  val jdbcSourceSecondary: List[JdbcType],
-  val vendorTypeNames: List[String],
-  val get: Coyoneda[(ResultSet, Int) => *, A],
+    val typeStack: NonEmptyList[Option[String]],
+    val jdbcSources: NonEmptyList[JdbcType],
+    val jdbcSourceSecondary: List[JdbcType],
+    val vendorTypeNames: List[String],
+    val get: Coyoneda[(ResultSet, Int) => *, A]
 ) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Throw"))
@@ -44,18 +45,16 @@ sealed abstract class Get[A](
     if (rs.wasNull) None else Some(get.k(i))
   }
 
-  /**
-   * Apply `f` to values retrieved by this `Get`. Prefer `tmap` when possible because it will
-   * allow for better diagnostics when checking queries. Note that `null` values will not be
-   * transformed, so you do not need to (nor can you) handle this case.
-   */
+  /** Apply `f` to values retrieved by this `Get`. Prefer `tmap` when possible because it will allow for better
+    * diagnostics when checking queries. Note that `null` values will not be transformed, so you do not need to (nor can
+    * you) handle this case.
+    */
   final def map[B](f: A => B): Get[B] =
     mapImpl(f, None)
 
-  /**
-   * Equivalent to `map`, but accumulates the destination type in the type stack for improved
-   * diagnostics. Prefer this method when you have concrete types or an available TypeName.
-   */
+  /** Equivalent to `map`, but accumulates the destination type in the type stack for improved diagnostics. Prefer this
+    * method when you have concrete types or an available TypeName.
+    */
   final def tmap[B](f: A => B)(implicit ev: TypeName[B]): Get[B] =
     mapImpl(f, Some(ev.value))
 
@@ -65,18 +64,17 @@ sealed abstract class Get[A](
       jdbcSources = jdbcSources,
       jdbcSourceSecondary = jdbcSourceSecondary,
       vendorTypeNames = vendorTypeNames,
-      get = get.map(f),
+      get = get.map(f)
     ) {}
 
-  /**
-    * Equivalent to `tmap`, but allows the conversion to fail with an error message.
+  /** Equivalent to `tmap`, but allows the conversion to fail with an error message.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   final def temap[B](f: A => Either[String, B])(implicit sA: Show[A], evA: TypeName[A], evB: TypeName[B]): Get[B] =
     tmap { a =>
       f(a) match {
         case Left(reason) => throw InvalidValue[A, B](a, reason)
-        case Right(b) => b
+        case Right(b)     => b
       }
     }
 
@@ -87,7 +85,7 @@ object Get extends GetInstances {
   def apply[A](implicit ev: Get[A]): ev.type = ev
 
   def derived[A](implicit ev: MkGet[A]): Get[A] = ev
-  
+
   trait Auto {
     implicit def deriveGet[A](implicit ev: MkGet[A]): Get[A] = ev
   }
@@ -96,32 +94,32 @@ object Get extends GetInstances {
   object Basic {
 
     def apply[A](
-      typeStack: NonEmptyList[Option[String]],
-      jdbcSources: NonEmptyList[JdbcType],
-      jdbcSourceSecondary: List[JdbcType],
-      get: Coyoneda[(ResultSet, Int) => *, A],
-      checkedVendorType: Option[String],
+        typeStack: NonEmptyList[Option[String]],
+        jdbcSources: NonEmptyList[JdbcType],
+        jdbcSourceSecondary: List[JdbcType],
+        get: Coyoneda[(ResultSet, Int) => *, A],
+        checkedVendorType: Option[String]
     ): Get[A] = new Get[A](
       typeStack,
       jdbcSources = jdbcSources,
       jdbcSourceSecondary = jdbcSourceSecondary,
       vendorTypeNames = checkedVendorType.toList,
-      get = get,
+      get = get
     ) {}
 
     def many[A](
-      jdbcSources: NonEmptyList[JdbcType],
-      jdbcSourceSecondary: List[JdbcType],
-      get: (ResultSet, Int) => A,
-      checkedVendorType: Option[String],
+        jdbcSources: NonEmptyList[JdbcType],
+        jdbcSourceSecondary: List[JdbcType],
+        get: (ResultSet, Int) => A,
+        checkedVendorType: Option[String]
     )(implicit ev: TypeName[A]): Get[A] =
       Basic(NonEmptyList.of(Some(ev.value)), jdbcSources, jdbcSourceSecondary, Coyoneda.lift(get), checkedVendorType)
 
     def one[A: TypeName](
-      jdbcSources: JdbcType,
-      jdbcSourceSecondary: List[JdbcType],
-      get: (ResultSet, Int) => A,
-      checkedVendorType: Option[String],
+        jdbcSources: JdbcType,
+        jdbcSourceSecondary: List[JdbcType],
+        get: (ResultSet, Int) => A,
+        checkedVendorType: Option[String]
     ): Get[A] =
       many(NonEmptyList.of(jdbcSources), jdbcSourceSecondary, get, checkedVendorType)
 
@@ -131,35 +129,38 @@ object Get extends GetInstances {
   object Advanced {
 
     def apply[A](
-      typeStack: NonEmptyList[Option[String]],
-      jdbcSources: NonEmptyList[JdbcType],
-      vendorTypeNames: NonEmptyList[String],
-      get: Coyoneda[(ResultSet, Int) => *, A],
+        typeStack: NonEmptyList[Option[String]],
+        jdbcSources: NonEmptyList[JdbcType],
+        vendorTypeNames: NonEmptyList[String],
+        get: Coyoneda[(ResultSet, Int) => *, A]
     ): Get[A] = new Get[A](
       typeStack,
       jdbcSources = jdbcSources,
       jdbcSourceSecondary = Nil,
       vendorTypeNames = vendorTypeNames.toList,
-      get = get,
+      get = get
     ) {}
 
     def many[A](
-      jdbcSources: NonEmptyList[JdbcType],
-      vendorTypeNames: NonEmptyList[String],
-      get: (ResultSet, Int) => A,
+        jdbcSources: NonEmptyList[JdbcType],
+        vendorTypeNames: NonEmptyList[String],
+        get: (ResultSet, Int) => A
     )(implicit ev: TypeName[A]): Get[A] =
       Advanced(NonEmptyList.of(Some(ev.value)), jdbcSources, vendorTypeNames, Coyoneda.lift(get))
 
     def one[A](
-      jdbcSource: JdbcType,
-      vendorTypeNames: NonEmptyList[String],
-      get: (ResultSet, Int) => A,
+        jdbcSource: JdbcType,
+        vendorTypeNames: NonEmptyList[String],
+        get: (ResultSet, Int) => A
     )(implicit ev: TypeName[A]): Get[A] =
       Advanced(NonEmptyList.of(Some(ev.value)), NonEmptyList.of(jdbcSource), vendorTypeNames, Coyoneda.lift(get))
 
     @SuppressWarnings(Array("org.wartremover.warts.Equals", "org.wartremover.warts.AsInstanceOf"))
     def array[A >: Null <: AnyRef](vendorTypeNames: NonEmptyList[String]): Get[Array[A]] =
-      one(JdbcType.Array, vendorTypeNames, (r, n) => {
+      one(
+        JdbcType.Array,
+        vendorTypeNames,
+        (r, n) => {
           val a = r.getArray(n)
           (if (a == null) null else a.getArray).asInstanceOf[Array[A]]
         }
@@ -167,7 +168,7 @@ object Get extends GetInstances {
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Throw"))
     def other[A >: Null <: AnyRef: TypeName](vendorTypeNames: NonEmptyList[String])(
-      implicit A: ClassTag[A]
+        implicit A: ClassTag[A]
     ): Get[A] =
       many(
         NonEmptyList.of(JdbcType.Other, JdbcType.JavaObject),
@@ -189,7 +190,7 @@ object Get extends GetInstances {
 
   /** An implicit Meta[A] means we also have an implicit Get[A]. */
   implicit def metaProjection[A](
-    implicit m: Meta[A]
+      implicit m: Meta[A]
   ): Get[A] =
     m.get
 
@@ -216,11 +217,11 @@ trait GetInstances {
 }
 
 sealed abstract class MkGet[A](
-  override val typeStack: NonEmptyList[Option[String]],
-  override val jdbcSources: NonEmptyList[JdbcType],
-  override val jdbcSourceSecondary: List[JdbcType],
-  override val vendorTypeNames: List[String],
-  override val get: Coyoneda[(ResultSet, Int) => *, A],
+    override val typeStack: NonEmptyList[Option[String]],
+    override val jdbcSources: NonEmptyList[JdbcType],
+    override val jdbcSourceSecondary: List[JdbcType],
+    override val vendorTypeNames: List[String],
+    override val get: Coyoneda[(ResultSet, Int) => *, A]
 ) extends Get[A](typeStack, jdbcSources, jdbcSourceSecondary, vendorTypeNames, get)
 object MkGet extends GetPlatform {
 
@@ -230,6 +231,6 @@ object MkGet extends GetPlatform {
       jdbcSources = g.jdbcSources,
       jdbcSourceSecondary = g.jdbcSourceSecondary,
       vendorTypeNames = g.vendorTypeNames,
-      get = g.get,
+      get = g.get
     ) {}
 }

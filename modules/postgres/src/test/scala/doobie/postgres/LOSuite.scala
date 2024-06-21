@@ -17,7 +17,7 @@ class LOSuite extends munit.FunSuite with FileEquality {
   val in = new File("init/postgres/test-db.sql")
 
   test("large object support should allow round-trip from file to large object and back") {
-    val out  = File.createTempFile("doobie", "tst")
+    val out = File.createTempFile("doobie", "tst")
     val prog = PHLOM.createLOFromFile(1024 * 16, in) >>= { oid =>
       PHLOM.createFileFromLO(1024 * 16, oid, out) *> PHLOM.delete(oid)
     }
@@ -27,7 +27,7 @@ class LOSuite extends munit.FunSuite with FileEquality {
   }
 
   test("large object support should allow round-trip from stream to large object and back") {
-    val out  = File.createTempFile("doobie", "tst")
+    val out = File.createTempFile("doobie", "tst")
     val is = new FileInputStream(in)
     val os = new FileOutputStream(out)
     val prog = PHLOM.createLOFromStream(1024 * 16, is) >>= { oid =>
@@ -42,12 +42,13 @@ class LOSuite extends munit.FunSuite with FileEquality {
 
 trait FileEquality {
 
-  import java.io.{ Closeable, File, FileInputStream }
+  import java.io.{Closeable, File, FileInputStream}
   import java.nio.ByteBuffer
   import java.nio.channels.FileChannel
 
   def using[A <: Closeable, B](a: A)(f: A => B): B =
-    try f(a) finally a.close()
+    try f(a)
+    finally a.close()
 
   def mapIn[A](file: File)(f: ByteBuffer => A): A =
     using(new FileInputStream(file)) { fis =>
@@ -57,8 +58,9 @@ trait FileEquality {
   @SuppressWarnings(Array("org.wartremover.warts.Equals"))
   def filesEqual(f1: File, f2: File): Boolean =
     mapIn(f1) { bb1 =>
-    mapIn(f2) { bb2 =>
-      bb1 == bb2
-    }}
+      mapIn(f2) { bb2 =>
+        bb1 == bb2
+      }
+    }
 
 }
