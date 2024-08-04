@@ -97,7 +97,8 @@ For more information see the [fs2](https://github.com/functional-streams-for-sca
 The API we have seen so far is ok, but it's tiresome to keep saying `transact(xa)` and doing `foreach(println)` to see what the results look like. So **just for REPL exploration** there is a module of extra syntax provided on your `Transactor` that you can import.
 
 ```scala mdoc:silent
-val y = xa.yolo // a stable reference is required
+import doobie.util.yolo.Yolo
+val y: Yolo[IO] = xa.yolo // a stable reference is required
 import y._
 ```
 
