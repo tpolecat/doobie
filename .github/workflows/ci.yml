@@ -56,7 +56,7 @@ jobs:
         run: sbt +update
 
       - name: Start up Postgres
-        run: docker-compose up -d
+        run: docker compose up -d
 
       - name: Check Headers
         run: sbt '++ ${{ matrix.scala }}' headerCheckAll

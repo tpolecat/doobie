@@ -58,6 +58,7 @@ object ref { module =>
       def onCancel[A](fa: RefIO[A], fin: RefIO[Unit]): F[A]
       def fromFuture[A](fut: RefIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]): F[A]
+      def cancelable[A](fa: RefIO[A], fin: RefIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // Ref
@@ -111,6 +112,9 @@ object ref { module =>
     case class FromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]) extends RefOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
     }
+    case class Cancelable[A](fa: RefIO[A], fin: RefIO[Unit]) extends RefOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
+    }
     case class PerformLogging(event: LogEvent) extends RefOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
     }
@@ -152,6 +156,7 @@ object ref { module =>
   def onCancel[A](fa: RefIO[A], fin: RefIO[Unit]) = FF.liftF[RefOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: RefIO[Future[A]]) = FF.liftF[RefOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]) = FF.liftF[RefOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: RefIO[A], fin: RefIO[Unit]) = FF.liftF[RefOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[RefOp, Unit](PerformLogging(event))
 
   // Smart constructors for Ref-specific operations.
@@ -180,6 +185,7 @@ object ref { module =>
       override def onCancel[A](fa: RefIO[A], fin: RefIO[Unit]): RefIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: RefIO[Future[A]]): RefIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: RefIO[(Future[A], RefIO[Unit])]): RefIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: RefIO[A], fin: RefIO[Unit]): RefIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidRefIO[A : Monoid]: Monoid[RefIO[A]] = new Monoid[RefIO[A]] {

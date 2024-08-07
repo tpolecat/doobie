@@ -57,6 +57,7 @@ object copyout { module =>
       def onCancel[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): F[A]
       def fromFuture[A](fut: CopyOutIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: CopyOutIO[(Future[A], CopyOutIO[Unit])]): F[A]
+      def cancelable[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // PGCopyOut
@@ -114,6 +115,9 @@ object copyout { module =>
     case class FromFutureCancelable[A](fut: CopyOutIO[(Future[A], CopyOutIO[Unit])]) extends CopyOutOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
     }
+    case class Cancelable[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]) extends CopyOutOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
+    }
     case class PerformLogging(event: LogEvent) extends CopyOutOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
     }
@@ -167,6 +171,7 @@ object copyout { module =>
   def onCancel[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]) = FF.liftF[CopyOutOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CopyOutIO[Future[A]]) = FF.liftF[CopyOutOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: CopyOutIO[(Future[A], CopyOutIO[Unit])]) = FF.liftF[CopyOutOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]) = FF.liftF[CopyOutOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[CopyOutOp, Unit](PerformLogging(event))
 
   // Smart constructors for CopyOut-specific operations.
@@ -199,6 +204,7 @@ object copyout { module =>
       override def onCancel[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): CopyOutIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: CopyOutIO[Future[A]]): CopyOutIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: CopyOutIO[(Future[A], CopyOutIO[Unit])]): CopyOutIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): CopyOutIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidCopyOutIO[A : Monoid]: Monoid[CopyOutIO[A]] = new Monoid[CopyOutIO[A]] {

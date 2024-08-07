@@ -15,6 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 trait WeakAsync[F[_]] extends Sync[F] {
   def fromFuture[A](fut: F[Future[A]]): F[A]
   def fromFutureCancelable[A](fut: F[(Future[A], F[Unit])]): F[A]
+  def cancelable[A](fa: F[A], fin: F[Unit]): F[A]
 }
 
 object WeakAsync {
@@ -39,6 +40,8 @@ object WeakAsync {
       override def onCancel[A](fa: F[A], fin: F[Unit]): F[A] = F.onCancel(fa, fin)
       override def fromFuture[A](fut: F[Future[A]]): F[A] = F.fromFuture(fut)
       override def fromFutureCancelable[A](fut: F[(Future[A], F[Unit])]): F[A] = F.fromFutureCancelable(fut)
+
+      override def cancelable[A](fa: F[A], fin: F[Unit]): F[A] = F.cancelable(fa, fin)
     }
 
   /** Create a natural transformation for lifting an `Async` effect `F` into a `WeakAsync` effect `G`

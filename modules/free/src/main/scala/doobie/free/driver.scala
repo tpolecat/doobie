@@ -62,6 +62,7 @@ object driver { module =>
       def onCancel[A](fa: DriverIO[A], fin: DriverIO[Unit]): F[A]
       def fromFuture[A](fut: DriverIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]): F[A]
+      def cancelable[A](fa: DriverIO[A], fin: DriverIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // Driver
@@ -118,6 +119,9 @@ object driver { module =>
     case class FromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]) extends DriverOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
     }
+    case class Cancelable[A](fa: DriverIO[A], fin: DriverIO[Unit]) extends DriverOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
+    }
     case class PerformLogging(event: LogEvent) extends DriverOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
     }
@@ -168,6 +172,7 @@ object driver { module =>
   def onCancel[A](fa: DriverIO[A], fin: DriverIO[Unit]) = FF.liftF[DriverOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: DriverIO[Future[A]]) = FF.liftF[DriverOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]) = FF.liftF[DriverOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: DriverIO[A], fin: DriverIO[Unit]) = FF.liftF[DriverOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[DriverOp, Unit](PerformLogging(event))
 
   // Smart constructors for Driver-specific operations.
@@ -199,6 +204,7 @@ object driver { module =>
       override def onCancel[A](fa: DriverIO[A], fin: DriverIO[Unit]): DriverIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: DriverIO[Future[A]]): DriverIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: DriverIO[(Future[A], DriverIO[Unit])]): DriverIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: DriverIO[A], fin: DriverIO[Unit]): DriverIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidDriverIO[A : Monoid]: Monoid[DriverIO[A]] = new Monoid[DriverIO[A]] {

@@ -62,6 +62,7 @@ object databasemetadata { module =>
       def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): F[A]
       def fromFuture[A](fut: DatabaseMetaDataIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]): F[A]
+      def cancelable[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // DatabaseMetaData
@@ -289,6 +290,9 @@ object databasemetadata { module =>
     }
     case class FromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]) extends DatabaseMetaDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]) extends DatabaseMetaDataOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends DatabaseMetaDataOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -856,6 +860,7 @@ object databasemetadata { module =>
   def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]) = FF.liftF[DatabaseMetaDataOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: DatabaseMetaDataIO[Future[A]]) = FF.liftF[DatabaseMetaDataOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]) = FF.liftF[DatabaseMetaDataOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]) = FF.liftF[DatabaseMetaDataOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[DatabaseMetaDataOp, Unit](PerformLogging(event))
 
   // Smart constructors for DatabaseMetaData-specific operations.
@@ -1059,6 +1064,7 @@ object databasemetadata { module =>
       override def onCancel[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: DatabaseMetaDataIO[Future[A]]): DatabaseMetaDataIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: DatabaseMetaDataIO[(Future[A], DatabaseMetaDataIO[Unit])]): DatabaseMetaDataIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: DatabaseMetaDataIO[A], fin: DatabaseMetaDataIO[Unit]): DatabaseMetaDataIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidDatabaseMetaDataIO[A : Monoid]: Monoid[DatabaseMetaDataIO[A]] = new Monoid[DatabaseMetaDataIO[A]] {

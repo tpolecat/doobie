@@ -60,6 +60,7 @@ object sqldata { module =>
       def onCancel[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]): F[A]
       def fromFuture[A](fut: SQLDataIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: SQLDataIO[(Future[A], SQLDataIO[Unit])]): F[A]
+      def cancelable[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // SQLData
@@ -112,6 +113,9 @@ object sqldata { module =>
     case class FromFutureCancelable[A](fut: SQLDataIO[(Future[A], SQLDataIO[Unit])]) extends SQLDataOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
     }
+    case class Cancelable[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]) extends SQLDataOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
+    }
     case class PerformLogging(event: LogEvent) extends SQLDataOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
     }
@@ -150,6 +154,7 @@ object sqldata { module =>
   def onCancel[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]) = FF.liftF[SQLDataOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: SQLDataIO[Future[A]]) = FF.liftF[SQLDataOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: SQLDataIO[(Future[A], SQLDataIO[Unit])]) = FF.liftF[SQLDataOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]) = FF.liftF[SQLDataOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[SQLDataOp, Unit](PerformLogging(event))
 
   // Smart constructors for SQLData-specific operations.
@@ -177,6 +182,7 @@ object sqldata { module =>
       override def onCancel[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]): SQLDataIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: SQLDataIO[Future[A]]): SQLDataIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: SQLDataIO[(Future[A], SQLDataIO[Unit])]): SQLDataIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: SQLDataIO[A], fin: SQLDataIO[Unit]): SQLDataIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidSQLDataIO[A : Monoid]: Monoid[SQLDataIO[A]] = new Monoid[SQLDataIO[A]] {

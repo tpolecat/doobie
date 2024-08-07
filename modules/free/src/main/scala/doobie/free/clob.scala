@@ -62,6 +62,7 @@ object clob { module =>
       def onCancel[A](fa: ClobIO[A], fin: ClobIO[Unit]): F[A]
       def fromFuture[A](fut: ClobIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: ClobIO[(Future[A], ClobIO[Unit])]): F[A]
+      def cancelable[A](fa: ClobIO[A], fin: ClobIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // Clob
@@ -123,6 +124,9 @@ object clob { module =>
     }
     case class FromFutureCancelable[A](fut: ClobIO[(Future[A], ClobIO[Unit])]) extends ClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: ClobIO[A], fin: ClobIO[Unit]) extends ClobOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends ClobOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -192,6 +196,7 @@ object clob { module =>
   def onCancel[A](fa: ClobIO[A], fin: ClobIO[Unit]) = FF.liftF[ClobOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: ClobIO[Future[A]]) = FF.liftF[ClobOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: ClobIO[(Future[A], ClobIO[Unit])]) = FF.liftF[ClobOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: ClobIO[A], fin: ClobIO[Unit]) = FF.liftF[ClobOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[ClobOp, Unit](PerformLogging(event))
 
   // Smart constructors for Clob-specific operations.
@@ -229,6 +234,7 @@ object clob { module =>
       override def onCancel[A](fa: ClobIO[A], fin: ClobIO[Unit]): ClobIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: ClobIO[Future[A]]): ClobIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: ClobIO[(Future[A], ClobIO[Unit])]): ClobIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: ClobIO[A], fin: ClobIO[Unit]): ClobIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidClobIO[A : Monoid]: Monoid[ClobIO[A]] = new Monoid[ClobIO[A]] {

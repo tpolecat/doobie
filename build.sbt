@@ -43,7 +43,7 @@ ThisBuild / tlSonatypeUseLegacyHost := false
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 ThisBuild / githubWorkflowBuildPreamble ++= Seq(
   WorkflowStep.Run(
-    commands = List("docker-compose up -d"),
+    commands = List("docker compose up -d"),
     name = Some("Start up Postgres")
   ),
   WorkflowStep.Sbt(
@@ -426,6 +426,7 @@ lazy val hikari = project
     libraryDependencies ++= Seq(
       // needs to be excluded, otherwise coursier may resolve slf4j-api 2 if > Java 11
       "com.zaxxer" % "HikariCP" % hikariVersion exclude ("org.slf4j", "slf4j-api"),
+      "org.postgresql" % "postgresql" % postgresVersion % "test",
       "com.h2database" % "h2" % h2Version % "test",
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       "org.slf4j" % "slf4j-nop" % slf4jVersion % "test"

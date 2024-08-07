@@ -99,6 +99,9 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
   def fromFutureCancelable[G[_], J, A](interpreter: G ~> Kleisli[M, J, *])(fut: Free[G, (Future[A], Free[G, Unit])]): Kleisli[M, J, A] = Kleisli(j =>
     asyncM.fromFutureCancelable(fut.map { case (f, g) => (f, g.foldMap(interpreter).run(j)) }.foldMap(interpreter).run(j))
   )
+  def cancelable[G[_], J, A](interpreter: G ~> Kleisli[M, J, *])(fa: Free[G, A], fin: Free[G, Unit]): Kleisli[M, J, A] = Kleisli (j =>
+    asyncM.cancelable(fa.foldMap(interpreter).run(j), fin.foldMap(interpreter).run(j))
+  )
   def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
     e match {
       case Embedded.CopyIn(j, fa) => Kleisli(_ => fa.foldMap(CopyInInterpreter).run(j))
@@ -132,6 +135,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): Kleisli[M, PGCopyIn, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: CopyInIO[Future[A]]): Kleisli[M, PGCopyIn, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]): Kleisli[M, PGCopyIn, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): Kleisli[M, PGCopyIn, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def cancelCopy: Kleisli[M, PGCopyIn, Unit] = primitive(_.cancelCopy)
@@ -169,6 +174,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): Kleisli[M, PGCopyManager, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: CopyManagerIO[Future[A]]): Kleisli[M, PGCopyManager, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]): Kleisli[M, PGCopyManager, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): Kleisli[M, PGCopyManager, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def copyDual(a: String) = primitive(_.copyDual(a))
@@ -206,6 +213,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): Kleisli[M, PGCopyOut, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: CopyOutIO[Future[A]]): Kleisli[M, PGCopyOut, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: CopyOutIO[(Future[A], CopyOutIO[Unit])]): Kleisli[M, PGCopyOut, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: CopyOutIO[A], fin: CopyOutIO[Unit]): Kleisli[M, PGCopyOut, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def cancelCopy: Kleisli[M, PGCopyOut, Unit] = primitive(_.cancelCopy)
@@ -241,6 +250,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: LargeObjectIO[A], fin: LargeObjectIO[Unit]): Kleisli[M, LargeObject, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: LargeObjectIO[Future[A]]): Kleisli[M, LargeObject, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: LargeObjectIO[(Future[A], LargeObjectIO[Unit])]): Kleisli[M, LargeObject, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: LargeObjectIO[A], fin: LargeObjectIO[Unit]): Kleisli[M, LargeObject, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def close: Kleisli[M, LargeObject, Unit] = primitive(_.close)
@@ -289,6 +300,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: LargeObjectManagerIO[A], fin: LargeObjectManagerIO[Unit]): Kleisli[M, LargeObjectManager, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: LargeObjectManagerIO[Future[A]]): Kleisli[M, LargeObjectManager, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: LargeObjectManagerIO[(Future[A], LargeObjectManagerIO[Unit])]): Kleisli[M, LargeObjectManager, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: LargeObjectManagerIO[A], fin: LargeObjectManagerIO[Unit]): Kleisli[M, LargeObjectManager, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def createLO: Kleisli[M, LargeObjectManager, Long] = primitive(_.createLO)
@@ -326,6 +339,8 @@ class KleisliInterpreter[M[_]](logHandler: LogHandler[M])(implicit val asyncM: W
     override def onCancel[A](fa: PGConnectionIO[A], fin: PGConnectionIO[Unit]): Kleisli[M, PGConnection, A] = outer.onCancel(this)(fa, fin)
     override def fromFuture[A](fut: PGConnectionIO[Future[A]]): Kleisli[M, PGConnection, A] = outer.fromFuture(this)(fut)
     override def fromFutureCancelable[A](fut: PGConnectionIO[(Future[A], PGConnectionIO[Unit])]): Kleisli[M, PGConnection, A] = outer.fromFutureCancelable(this)(fut)
+    override def cancelable[A](fa: PGConnectionIO[A], fin: PGConnectionIO[Unit]): Kleisli[M, PGConnection, A] = outer.cancelable(this)(fa, fin)
+
 
     // domain-specific operations are implemented in terms of `primitive`
     override def addDataType(a: String, b: Class[? <: org.postgresql.util.PGobject]) = primitive(_.addDataType(a, b))

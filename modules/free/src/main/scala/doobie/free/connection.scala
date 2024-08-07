@@ -74,6 +74,7 @@ object connection { module =>
       def onCancel[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]): F[A]
       def fromFuture[A](fut: ConnectionIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]): F[A]
+      def cancelable[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // Connection
@@ -182,6 +183,9 @@ object connection { module =>
     }
     case class FromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -392,6 +396,7 @@ object connection { module =>
   def onCancel[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]) = FF.liftF[ConnectionOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: ConnectionIO[Future[A]]) = FF.liftF[ConnectionOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]) = FF.liftF[ConnectionOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]) = FF.liftF[ConnectionOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[ConnectionOp, Unit](PerformLogging(event))
 
   // Smart constructors for Connection-specific operations.
@@ -476,6 +481,7 @@ object connection { module =>
       override def onCancel[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]): ConnectionIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: ConnectionIO[Future[A]]): ConnectionIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: ConnectionIO[(Future[A], ConnectionIO[Unit])]): ConnectionIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: ConnectionIO[A], fin: ConnectionIO[Unit]): ConnectionIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidConnectionIO[A : Monoid]: Monoid[ConnectionIO[A]] = new Monoid[ConnectionIO[A]] {
