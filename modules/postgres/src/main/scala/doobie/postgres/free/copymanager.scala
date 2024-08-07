@@ -66,6 +66,7 @@ object copymanager { module =>
       def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): F[A]
       def fromFuture[A](fut: CopyManagerIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]): F[A]
+      def cancelable[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // PGCopyManager
@@ -124,6 +125,9 @@ object copymanager { module =>
     }
     case class FromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]) extends CopyManagerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]) extends CopyManagerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends CopyManagerOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -184,6 +188,7 @@ object copymanager { module =>
   def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]) = FF.liftF[CopyManagerOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CopyManagerIO[Future[A]]) = FF.liftF[CopyManagerOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]) = FF.liftF[CopyManagerOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]) = FF.liftF[CopyManagerOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[CopyManagerOp, Unit](PerformLogging(event))
 
   // Smart constructors for CopyManager-specific operations.
@@ -218,6 +223,7 @@ object copymanager { module =>
       override def onCancel[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): CopyManagerIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: CopyManagerIO[Future[A]]): CopyManagerIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: CopyManagerIO[(Future[A], CopyManagerIO[Unit])]): CopyManagerIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: CopyManagerIO[A], fin: CopyManagerIO[Unit]): CopyManagerIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidCopyManagerIO[A : Monoid]: Monoid[CopyManagerIO[A]] = new Monoid[CopyManagerIO[A]] {

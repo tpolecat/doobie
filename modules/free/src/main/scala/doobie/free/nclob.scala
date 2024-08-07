@@ -63,6 +63,7 @@ object nclob { module =>
       def onCancel[A](fa: NClobIO[A], fin: NClobIO[Unit]): F[A]
       def fromFuture[A](fut: NClobIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]): F[A]
+      def cancelable[A](fa: NClobIO[A], fin: NClobIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // NClob
@@ -124,6 +125,9 @@ object nclob { module =>
     }
     case class FromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]) extends NClobOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: NClobIO[A], fin: NClobIO[Unit]) extends NClobOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends NClobOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -193,6 +197,7 @@ object nclob { module =>
   def onCancel[A](fa: NClobIO[A], fin: NClobIO[Unit]) = FF.liftF[NClobOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: NClobIO[Future[A]]) = FF.liftF[NClobOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]) = FF.liftF[NClobOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: NClobIO[A], fin: NClobIO[Unit]) = FF.liftF[NClobOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[NClobOp, Unit](PerformLogging(event))
 
   // Smart constructors for NClob-specific operations.
@@ -230,6 +235,7 @@ object nclob { module =>
       override def onCancel[A](fa: NClobIO[A], fin: NClobIO[Unit]): NClobIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: NClobIO[Future[A]]): NClobIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: NClobIO[(Future[A], NClobIO[Unit])]): NClobIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: NClobIO[A], fin: NClobIO[Unit]): NClobIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidNClobIO[A : Monoid]: Monoid[NClobIO[A]] = new Monoid[NClobIO[A]] {

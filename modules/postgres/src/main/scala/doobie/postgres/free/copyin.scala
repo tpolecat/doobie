@@ -58,6 +58,7 @@ object copyin { module =>
       def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): F[A]
       def fromFuture[A](fut: CopyInIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]): F[A]
+      def cancelable[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // PGCopyIn
@@ -116,6 +117,9 @@ object copyin { module =>
     }
     case class FromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]) extends CopyInOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: CopyInIO[A], fin: CopyInIO[Unit]) extends CopyInOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends CopyInOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -176,6 +180,7 @@ object copyin { module =>
   def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]) = FF.liftF[CopyInOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CopyInIO[Future[A]]) = FF.liftF[CopyInOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]) = FF.liftF[CopyInOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: CopyInIO[A], fin: CopyInIO[Unit]) = FF.liftF[CopyInOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[CopyInOp, Unit](PerformLogging(event))
 
   // Smart constructors for CopyIn-specific operations.
@@ -210,6 +215,7 @@ object copyin { module =>
       override def onCancel[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): CopyInIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: CopyInIO[Future[A]]): CopyInIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: CopyInIO[(Future[A], CopyInIO[Unit])]): CopyInIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: CopyInIO[A], fin: CopyInIO[Unit]): CopyInIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidCopyInIO[A : Monoid]: Monoid[CopyInIO[A]] = new Monoid[CopyInIO[A]] {

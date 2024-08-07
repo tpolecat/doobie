@@ -80,6 +80,7 @@ object callablestatement { module =>
       def onCancel[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]): F[A]
       def fromFuture[A](fut: CallableStatementIO[Future[A]]): F[A]
       def fromFutureCancelable[A](fut: CallableStatementIO[(Future[A], CallableStatementIO[Unit])]): F[A]
+      def cancelable[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]): F[A]
       def performLogging(event: LogEvent): F[Unit]
 
       // CallableStatement
@@ -361,6 +362,9 @@ object callablestatement { module =>
     }
     case class FromFutureCancelable[A](fut: CallableStatementIO[(Future[A], CallableStatementIO[Unit])]) extends CallableStatementOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.fromFutureCancelable(fut)
+    }
+    case class Cancelable[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]) extends CallableStatementOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.cancelable(fa, fin)
     }
     case class PerformLogging(event: LogEvent) extends CallableStatementOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.performLogging(event)
@@ -1090,6 +1094,7 @@ object callablestatement { module =>
   def onCancel[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]) = FF.liftF[CallableStatementOp, A](OnCancel(fa, fin))
   def fromFuture[A](fut: CallableStatementIO[Future[A]]) = FF.liftF[CallableStatementOp, A](FromFuture(fut))
   def fromFutureCancelable[A](fut: CallableStatementIO[(Future[A], CallableStatementIO[Unit])]) = FF.liftF[CallableStatementOp, A](FromFutureCancelable(fut))
+  def cancelable[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]) = FF.liftF[CallableStatementOp, A](Cancelable(fa, fin))
   def performLogging(event: LogEvent) = FF.liftF[CallableStatementOp, Unit](PerformLogging(event))
 
   // Smart constructors for CallableStatement-specific operations.
@@ -1347,6 +1352,7 @@ object callablestatement { module =>
       override def onCancel[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]): CallableStatementIO[A] = module.onCancel(fa, fin)
       override def fromFuture[A](fut: CallableStatementIO[Future[A]]): CallableStatementIO[A] = module.fromFuture(fut)
       override def fromFutureCancelable[A](fut: CallableStatementIO[(Future[A], CallableStatementIO[Unit])]): CallableStatementIO[A] = module.fromFutureCancelable(fut)
+      override def cancelable[A](fa: CallableStatementIO[A], fin: CallableStatementIO[Unit]): CallableStatementIO[A] = module.cancelable(fa, fin)
     }
     
   implicit def MonoidCallableStatementIO[A : Monoid]: Monoid[CallableStatementIO[A]] = new Monoid[CallableStatementIO[A]] {
