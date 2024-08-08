@@ -6,16 +6,16 @@ package doobie.util
 
 import doobie.WeakAsync
 import doobie.free.connection.{ConnectionIO, ConnectionOp, commit, rollback, setAutoCommit, unit}
-import doobie.free.KleisliInterpreter
+import doobie.free.{KleisliInterpreter, Primitive, connection as IFC}
 import doobie.implicits.*
 import doobie.util.lens.*
 import doobie.util.log.LogHandler
 import doobie.util.yolo.Yolo
-import doobie.free.{connection as IFC}
 import cats.{Monad, ~>}
 import cats.data.Kleisli
 import cats.effect.kernel.{Async, MonadCancelThrow, Resource}
 import cats.effect.kernel.Resource.ExitCase
+import cats.syntax.option._
 import fs2.{Pipe, Stream}
 
 import java.sql.{Connection, DriverManager}
@@ -251,9 +251,9 @@ object transactor {
       val strategy = strategy0
     }
 
-    def withLogHandler(logHandler: LogHandler[M])(implicit ev: WeakAsync[M]): Transactor.Aux[M, A] = copy(
+    def withLogHandler(logHandler: LogHandler[M])(implicit ev: Async[M]): Transactor.Aux[M, A] = copy(
       interpret0 =
-        KleisliInterpreter[M](logHandler).ConnectionInterpreter
+        KleisliInterpreter[M](logHandler, Primitive.Cancellable[M]().some).ConnectionInterpreter
     )
 
     /*
@@ -331,7 +331,8 @@ object transactor {
       )(implicit ev: Async[M]): Transactor.Aux[M, A] = {
         val connect =
           (dataSource: A) => Resource.fromAutoCloseable(ev.evalOn(ev.delay(dataSource.getConnection()), connectEC))
-        val interp = KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop)).ConnectionInterpreter
+        val interp =
+          KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop), Primitive.Cancellable[M]().some).ConnectionInterpreter
         Transactor(dataSource, connect, interp, Strategy.default)
       }
     }
@@ -351,7 +352,8 @@ object transactor {
           async: Async[M]
       ): Transactor.Aux[M, Connection] = {
         val connect = (c: Connection) => Resource.pure[M, Connection](c)
-        val interp = KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop)).ConnectionInterpreter
+        val interp =
+          KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop), Primitive.Cancellable[M]().some).ConnectionInterpreter
         Transactor(connection, connect, interp, Strategy.default)
       }
     }
@@ -377,7 +379,7 @@ object transactor {
         Transactor(
           (),
           _ => Resource.fromAutoCloseable(ev.blocking { Class.forName(driver); conn() }),
-          KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop)).ConnectionInterpreter,
+          KleisliInterpreter[M](logHandler.getOrElse(LogHandler.noop), Primitive.Cancellable[M]().some).ConnectionInterpreter,
           strategy
         )
 
