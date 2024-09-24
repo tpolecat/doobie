@@ -7,9 +7,9 @@ package doobie.util
 import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
 import shapeless.labelled.FieldType
 import java.sql.{PreparedStatement, ResultSet}
+import MkWritePlatform.{ToListFunc, UnsafeSetFunc, UnsafeUpdateFunc}
 
 trait MkWritePlatform extends LowerPriorityMkWrite {
-  import MkWritePlatform.*
 
   // Derivation base case for shapelss record (1-element)
   implicit def recordBase[K <: Symbol, H](
@@ -50,13 +50,13 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
       T: Write[T] OrElse Derived[MkWrite[T]]
   ): Write[H :: T] = {
     val head = H.fold(identity, _.instance)
+    val tail = T.fold(identity, _.instance)
 
-    Write(
-      head.puts ++ T.puts,
-      { case h :: t => head.toList(h) ++ T.toList(t) }: ToListFunc[H :: T],
-      { case (ps, n, h :: t) => head.unsafeSet(ps, n, h); T.unsafeSet(ps, n + head.length, t) }: UnsafeSetFunc[H :: T],
-      { case (rs, n, h :: t) => head.unsafeUpdate(rs, n, h); T.unsafeUpdate(rs, n + head.length, t) }: UnsafeUpdateFunc[
-        H :: T]
+    Write[H :: T](
+      head.puts ++ tail.puts,
+      { case h :: t => head.toList(h) ++ tail.toList(t) }: ToListFunc[H :: T],
+      { case (ps, n, h :: t) => head.unsafeSet(ps, n, h); tail.unsafeSet(ps, n + head.length, t) }: UnsafeSetFunc[H :: T],
+      { case (rs, n, h :: t) => head.unsafeUpdate(rs, n, h); tail.unsafeUpdate(rs, n + head.length, t) }: UnsafeUpdateFunc[H :: T]
     )
   }
 
@@ -105,17 +105,20 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   }
 
   // Derivation for product types (i.e. case class)
-  implicit def generic[B, A](
+  implicit def generic[A, Repr <: HList](
       implicit
-      gen: Generic.Aux[B, A],
-      A: Lazy[Write[A] OrElse Derived[MkWrite[A]]]
-  ): Derived[MkWrite[B]] =
-    Derived(new MkWrite[B](
-      A.value.puts,
-      b => A.value.toList(gen.to(b)),
-      (ps, n, b) => A.value.unsafeSet(ps, n, gen.to(b)),
-      (rs, n, b) => A.value.unsafeUpdate(rs, n, gen.to(b))
+      gen: Generic.Aux[A, Repr],
+      hlistWrite: Lazy[Write[Repr] OrElse Derived[MkWrite[Repr]]]
+  ): Derived[MkWrite[A]] = {
+    val g = hlistWrite.value.fold(identity, _.instance)
+
+    Derived(new MkWrite[A](
+      g.puts,
+      b => g.toList(gen.to(b)),
+      (ps, n, b) => g.unsafeSet(ps, n, gen.to(b)),
+      (rs, n, b) => g.unsafeUpdate(rs, n, gen.to(b))
     ))
+  }
 
   // Derivation inductive case for shapeless records
   implicit def record[K <: Symbol, H, T <: HList](
@@ -124,12 +127,13 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
       T: Write[T] OrElse Derived[MkWrite[T]]
   ): Derived[MkWrite[FieldType[K, H] :: T]] = {
     val head = H.fold(identity, _.instance)
+    val tail = T.fold(identity, _.instance)
 
     Derived(new MkWrite(
-      head.puts ++ T.puts,
-      { case h :: t => head.toList(h) ++ T.toList(t) },
-      { case (ps, n, h :: t) => head.unsafeSet(ps, n, h); T.unsafeSet(ps, n + head.length, t) },
-      { case (rs, n, h :: t) => head.unsafeUpdate(rs, n, h); T.unsafeUpdate(rs, n + head.length, t) }
+      head.puts ++ tail.puts,
+      { case h :: t => head.toList(h) ++ tail.toList(t) },
+      { case (ps, n, h :: t) => head.unsafeSet(ps, n, h); tail.unsafeSet(ps, n + head.length, t) },
+      { case (rs, n, h :: t) => head.unsafeUpdate(rs, n, h); tail.unsafeUpdate(rs, n + head.length, t) }
     ))
   }
 
@@ -146,15 +150,16 @@ trait EvenLowerPriorityMkWrite {
   ): Write[Option[H :: T]] = {
     void(N)
     val head = H.fold(identity, _.instance)
+    val tail = T.fold(identity, _.instance)
 
     def split[A](i: Option[H :: T])(f: (Option[H], Option[T]) => A): A =
       i.fold(f(None, None)) { case h :: t => f(Some(h), Some(t)) }
 
     Write(
-      head.puts ++ T.puts,
-      split(_) { (h, t) => head.toList(h) ++ T.toList(t) },
-      (ps, n, i) => split(i) { (h, t) => head.unsafeSet(ps, n, h); T.unsafeSet(ps, n + head.length, t) },
-      (rs, n, i) => split(i) { (h, t) => head.unsafeUpdate(rs, n, h); T.unsafeUpdate(rs, n + head.length, t) }
+      head.puts ++ tail.puts,
+      split(_) { (h, t) => head.toList(h) ++ tail.toList(t) },
+      (ps, n, i) => split(i) { (h, t) => head.unsafeSet(ps, n, h); tail.unsafeSet(ps, n + head.length, t) },
+      (rs, n, i) => split(i) { (h, t) => head.unsafeUpdate(rs, n, h); tail.unsafeUpdate(rs, n + head.length, t) }
     )
 
   }
@@ -166,15 +171,16 @@ trait EvenLowerPriorityMkWrite {
       T: Write[Option[T]] OrElse Derived[MkWrite[Option[T]]]
   ): Write[Option[Option[H] :: T]] = {
     val head = H.fold(identity, _.instance)
+    val tail = T.fold(identity, _.instance)
 
     def split[A](i: Option[Option[H] :: T])(f: (Option[H], Option[T]) => A): A =
       i.fold(f(None, None)) { case oh :: t => f(oh, Some(t)) }
 
     Write(
-      head.puts ++ T.puts,
-      split(_) { (h, t) => head.toList(h) ++ T.toList(t) },
-      (ps, n, i) => split(i) { (h, t) => head.unsafeSet(ps, n, h); T.unsafeSet(ps, n + head.length, t) },
-      (rs, n, i) => split(i) { (h, t) => head.unsafeUpdate(rs, n, h); T.unsafeUpdate(rs, n + head.length, t) }
+      head.puts ++ tail.puts,
+      split(_) { (h, t) => head.toList(h) ++ tail.toList(t) },
+      (ps, n, i) => split(i) { (h, t) => head.unsafeSet(ps, n, h); tail.unsafeSet(ps, n + head.length, t) },
+      (rs, n, i) => split(i) { (h, t) => head.unsafeUpdate(rs, n, h); tail.unsafeUpdate(rs, n + head.length, t) }
     )
 
   }
@@ -184,13 +190,15 @@ trait EvenLowerPriorityMkWrite {
       implicit
       G: Generic.Aux[B, A],
       A: Lazy[Write[Option[A]] OrElse Derived[MkWrite[Option[A]]]]
-  ): Derived[MkWrite[Option[B]]] =
+  ): Derived[MkWrite[Option[B]]] = {
+    val g = A.value.fold(identity, _.instance)
     Derived(new MkWrite(
-      A.value.puts,
-      b => A.value.toList(b.map(G.to)),
-      (rs, n, a) => A.value.unsafeSet(rs, n, a.map(G.to)),
-      (rs, n, a) => A.value.unsafeUpdate(rs, n, a.map(G.to))
+      g.puts,
+      b => g.toList(b.map(G.to)),
+      (ps, n, b) => g.unsafeSet(ps, n, b.map(G.to)),
+      (rs, n, b) => g.unsafeUpdate(rs, n, b.map(G.to))
     ))
+  }
 
 }
 

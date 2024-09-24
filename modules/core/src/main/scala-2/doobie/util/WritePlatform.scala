@@ -9,13 +9,14 @@ import shapeless.*
 
 trait WritePlatform extends LowerPriorityWritePlatform {
 
-  implicit def genericTuple[A, Repr](
+  implicit def genericTuple[A, Repr <: HList](
       implicit
       gen: Generic.Aux[A, Repr],
       A: Lazy[Write[Repr]],
       isTuple: IsTuple[A]
   ): Write[A] = {
     val _ = isTuple
+    implicit val hlistWrite: Lazy[Write[Repr] OrElse Derived[MkWrite[Repr]]] = OrElse.primary(A.value)
     MkWrite.generic[A, Repr].instance
   }
 
@@ -26,12 +27,15 @@ trait WritePlatform extends LowerPriorityWritePlatform {
       isTuple: IsTuple[A]
   ): Write[Option[A]] = {
     val _ = isTuple
+    implicit val hlistWrite: Lazy[Write[Option[Repr]] OrElse Derived[MkWrite[Option[Repr]]]] = OrElse.primary(A.value)
     MkWrite.ogeneric[A, Repr].instance
   }
 
   @deprecated("Use Write.derived instead to derive instances explicitly", "1.0.0-RC6")
-  def generic[T, Repr](implicit gen: Generic.Aux[T, Repr], A: Lazy[Write[Repr]]): Write[T] =
+  def generic[T, Repr <: HList](implicit gen: Generic.Aux[T, Repr], A: Lazy[Write[Repr]]): Write[T] = {
+    implicit val hlistWrite: Lazy[Write[Repr] OrElse Derived[MkWrite[Repr]]] = OrElse.primary(A.value)
     MkWrite.generic[T, Repr].instance
+  }
 }
 
 trait LowerPriorityWritePlatform extends EvenLowerPriorityWritePlatform {

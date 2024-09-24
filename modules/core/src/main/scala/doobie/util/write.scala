@@ -151,7 +151,7 @@ object Write extends WriteInstances with WritePlatform {
 }
 
 trait WriteInstances extends LowerPriorityWriteInstances {
-  implicit def fromDerived[A](implicit ev: Derived[Write[A]]): Write[A] = ev
+  implicit def fromDerived[A](implicit ev: Derived[Write[A]]): Write[A] = ev.instance
 }
 
 // FIXME:

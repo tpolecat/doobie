@@ -20,6 +20,11 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     password = "",
     logHandler = None
   )
+  
+  test("fixme") {
+    import shapeless.*
+    Write[Int :: HNil]
+  }
 
   test("Write should exist for some fancy types") {
     import doobie.generic.auto.*
