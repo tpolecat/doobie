@@ -15,6 +15,8 @@ import doobie.free.{preparedstatement as IFPS, resultset as IFRS}
 
 import scala.annotation.implicitNotFound
 
+// FIXME:
+/*
 @implicitNotFound("""
 Cannot find or construct a Write instance for type:
 
@@ -43,6 +45,7 @@ and similarly with Put:
 And find the missing instance and construct it as needed. Refer to Chapter 12
 of the book of doobie for more information.
 """)
+ */
 sealed abstract class Write[A](
     val puts: List[(Put[?], NullabilityKnown)],
     val toList: A => List[Any],
@@ -87,7 +90,7 @@ sealed abstract class Write[A](
 
 }
 
-object Write extends WritePlatform {
+object Write extends WriteInstances with WritePlatform {
 
   def apply[A](
       puts: List[(Put[?], NullabilityKnown)],
@@ -98,7 +101,7 @@ object Write extends WritePlatform {
 
   def apply[A](implicit A: Write[A]): Write[A] = A
 
-  def derived[A](implicit ev: MkWrite[A]): Write[A] = ev
+  def derived[A](implicit ev: Derived[MkWrite[A]]): Write[A] = ev.instance
 
   trait Auto {
     implicit def deriveWrite[A](implicit ev: MkWrite[A]): Write[A] = ev
@@ -146,6 +149,13 @@ object Write extends WritePlatform {
     ) {}
 
 }
+
+trait WriteInstances extends LowerPriorityWriteInstances {
+  implicit def fromDerived[A](implicit ev: Derived[Write[A]]): Write[A] = ev
+}
+
+// FIXME:
+trait LowerPriorityWriteInstances {}
 
 final class MkWrite[A](
     override val puts: List[(Put[?], NullabilityKnown)],

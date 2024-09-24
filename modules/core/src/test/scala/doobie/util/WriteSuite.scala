@@ -28,6 +28,9 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     Write[(Int, Int)].void
     Write[(Int, Int, String)].void
     Write[(Int, (Int, String))].void
+    case class CC(a: Int, b: Int, c: String)
+    // FIXME: here
+    Write[CC].void
     Write[ComplexCaseClass].void
   }
 
@@ -52,6 +55,24 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
 
   test("Write is not auto derived for case classes") {
     assert(compileErrors("Write[LenStr1]").contains("Cannot find or construct"))
+  }
+
+  test("Auto derivation selects custom Write instances") {
+    import doobie.implicits.*
+    import shapeless.*
+
+    assertEquals(Write[HasCustomReadWrite0].length, 2)
+    assertEquals(Write[HasCustomReadWrite1].length, 2)
+    assertEquals(Write[HasOptCustomReadWrite0].length, 2)
+    assertEquals(Write[HasOptCustomReadWrite1].length, 2)
+  }
+
+  test("Auto derivation selects custom Put instances") {
+    import doobie.implicits.*
+    assert(Write[HasCustomMeta0].puts(0)._1.eq(CustomMeta.put))
+    assert(Write[HasCustomMeta1].puts(1)._1.eq(CustomMeta.put))
+    assert(Write[HasOptCustomMeta0].puts(0)._1.eq(CustomMeta.put))
+    assert(Write[HasOptCustomMeta1].puts(1)._1.eq(CustomMeta.put))
   }
 
   test("Write should not be derivable for case objects") {
@@ -123,3 +144,5 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
   }
 
 }
+
+object WriteSuite {}

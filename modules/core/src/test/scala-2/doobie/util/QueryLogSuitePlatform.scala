@@ -10,6 +10,11 @@ import shapeless._
 trait QueryLogSuitePlatform { self: QueryLogSuite =>
   import doobie.generic.auto._
 
+  // FIXME:
+//  implicitly[Write[String]]
+//  implicit val xy: Exported[MkWrite[String :: HNil]] = MkWrite.productBase[String]
+  implicitly[Write[String :: HNil]]
+
   test("[Query] n-arg success") {
     val Sql = "select 1 where ? = ?"
     val Arg = 1 :: 1 :: HNil
