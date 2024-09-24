@@ -6,15 +6,16 @@ package doobie.util
 
 import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
 import shapeless.labelled.FieldType
+import java.sql.{PreparedStatement, ResultSet}
 
 trait MkWritePlatform extends LowerPriorityMkWrite {
+  import MkWritePlatform.*
 
-  // FIXME: move
   // Derivation base case for shapelss record (1-element)
   implicit def recordBase[K <: Symbol, H](
       implicit H: Write[H] OrElse Derived[MkWrite[H]]
   ): Derived[MkWrite[FieldType[K, H] :: HNil]] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     Derived(new MkWrite(
       head.puts,
@@ -28,7 +29,7 @@ trait MkWritePlatform extends LowerPriorityMkWrite {
   implicit def productBase[H](
       implicit H: Write[H] OrElse Derived[MkWrite[H]]
   ): Write[H :: HNil] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     Write[H :: HNil](
       head.puts,
@@ -48,7 +49,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
       H: Write[H] OrElse Derived[MkWrite[H]],
       T: Write[T] OrElse Derived[MkWrite[T]]
   ): Write[H :: T] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     Write(
       head.puts ++ T.puts,
@@ -66,7 +67,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
       N: H <:!< Option[α] forSome { type α }
   ): Write[Option[H :: HNil]] = {
     void(N)
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     def withHead[A](opt: Option[H :: HNil])(f: Option[H] => A): A = {
       f(opt.map(_.head))
@@ -85,7 +86,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   implicit def optProductOptBase[H](
       implicit H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]]
   ): Write[Option[Option[H] :: HNil]] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     def withHead[A](opt: Option[Option[H] :: HNil])(f: Option[H] => A): A = {
       opt match {
@@ -122,7 +123,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
       H: Write[H] OrElse Derived[MkWrite[H]],
       T: Write[T] OrElse Derived[MkWrite[T]]
   ): Derived[MkWrite[FieldType[K, H] :: T]] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     Derived(new MkWrite(
       head.puts ++ T.puts,
@@ -144,7 +145,7 @@ trait EvenLowerPriorityMkWrite {
       N: H <:!< Option[α] forSome { type α }
   ): Write[Option[H :: T]] = {
     void(N)
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     def split[A](i: Option[H :: T])(f: (Option[H], Option[T]) => A): A =
       i.fold(f(None, None)) { case h :: t => f(Some(h), Some(t)) }
@@ -164,7 +165,7 @@ trait EvenLowerPriorityMkWrite {
       H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]],
       T: Write[Option[T]] OrElse Derived[MkWrite[Option[T]]]
   ): Write[Option[Option[H] :: T]] = {
-    val head = H
+    val head = H.fold(identity, _.instance)
 
     def split[A](i: Option[Option[H] :: T])(f: (Option[H], Option[T]) => A): A =
       i.fold(f(None, None)) { case oh :: t => f(oh, Some(t)) }
@@ -191,4 +192,10 @@ trait EvenLowerPriorityMkWrite {
       (rs, n, a) => A.value.unsafeUpdate(rs, n, a.map(G.to))
     ))
 
+}
+
+object MkWritePlatform {
+  type ToListFunc[A] = A => List[Any]
+  type UnsafeSetFunc[A] = (PreparedStatement, Int, A) => Unit
+  type UnsafeUpdateFunc[A] = (ResultSet, Int, A) => Unit
 }

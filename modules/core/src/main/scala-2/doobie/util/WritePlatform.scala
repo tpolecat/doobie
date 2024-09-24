@@ -6,8 +6,6 @@ package doobie.util
 
 import shapeless.*
 
-import java.sql.{PreparedStatement, ResultSet}
-import WritePlatform.*
 
 trait WritePlatform extends LowerPriorityWritePlatform {
 
@@ -43,8 +41,3 @@ trait LowerPriorityWritePlatform extends EvenLowerPriorityWritePlatform {
 trait EvenLowerPriorityWritePlatform {
 }
 
-object WritePlatform {
-  type ToListFunc[A] = A => List[Any]
-  type UnsafeSetFunc[A] = (PreparedStatement, Int, A) => Unit
-  type UnsafeUpdateFunc[A] = (ResultSet, Int, A) => Unit
-}
