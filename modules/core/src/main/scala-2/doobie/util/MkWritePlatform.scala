@@ -11,6 +11,10 @@ import MkWritePlatform.{ToListFunc, UnsafeSetFunc, UnsafeUpdateFunc}
 
 trait MkWritePlatform extends LowerPriorityMkWrite {
 
+  type ToListFunc[A] = A => List[Any]
+  type UnsafeSetFunc[A] = (PreparedStatement, Int, A) => Unit
+  type UnsafeUpdateFunc[A] = (ResultSet, Int, A) => Unit
+
   // Derivation base case for shapelss record (1-element)
   implicit def recordBase[K <: Symbol, H](
       implicit H: Write[H] OrElse Derived[MkWrite[H]]
@@ -28,7 +32,7 @@ trait MkWritePlatform extends LowerPriorityMkWrite {
   // Derivation base case for product types (1-element)
   implicit def productBase[H](
       implicit H: Write[H] OrElse Derived[MkWrite[H]]
-  ): Write[H :: HNil] = {
+  ): Derived[MkWrite[H :: HNil]] = {
     val head = H.fold(identity, _.instance)
 
     Write[H :: HNil](
@@ -202,8 +206,4 @@ trait EvenLowerPriorityMkWrite {
 
 }
 
-object MkWritePlatform {
-  type ToListFunc[A] = A => List[Any]
-  type UnsafeSetFunc[A] = (PreparedStatement, Int, A) => Unit
-  type UnsafeUpdateFunc[A] = (ResultSet, Int, A) => Unit
-}
+object MkWritePlatform extends MkWritePlatform

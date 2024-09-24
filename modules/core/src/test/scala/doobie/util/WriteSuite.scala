@@ -24,6 +24,7 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
   test("fixme") {
     import shapeless.*
     Write[Int :: HNil]
+    Write[(Int, Int, String)].void
   }
 
   test("Write should exist for some fancy types") {
