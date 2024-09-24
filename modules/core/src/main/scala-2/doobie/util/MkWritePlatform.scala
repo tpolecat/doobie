@@ -4,7 +4,7 @@
 
 package doobie.util
 
-import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<}
+import shapeless.{HList, HNil, ::, Generic, Lazy, <:!<, OrElse}
 import shapeless.labelled.FieldType
 
 trait MkWritePlatform extends LowerPriorityMkWrite {
@@ -12,7 +12,7 @@ trait MkWritePlatform extends LowerPriorityMkWrite {
   // FIXME: move
   // Derivation base case for shapelss record (1-element)
   implicit def recordBase[K <: Symbol, H](
-      implicit H: Write[H]
+      implicit H: Write[H] OrElse Derived[MkWrite[H]]
   ): Derived[MkWrite[FieldType[K, H] :: HNil]] = {
     val head = H
 
@@ -26,7 +26,7 @@ trait MkWritePlatform extends LowerPriorityMkWrite {
 
   // Derivation base case for product types (1-element)
   implicit def productBase[H](
-      implicit H: Write[H]
+      implicit H: Write[H] OrElse Derived[MkWrite[H]]
   ): Write[H :: HNil] = {
     val head = H
 
@@ -45,8 +45,8 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   // Derivation inductive case for product types
   implicit def product[H, T <: HList](
       implicit
-      H: Write[H],
-      T: Write[T]
+      H: Write[H] OrElse Derived[MkWrite[H]],
+      T: Write[T] OrElse Derived[MkWrite[T]]
   ): Write[H :: T] = {
     val head = H
 
@@ -62,7 +62,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   // Derivation base case for Option of product types (1-element)
   implicit def optProductBase[H](
       implicit
-      H: Write[Option[H]],
+      H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]],
       N: H <:!< Option[α] forSome { type α }
   ): Write[Option[H :: HNil]] = {
     void(N)
@@ -83,7 +83,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
 
   // Derivation base case for Option of product types (where the head element is Option)
   implicit def optProductOptBase[H](
-      implicit H: Write[Option[H]]
+      implicit H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]]
   ): Write[Option[Option[H] :: HNil]] = {
     val head = H
 
@@ -107,7 +107,7 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   implicit def generic[B, A](
       implicit
       gen: Generic.Aux[B, A],
-      A: Lazy[Write[A]]
+      A: Lazy[Write[A] OrElse Derived[MkWrite[A]]]
   ): Derived[MkWrite[B]] =
     Derived(new MkWrite[B](
       A.value.puts,
@@ -119,8 +119,8 @@ trait LowerPriorityMkWrite extends EvenLowerPriorityMkWrite {
   // Derivation inductive case for shapeless records
   implicit def record[K <: Symbol, H, T <: HList](
       implicit
-      H: Write[H],
-      T: Write[T]
+      H: Write[H] OrElse Derived[MkWrite[H]],
+      T: Write[T] OrElse Derived[MkWrite[T]]
   ): Derived[MkWrite[FieldType[K, H] :: T]] = {
     val head = H
 
@@ -139,8 +139,8 @@ trait EvenLowerPriorityMkWrite {
   // Write[Option[H]], Write[Option[T]] implies Write[Option[H *: T]]
   implicit def optProduct[H, T <: HList](
       implicit
-      H: Write[Option[H]],
-      T: Write[Option[T]],
+      H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]],
+      T: Write[Option[T]] OrElse Derived[MkWrite[Option[T]]],
       N: H <:!< Option[α] forSome { type α }
   ): Write[Option[H :: T]] = {
     void(N)
@@ -161,8 +161,8 @@ trait EvenLowerPriorityMkWrite {
   // Write[Option[H]], Write[Option[T]] implies Write[Option[Option[H] *: T]]
   implicit def optProductOpt[H, T <: HList](
       implicit
-      H: Write[Option[H]],
-      T: Write[Option[T]]
+      H: Write[Option[H]] OrElse Derived[MkWrite[Option[H]]],
+      T: Write[Option[T]] OrElse Derived[MkWrite[Option[T]]]
   ): Write[Option[Option[H] :: T]] = {
     val head = H
 
@@ -182,7 +182,7 @@ trait EvenLowerPriorityMkWrite {
   implicit def ogeneric[B, A <: HList](
       implicit
       G: Generic.Aux[B, A],
-      A: Lazy[Write[Option[A]]]
+      A: Lazy[Write[Option[A]] OrElse Derived[MkWrite[Option[A]]]]
   ): Derived[MkWrite[Option[B]]] =
     Derived(new MkWrite(
       A.value.puts,
