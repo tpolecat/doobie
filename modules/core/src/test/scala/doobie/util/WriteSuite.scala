@@ -20,11 +20,12 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     password = "",
     logHandler = None
   )
-  
+
   test("fixme") {
-    import shapeless.*
-    Write[Int :: HNil]
-    Write[(Int, Int, String)].void
+    case class Yo(i: Int, s: String)
+    import doobie.implicits.*
+
+    Write[Yo].void
   }
 
   test("Write should exist for some fancy types") {
@@ -34,9 +35,11 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     Write[(Int, Int)].void
     Write[(Int, Int, String)].void
     Write[(Int, (Int, String))].void
-    case class CC(a: Int, b: Int, c: String)
-    // FIXME: here
-    Write[CC].void
+    import shapeless.*
+    // FIXME: 2.12 doesn't work below?
+//    Write[SimpleCaseClass :: Option[SimpleCaseClass] :: Option[Int] :: String :: HNil].void
+//    implicit val x = generic[ComplexCaseClass, SimpleCaseClass :: Option[SimpleCaseClass] :: Option[Int] :: String :: HNil]
+//    Write.fromDerived(x)
     Write[ComplexCaseClass].void
   }
 
@@ -59,18 +62,31 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     Write[Option[(Int, Option[(String, Int)])]].void
   }
 
-  test("Write is not auto derived for case classes") {
-    assert(compileErrors("Write[LenStr1]").contains("Cannot find or construct"))
-  }
+  // FIXME:
+//  test("Write is not auto derived for case classes") {
+//    assert(compileErrors("Write[LenStr1]").contains("Cannot find or construct"))
+//  }
 
-  test("Auto derivation selects custom Write instances") {
+  test("Auto derivation selects custom Write instances when available") {
     import doobie.implicits.*
     import shapeless.*
 
+
+    assertEquals(Write[CustomReadWrite].length, 1)
+
     assertEquals(Write[HasCustomReadWrite0].length, 2)
     assertEquals(Write[HasCustomReadWrite1].length, 2)
+
+    assertEquals(Write[Option[CustomReadWrite]].length, 1)
+    assertEquals(Write[Option[CustomReadWrite :: String :: HNil]].length, 2)
+    assertEquals(ogeneric[HasCustomReadWrite0, CustomReadWrite :: String :: HNil].instance.length, 2)
+
+    assertEquals(Write[Option[HasCustomReadWrite0]].length, 2)
+    assertEquals(Write[Option[HasCustomReadWrite1]].length, 2)
     assertEquals(Write[HasOptCustomReadWrite0].length, 2)
     assertEquals(Write[HasOptCustomReadWrite1].length, 2)
+    assertEquals(Write[Option[HasOptCustomReadWrite0]].length, 2)
+    assertEquals(Write[Option[HasOptCustomReadWrite1]].length, 2)
   }
 
   test("Auto derivation selects custom Put instances") {

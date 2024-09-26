@@ -7,8 +7,10 @@ package doobie.refined
 import cats.Show
 import cats.effect.IO
 import cats.syntax.all.*
-import doobie.*, doobie.implicits.*
+import doobie.*
+import doobie.implicits.*
 import doobie.refined.implicits.*
+import doobie.util.Write
 import eu.timepit.refined.api.{Refined, Validate}
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.*

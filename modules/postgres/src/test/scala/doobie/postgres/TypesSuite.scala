@@ -9,6 +9,7 @@ import java.net.InetAddress
 import java.time.{LocalDate, LocalDateTime, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 import doobie.*
+import doobie.util.{Put, Get}
 import doobie.implicits.*
 import doobie.postgres.enums.*
 import doobie.postgres.implicits.*

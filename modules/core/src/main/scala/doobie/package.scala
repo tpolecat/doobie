@@ -2,6 +2,7 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
+import doobie.util.{Get, Put, Read, Write}
 import doobie.util.meta.{LegacyMeta, TimeMetaInstances}
 // Copyright (c) 2013-2020 Rob Norris and Contributors
 // This software is licensed under the MIT License (MIT).
@@ -29,6 +30,7 @@ package object doobie
       with LegacyMeta
       with syntax.AllSyntax {
 
+    // FIXME: do we still need these?
     // re-export these instances so `Meta` takes priority, must be in the object
     implicit def metaProjectionGet[A](implicit m: Meta[A]): Get[A] = Get.metaProjection
     implicit def metaProjectionPut[A](implicit m: Meta[A]): Put[A] = Put.metaProjectionWrite

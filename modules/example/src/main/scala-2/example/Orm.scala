@@ -5,13 +5,15 @@
 package example
 
 import cats.Show
-import cats.effect.{IO, IOApp, ExitCode}
-import cats.syntax.all._
-import doobie._, doobie.implicits._
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.all.*
+import doobie.{ConnectionIO, Query, Query0, Transactor, Update}
+import doobie.implicits.*
+import doobie.util.{Read, Write}
 import fs2.Stream
-import shapeless._
-import shapeless.ops.record._
-import shapeless.ops.hlist._
+import shapeless.*
+import shapeless.ops.record.*
+import shapeless.ops.hlist.*
 
 /** A super-simple ORM for super-simple data types. We assume auto-generated keys, represented externally, and columns
   * map 1:1 with fields and have the same names.

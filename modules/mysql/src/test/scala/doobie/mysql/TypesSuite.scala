@@ -7,6 +7,7 @@ package doobie.mysql
 import java.time.ZoneOffset
 
 import doobie.*
+import doobie.util.{Put, Get}
 import doobie.implicits.*
 import doobie.mysql.implicits.*
 import doobie.mysql.util.arbitraries.SQLArbitraries.*

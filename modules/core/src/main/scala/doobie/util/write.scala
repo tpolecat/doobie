@@ -13,7 +13,7 @@ import doobie.util.fragment.Fragment
 import doobie.util.fragment.Elem
 import doobie.free.{preparedstatement as IFPS, resultset as IFRS}
 
-import scala.annotation.implicitNotFound
+//import scala.annotation.implicitNotFound
 
 // FIXME:
 /*
@@ -90,7 +90,7 @@ sealed abstract class Write[A](
 
 }
 
-object Write extends WriteInstances with WritePlatform {
+object Write extends WriteInstances {
 
   def apply[A](
       puts: List[(Put[?], NullabilityKnown)],
@@ -103,9 +103,7 @@ object Write extends WriteInstances with WritePlatform {
 
   def derived[A](implicit ev: Derived[MkWrite[A]]): Write[A] = ev.instance
 
-  trait Auto {
-    implicit def deriveWrite[A](implicit ev: MkWrite[A]): Write[A] = ev
-  }
+  trait Auto extends MkWritePlatform {}
 
   implicit val WriteContravariantSemigroupal: ContravariantSemigroupal[Write] =
     new ContravariantSemigroupal[Write] {
@@ -150,12 +148,7 @@ object Write extends WriteInstances with WritePlatform {
 
 }
 
-trait WriteInstances extends LowerPriorityWriteInstances {
-  implicit def fromDerived[A](implicit ev: Derived[Write[A]]): Write[A] = ev.instance
-}
-
-// FIXME:
-trait LowerPriorityWriteInstances {}
+trait WriteInstances extends WritePlatform
 
 final class MkWrite[A](
     override val puts: List[(Put[?], NullabilityKnown)],
@@ -164,7 +157,6 @@ final class MkWrite[A](
     override val unsafeUpdate: (ResultSet, Int, A) => Unit
 ) extends Write[A](puts, toList, unsafeSet, unsafeUpdate)
 object MkWrite extends MkWritePlatform {
-
   def lift[A](w: Write[A]): MkWrite[A] =
     new MkWrite[A](w.puts, w.toList, w.unsafeSet, w.unsafeUpdate)
 }

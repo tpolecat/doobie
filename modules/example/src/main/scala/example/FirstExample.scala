@@ -8,8 +8,9 @@ package example
 import cats.Show
 import cats.syntax.all.*
 import cats.effect.{IO, IOApp}
+import doobie.{ConnectionIO, FC, Query0, Transactor, Update, Update0}
 import fs2.Stream
-import doobie.*, doobie.implicits.*
+import doobie.implicits.*
 
 // Example lifted from slick
 object FirstExample extends IOApp.Simple {

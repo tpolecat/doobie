@@ -7,8 +7,11 @@ package doobie.issue
 import cats.*
 import cats.syntax.all.*
 import cats.effect.IO
-import doobie.*, doobie.implicits.*
+import doobie.*
+import doobie.implicits.*
+import doobie.util.Write
 import org.scalacheck.Prop.forAll
+
 import scala.Predef.*
 
 class `706` extends munit.ScalaCheckSuite {

@@ -5,10 +5,10 @@
 package doobie.mysql
 
 import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetDateTime}
-
 import doobie.*
 import doobie.implicits.*
 import doobie.mysql.implicits.*
+import doobie.util.Read
 import doobie.util.analysis.ColumnTypeError
 
 class CheckSuite extends munit.FunSuite {

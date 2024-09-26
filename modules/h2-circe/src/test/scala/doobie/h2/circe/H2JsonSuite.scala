@@ -7,6 +7,7 @@ package doobie.h2.circe
 import cats.effect.IO
 import doobie.*
 import doobie.implicits.*
+import doobie.util.{Get, Put, Read, Write}
 import io.circe.{Decoder, Encoder, Json}
 
 class H2JsonSuite extends munit.FunSuite {

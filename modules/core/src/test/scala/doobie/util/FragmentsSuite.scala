@@ -5,8 +5,9 @@
 package doobie.util
 
 import cats.data.NonEmptyList
-import doobie.*, doobie.implicits.*
+import doobie.implicits.*
 import cats.effect.IO
+import doobie.{Transactor, Fragment, Fragments}
 
 class FragmentsSuite extends munit.FunSuite {
   import Fragments.*

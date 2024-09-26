@@ -5,11 +5,11 @@
 package doobie.h2
 
 import java.util.UUID
-
 import cats.effect.IO
 import doobie.*
 import doobie.implicits.*
 import doobie.h2.implicits.*
+import doobie.util.{Put, Get, Read}
 import doobie.util.analysis.{Analysis, ColumnTypeError}
 import doobie.util.arbitraries.SQLArbitraries.*
 import doobie.util.arbitraries.StringArbitraries.*

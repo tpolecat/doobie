@@ -5,8 +5,8 @@
 package doobie
 package refined
 
+import doobie.util.{Read, Write}
 import org.tpolecat.typename.*
-
 import doobie.util.invariant.*
 import eu.timepit.refined.api.{RefType, Validate}
 

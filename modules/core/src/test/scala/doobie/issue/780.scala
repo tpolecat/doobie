@@ -4,8 +4,8 @@
 
 package doobie.issue
 
-import doobie.*
 import doobie.testutils.VoidExtensions
+import doobie.util.Write
 
 import scala.annotation.nowarn
 

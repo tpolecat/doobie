@@ -5,7 +5,8 @@
 package example
 
 import cats.effect.{IO, IOApp}
-import doobie.*
+import doobie.{Meta, Transactor}
+import doobie.util.Write
 import doobie.implicits.*
 import doobie.postgres.implicits.*
 import org.postgresql.geometric.PGpoint

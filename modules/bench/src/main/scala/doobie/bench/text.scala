@@ -5,7 +5,7 @@
 package doobie.bench
 
 import cats.syntax.all.*
-import doobie.*
+import doobie.{ConnectionIO, FPS, HC, HPS}
 import doobie.implicits.*
 import doobie.postgres.implicits.*
 import fs2.*
