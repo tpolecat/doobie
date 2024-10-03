@@ -71,7 +71,6 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     import doobie.implicits.*
     import shapeless.*
 
-
     assertEquals(Write[CustomReadWrite].length, 1)
 
     assertEquals(Write[HasCustomReadWrite0].length, 2)
