@@ -13,7 +13,7 @@ import java.sql.{PreparedStatement, ResultSet}
 sealed trait Rr[A] {
   def unsafeGet(rs: ResultSet, startidx: Int): A
 
-  def getInstances: List[(Get[?], NullabilityKnown)]
+  def gets: List[(Get[?], NullabilityKnown)]
 
   def toOpt: Rr[Option[A]]
 
@@ -31,7 +31,7 @@ object Rr {
 
     override def toOpt: Rr[Option[A]] = Roet(get)
 
-    override def getInstances: List[(Get[_], NullabilityKnown)] = List(get -> NoNulls)
+    override def gets: List[(Get[_], NullabilityKnown)] = List(get -> NoNulls)
 
     override val length: Int = 1
   }
@@ -41,7 +41,7 @@ object Rr {
       get.unsafeGetNullable(rs, startIdx)
 
     override def toOpt: Rr[Option[Option[A]]] = Comp(List(this), l => Some(l.head.asInstanceOf[Option[A]]))
-    override def getInstances: List[(Get[_], NullabilityKnown)] = List(get -> Nullability.Nullable)
+    override def gets: List[(Get[_], NullabilityKnown)] = List(get -> Nullability.Nullable)
 
     override val length: Int = 1
   }
@@ -50,7 +50,7 @@ object Rr {
 
     override val length: Int = rrs.map(_.length).sum
 
-    override def getInstances: List[(Get[_], NullabilityKnown)] = rrs.flatMap(_.getInstances)
+    override def gets: List[(Get[_], NullabilityKnown)] = rrs.flatMap(_.gets)
 
     override def unsafeGet(rs: ResultSet, startIdx: Int): A = {
       import scala.collection.mutable
@@ -66,9 +66,8 @@ object Rr {
     override def toOpt: Rr[Option[A]] = {
       val orrs = rrs.map(_.toOpt)
 
-      def constr(l: List[Option[Any]]): Option[A] = {
+      val constr: List[Option[Any]] => Option[A] = l =>
         l.sequence.map(construct)
-      }
 
       new Comp[Option[A]](orrs, constr.asInstanceOf[List[Any] => Option[A]])
 
@@ -79,59 +78,91 @@ object Rr {
 }
 
 sealed trait Ww[A] {
-  def unsafeSet(ps: PreparedStatement, i: Int, a: A): Unit
-  def unsafeUpdate(rs: ResultSet, i: Int, a: A): Unit
+  def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit
+  def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit
   def puts: List[(Put[?], NullabilityKnown)]
   def toList(a: A): List[Any]
   def toOpt: Ww[Option[A]]
+  def length: Int
+  def contramap[B](f: B => A): Ww[B]
 }
 
 object Ww {
   case class Pp[A](put: Put[A]) extends Ww[A] {
-    override def unsafeSet(ps: PreparedStatement, i: Int, a: A): Unit =
-      put.unsafeSetNonNullable(ps, i, a)
+    override val length: Int = 1
 
-    override def unsafeUpdate(rs: ResultSet, i: Int, a: A): Unit =
-      put.unsafeUpdateNonNullable(rs, i, a)
+    override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit =
+      put.unsafeSetNonNullable(ps, startIdx, a)
 
-    override def puts: List[(Put[?], NullabilityKnown)] = List(put -> Nullability.NoNulls)
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit =
+      put.unsafeUpdateNonNullable(rs, startIdx, a)
+
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = List(put -> Nullability.NoNulls)
 
     override def toList(a: A): List[Any] = List(a)
 
     override def toOpt: Ww[Option[A]] = Ppo(put)
+
+    override def contramap[B](f: B => A): Ww[B] = Womp[B](List(this), b => List(f(b)))
   }
-  
+
   case class Ppo[A](put: Put[A]) extends Ww[Option[A]] {
+    override val length: Int = 1
 
-    override def unsafeSet(ps: PreparedStatement, i: Int, a: Option[A]): Unit =
-      put.unsafeSetNullable(ps, i, a)
+    override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: Option[A]): Unit =
+      put.unsafeSetNullable(ps, startIdx, a)
 
-    override def unsafeUpdate(rs: ResultSet, i: Int, a: Option[A]): Unit = 
-      put.unsafeUpdateNullable(rs, i, a)
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: Option[A]): Unit =
+      put.unsafeUpdateNullable(rs, startIdx, a)
 
-    override def puts: List[(Put[_], NullabilityKnown)] = List(put -> Nullability.Nullable)
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = List(put -> Nullability.Nullable)
 
     override def toList(a: Option[A]): List[Any] = List(a)
 
-    override def toOpt: Ww[Option[Option[A]]] = ???
+    override def toOpt: Ww[Option[Option[A]]] = Womp[Option[Option[A]]](List(this), x => List(x.flatten))
+
+    override def contramap[B](f: B => Option[A]): Ww[B] = Womp[B](List(this), b => List(f(b)))
   }
-  
-  case class Womp[A](wuts: List[Ww[?]], decompose: A => List[Any]) extends Ww[A] {
+
+  case class Womp[A](writes: List[Ww[?]], decompose: A => List[Any]) extends Ww[A] {
+    override lazy val length: Int = writes.map(_.length).sum
+
+    // Make the types match up with decompose
+    private val anyWrites: List[Ww[Any]] = writes.asInstanceOf[List[Ww[Any]]]
 
     override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit = {
       val parts = decompose(a)
       var idx = startIdx
-      parts.foreach { p =>
-        wuts(0)
+      anyWrites.zip(parts).foreach { case (w, p) =>
+        w.unsafeSet(ps, idx, p)
+        idx += w.length
       }
     }
 
-    override def unsafeUpdate(rs: ResultSet, i: Int, a: A): Unit = ???
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit = {
+      val parts = decompose(a)
+      var idx = startIdx
+      anyWrites.zip(parts).foreach { case (w, p) =>
+        w.unsafeUpdate(rs, idx, p)
+        idx += w.length
+      }
+    }
 
-    override def puts: List[(Put[_], NullabilityKnown)] = ???
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = writes.flatMap(_.puts)
 
-    override def toList(a: A): List[Any] = ???
+    override def toList(a: A): List[Any] =
+      anyWrites.zip(decompose(a)).flatMap { case (w, p) => w.toList(p) }
 
-    override def toOpt: Ww[Option[A]] = ???
+    override def toOpt: Ww[Option[A]] = Womp[Option[A]](
+      writes.map(_.toOpt),
+      {
+        case Some(a) => decompose(a).map(Some(_))
+        case None    => List.fill(writes.length)(None) // All Nones
+      }
+    )
+
+    def contramap[B](f: B => A): Ww[B] = {
+      Womp[B](writes, f.andThen(decompose))
+    }
   }
 }
