@@ -4,9 +4,13 @@
 
 package doobie.util
 
+import cats.ContravariantSemigroupal
 import cats.implicits.*
+import doobie.{Fragment, PreparedStatementIO, ResultSetIO}
 import doobie.enumerated.Nullability
-import doobie.enumerated.Nullability.{NoNulls, NullabilityKnown}
+import doobie.enumerated.Nullability.{NoNulls, NullabilityKnown, Nullable}
+import doobie.free.{preparedstatement as IFPS, resultset as IFRS}
+import doobie.util.fragment.Elem
 
 import java.sql.{PreparedStatement, ResultSet}
 // FIXME:
@@ -78,17 +82,64 @@ object Rr {
 }
 
 sealed trait Ww[A] {
-  def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit
-  def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit
   def puts: List[(Put[?], NullabilityKnown)]
   def toList(a: A): List[Any]
+  def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit
+  def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit
   def toOpt: Ww[Option[A]]
   def length: Int
+
+  final def set(n: Int, a: A): PreparedStatementIO[Unit] =
+    IFPS.raw(unsafeSet(_, n, a))
+
+  final def update(n: Int, a: A): ResultSetIO[Unit] =
+    IFRS.raw(unsafeUpdate(_, n, a))
+
   def contramap[B](f: B => A): Ww[B]
+
+  final def product[B](fb: Ww[B]): Ww[(A, B)] = {
+    new Ww.Composite[(A, B)](List(this, fb), tuple => List(tuple._1, tuple._2))
+  }
+
+  def toFragment(a: A, sql: String = List.fill(length)("?").mkString(",")): Fragment = {
+    val elems: List[Elem] = (puts zip toList(a)).map {
+      case ((p: Put[a], NoNulls), a)  => Elem.Arg(a.asInstanceOf[a], p)
+      case ((p: Put[a], Nullable), a) => Elem.Opt(a.asInstanceOf[Option[a]], p)
+    }
+    Fragment(sql, elems, None)
+  }
 }
 
 object Ww {
-  case class Pp[A](put: Put[A]) extends Ww[A] {
+  def apply[A](implicit A: Ww[A]): Ww[A] = A
+
+  def derived[A](implicit ev: Derived[MkWrite[A]]): Write[A] = ev.instance
+
+  trait Auto extends MkWritePlatform {}
+
+  implicit val WriteContravariantSemigroupal: ContravariantSemigroupal[Ww] =
+    new ContravariantSemigroupal[Ww] {
+      def contramap[A, B](fa: Ww[A])(f: B => A): Ww[B] = fa.contramap(f)
+      def product[A, B](fa: Ww[A], fb: Ww[B]): Ww[(A, B)] = fa.product(fb)
+    }
+
+  private def doNothing[P, A](p: P, i: Int, a: A): Unit = {
+    void(p, i, a)
+  }
+
+  implicit val unitComposite: Ww[Unit] =
+    Ww.Composite[Unit](Nil, _ => List.empty)
+
+  implicit val optionUnit: Ww[Option[Unit]] =
+    Ww.Composite[Option[Unit]](Nil, _ => List.empty)
+
+  implicit def fromPut[A](implicit put: Put[A]): Ww[A] =
+    Ww.Single(put)
+
+  implicit def fromPutOption[A](implicit put: Put[A]): Ww[Option[A]] =
+    Ww.OptSingle(put)
+
+  case class Single[A](put: Put[A]) extends Ww[A] {
     override val length: Int = 1
 
     override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit =
@@ -101,12 +152,12 @@ object Ww {
 
     override def toList(a: A): List[Any] = List(a)
 
-    override def toOpt: Ww[Option[A]] = Ppo(put)
+    override def toOpt: Ww[Option[A]] = OptSingle(put)
 
-    override def contramap[B](f: B => A): Ww[B] = Womp[B](List(this), b => List(f(b)))
+    override def contramap[B](f: B => A): Ww[B] = Composite[B](List(this), b => List(f(b)))
   }
 
-  case class Ppo[A](put: Put[A]) extends Ww[Option[A]] {
+  case class OptSingle[A](put: Put[A]) extends Ww[Option[A]] {
     override val length: Int = 1
 
     override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: Option[A]): Unit =
@@ -119,12 +170,12 @@ object Ww {
 
     override def toList(a: Option[A]): List[Any] = List(a)
 
-    override def toOpt: Ww[Option[Option[A]]] = Womp[Option[Option[A]]](List(this), x => List(x.flatten))
+    override def toOpt: Ww[Option[Option[A]]] = Composite[Option[Option[A]]](List(this), x => List(x.flatten))
 
-    override def contramap[B](f: B => Option[A]): Ww[B] = Womp[B](List(this), b => List(f(b)))
+    override def contramap[B](f: B => Option[A]): Ww[B] = Composite[B](List(this), b => List(f(b)))
   }
 
-  case class Womp[A](writes: List[Ww[?]], decompose: A => List[Any]) extends Ww[A] {
+  case class Composite[A](writes: List[Ww[?]], decompose: A => List[Any]) extends Ww[A] {
     override lazy val length: Int = writes.map(_.length).sum
 
     // Make the types match up with decompose
@@ -153,7 +204,7 @@ object Ww {
     override def toList(a: A): List[Any] =
       anyWrites.zip(decompose(a)).flatMap { case (w, p) => w.toList(p) }
 
-    override def toOpt: Ww[Option[A]] = Womp[Option[A]](
+    override def toOpt: Ww[Option[A]] = Composite[Option[A]](
       writes.map(_.toOpt),
       {
         case Some(a) => decompose(a).map(Some(_))
@@ -162,7 +213,26 @@ object Ww {
     )
 
     def contramap[B](f: B => A): Ww[B] = {
-      Womp[B](writes, f.andThen(decompose))
+      Composite[B](writes, f.andThen(decompose))
     }
   }
+}
+
+final class MkWw[A](
+    underlying: Ww[A]
+) extends Ww[A] {
+  override def puts: List[(Put[_], NullabilityKnown)] = underlying.puts
+  override def toList(a: A): List[Any] = underlying.toList(a)
+  override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit =
+    underlying.unsafeSet(ps, startIdx, a)
+  override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit =
+    underlying.unsafeUpdate(rs, startIdx, a)
+  override def toOpt: Ww[Option[A]] = underlying.toOpt
+  override def length: Int = underlying.length
+  override def contramap[B](f: B => A): Ww[B] = underlying.contramap(f)
+}
+
+object MkWw {
+  // FIXME: need?
+  def lift[A](w: Ww[A]): MkWw[A] = new MkWw(w)
 }
