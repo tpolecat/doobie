@@ -18,7 +18,7 @@ services:
 
 
   mysql:
-    image: mysql:8.0-debian
+    image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: world

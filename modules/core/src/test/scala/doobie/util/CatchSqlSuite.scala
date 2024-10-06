@@ -4,8 +4,11 @@
 
 package doobie.util
 
-import cats.effect.{IO}
-import doobie.*, doobie.implicits.*
+import cats.effect.IO
+import doobie.*
+import doobie.implicits.*
+import org.postgresql.util.{PSQLException, PSQLState}
+
 import java.sql.SQLException
 
 class CatchSqlSuite extends munit.FunSuite {
@@ -31,16 +34,61 @@ class CatchSqlSuite extends munit.FunSuite {
     }
   }
 
-  test("attemptSqlState shuold do nothing on success") {
+  test("attemptSomeSql should do nothing on success") {
+    assertEquals(
+      IO.delay(3).attemptSomeSql {
+        case _: SQLException => 42
+      }.unsafeRunSync(),
+      Right(3))
+  }
+
+  test("attemptSomeSql should catch SQLException with matching subtype (1)") {
+    val e = new SQLException("", SQLSTATE_FOO.value)
+    assertEquals(
+      IO.raiseError(e).attemptSomeSql {
+        case _: SQLException => 42
+      }.unsafeRunSync(),
+      Left(42))
+  }
+
+  test("attemptSomeSql should catch SQLException with matching subtype (2)") {
+    val PSQLSTATE = PSQLState.CHECK_VIOLATION
+    val e = new PSQLException("", PSQLSTATE)
+    assertEquals(
+      IO.raiseError(e).attemptSomeSql {
+        case exception: PSQLException if exception.getSQLState == PSQLSTATE.getState => 66
+      }.unsafeRunSync(),
+      Left(66))
+  }
+
+  test("attemptSomeSql should ignore SQLException with non-matching subtype") {
+    final case class AnotherSQLException(message: String) extends SQLException(message)
+    val e = AnotherSQLException("")
+    intercept[AnotherSQLException] {
+      IO.raiseError(e).attemptSomeSql {
+        case exception: PSQLException if exception.getSQLState == "Baz" => 66
+      }.unsafeRunSync()
+    }
+  }
+
+  test("attemptSomeSql should ignore non-SQLException") {
+    val e = new IllegalArgumentException
+    intercept[IllegalArgumentException] {
+      IO.raiseError(e).attemptSomeSql {
+        case _: SQLException => 42
+      }.unsafeRunSync()
+    }
+  }
+  test("attemptSqlState should do nothing on success") {
     assertEquals(IO.delay(3).attemptSqlState.unsafeRunSync(), Right(3))
   }
 
-  test("attemptSqlState shuold catch SQLException") {
+  test("attemptSqlState should catch SQLException") {
     val e = new SQLException("", SQLSTATE_FOO.value)
     assertEquals(IO.raiseError(e).attemptSqlState.unsafeRunSync(), Left(SQLSTATE_FOO))
   }
 
-  test("attemptSqlState shuold ignore non-SQLException") {
+  test("attemptSqlState should ignore non-SQLException") {
     val e = new IllegalArgumentException
     intercept[IllegalArgumentException] {
       IO.raiseError(e).attemptSqlState.unsafeRunSync()

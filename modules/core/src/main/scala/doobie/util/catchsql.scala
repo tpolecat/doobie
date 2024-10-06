@@ -22,6 +22,12 @@ object catchsql {
       case e: SQLException => e.asLeft
     }
 
+  /** Like `attempt` but catches only the defined `SQLException`. */
+  def attemptSomeSql[M[_], A, B](ma: M[A])(f: PartialFunction[SQLException, B])(implicit AE: ApplicativeError[M, Throwable]): M[Either[B, A]] =
+    ma.map(_.asRight[B]).recoverWith { case e: SQLException =>
+      f.lift(e).fold(AE.raiseError[Either[B, A]](e))(b => AE.pure(b.asLeft))
+    }
+
   /** Like `attemptSql` but yields only the exception's `SqlState`. */
   def attemptSqlState[M[_], A](ma: M[A])(
       implicit ev: ApplicativeError[M, Throwable]

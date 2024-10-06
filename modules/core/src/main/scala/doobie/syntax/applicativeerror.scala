@@ -11,6 +11,7 @@ import java.sql.SQLException
 
 class ApplicativeErrorOps[M[_], A](self: M[A])(implicit ev: ApplicativeError[M, Throwable]) {
   def attemptSql: M[Either[SQLException, A]] = C.attemptSql(self)
+  def attemptSomeSql[B](f: PartialFunction[SQLException, B]): M[Either[B, A]] = C.attemptSomeSql(self)(f)
   def attemptSqlState: M[Either[SqlState, A]] = C.attemptSqlState(self)
   def attemptSomeSqlState[B](f: PartialFunction[SqlState, B]): M[Either[B, A]] = C.attemptSomeSqlState(self)(f)
   def exceptSql(handler: SQLException => M[A]): M[A] = C.exceptSql(self)(handler)
