@@ -5,6 +5,7 @@
 package doobie.util
 
 import cats.ContravariantSemigroupal
+import doobie.enumerated.Nullability
 import doobie.enumerated.Nullability.*
 import doobie.free.{PreparedStatementIO, ResultSetIO}
 
@@ -75,10 +76,10 @@ sealed trait Write[A] {
   }
 }
 
-object Write {
+object Write extends LowerPriorityWrite {
   def apply[A](implicit A: Write[A]): Write[A] = A
 
-  def derived[A](implicit ev: Mkk[A]): Write[A] = ev.instance
+  def derived[A](implicit ev: MkWrite[A]): Write[A] = ev.instance
 
   trait Auto extends MkWritePlatform {}
 
@@ -88,21 +89,14 @@ object Write {
       def product[A, B](fa: Write[A], fb: Write[B]): Write[(A, B)] = fa.product(fb)
     }
 
-  private def doNothing[P, A](p: P, i: Int, a: A): Unit = {
-    void(p, i, a)
-  }
-
   implicit val unitComposite: Write[Unit] =
     Write.Composite[Unit](Nil, _ => List.empty)
 
   implicit val optionUnit: Write[Option[Unit]] =
     Write.Composite[Option[Unit]](Nil, _ => List.empty)
 
-  implicit def fromPut[A](implicit put: Put[A]): Write[A] =
-    Write.Single(put)
-
-  implicit def fromPutOption[A](implicit put: Put[A]): Write[Option[A]] =
-    Write.OptSingle(put)
+  implicit def optionalFromWrite[A](implicit write: Write[A]): Write[Option[A]] =
+    write.toOpt
 
   case class Single[A](put: Put[A]) extends Write[A] {
     override val length: Int = 1
@@ -117,12 +111,12 @@ object Write {
 
     override def toList(a: A): List[Any] = List(a)
 
-    override def toOpt: Write[Option[A]] = OptSingle(put)
+    override def toOpt: Write[Option[A]] = SingleOpt(put)
 
     override def contramap[B](f: B => A): Write[B] = Composite[B](List(this), b => List(f(b)))
   }
 
-  case class OptSingle[A](put: Put[A]) extends Write[Option[A]] {
+  case class SingleOpt[A](put: Put[A]) extends Write[Option[A]] {
     override val length: Int = 1
 
     override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: Option[A]): Unit =
@@ -183,4 +177,16 @@ object Write {
   }
 }
 
-final class Mkk[A](val instance: Write[A]) extends AnyVal
+trait LowerPriorityWrite extends WritePlatform {
+
+  implicit def fromPut[A](implicit put: Put[A]): Write[A] =
+    Write.Single(put)
+
+  implicit def fromPutOption[A](implicit put: Put[A]): Write[Option[A]] =
+    Write.SingleOpt(put)
+
+}
+
+final class MkWrite[A](val instance: Write[A]) extends AnyVal
+
+object MkWrite extends MkWritePlatform {}

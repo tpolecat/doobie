@@ -34,14 +34,14 @@ object TestTypes {
 
   object CustomReadWrite {
     implicit val write: Write[CustomReadWrite] = Write.fromPut[String].contramap(_.s)
-    implicit val read: Read[CustomReadWrite] = Read.fromGet[String].map(CustomReadWrite(1, _))
+    implicit val read: Read[CustomReadWrite] = Read.fromGet[String].map(CustomReadWrite(0, _))
   }
 
-  case class CustomMeta(i: Int)
+  case class CustomMeta(i: Int, notUsed: Int)
 
   object CustomMeta {
-    implicit val put: Put[CustomMeta] = Put.derived
-    implicit val get: Get[CustomMeta] = Get.derived
+    implicit val put: Put[CustomMeta] = Put[Int].contramap(_.i)
+    implicit val get: Get[CustomMeta] = Get[Int].tmap(CustomMeta(_, 0))
   }
 
 }

@@ -6,7 +6,7 @@ package doobie.util
 
 import scala.deriving.Mirror
 
-trait WritePlatform:
+trait WritePlatform extends LowerPriority1WritePlatform:
 
   // Derivation for product types (i.e. case class)
   given derivedTuple[P <: Tuple, A](
@@ -16,12 +16,8 @@ trait WritePlatform:
       w: MkWrite[A]
   ): MkWrite[P] =
     MkWrite.derived[P, A]
+    
+trait LowerPriority1WritePlatform:
+  given fromDerived[A](using ev: MkWrite[A]): Write[A] = ev.instance
+    
 
-  // Derivation for optional product types
-  given derivedOptionTuple[P <: Tuple, A](
-      using
-      m: Mirror.ProductOf[P],
-      i: m.MirroredElemTypes =:= A,
-      w: MkWrite[Option[A]]
-  ): MkWrite[Option[P]] =
-    MkWrite.derivedOption[P, A]

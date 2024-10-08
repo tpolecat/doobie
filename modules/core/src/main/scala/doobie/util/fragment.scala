@@ -6,16 +6,12 @@ package doobie.util
 
 import cats.*
 import cats.data.Chain
-import doobie.enumerated.Nullability.*
 import doobie.free.connection.ConnectionIO
 import doobie.free.preparedstatement.PreparedStatementIO
 import doobie.util.pos.Pos
 import doobie.hi.connection as IHC
 import doobie.util.query.{Query, Query0}
 import doobie.util.update.{Update, Update0}
-
-import java.sql.{PreparedStatement, ResultSet}
-import scala.Predef.{augmentString, implicitly}
 
 /** Module defining the `Fragment` data type. */
 object fragment {
@@ -35,42 +31,20 @@ object fragment {
     private implicit lazy val write: Write[elems.type] = {
       import Elem.*
 
-      val puts: List[(Put[?], NullabilityKnown)] =
+      val writes: List[Write[?]] =
         elems.map {
-          case Arg(_, p) => (p, NoNulls)
-          case Opt(_, p) => (p, Nullable)
+          case Arg(_, p) => Write.Single(p)
+          case Opt(_, p) => Write.OptSingle(p)
         }.toList
 
-      val toList: elems.type => List[Any] = elems =>
-        elems.map {
-          case Arg(a, _) => a
-          case Opt(a, _) => a
-        }.toList
-
-      val unsafeSet: (PreparedStatement, Int, elems.type) => Unit = { (ps, n, elems) =>
-        var index = n
-        elems.iterator.foreach { e =>
-          e match {
-            case Arg(a, p) => p.unsafeSetNonNullable(ps, index, a)
-            case Opt(a, p) => p.unsafeSetNullable(ps, index, a)
-          }
-          index += 1
-        }
-      }
-
-      val unsafeUpdate: (ResultSet, Int, elems.type) => Unit = { (ps, n, elems) =>
-        var index = n
-        elems.iterator.foreach { e =>
-          e match {
-            case Arg(a, p) => p.unsafeUpdateNonNullable(ps, index, a)
-            case Opt(a, p) => p.unsafeUpdateNullable(ps, index, a)
-          }
-          index += 1
-        }
-      }
-
-      Write(puts, toList, unsafeSet, unsafeUpdate)
-
+      Write.Composite(
+        writes,
+        a =>
+          a.map {
+            case Arg(a, _) => a
+            case Opt(a, _) => a
+          }.toList
+      )
     }
 
     /** Construct a program in ConnectionIO that constructs and prepares a PreparedStatement, with further handling

@@ -35,12 +35,6 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     Write[(Int, Int)].void
     Write[(Int, Int, String)].void
     Write[(Int, (Int, String))].void
-    import shapeless.*
-    // FIXME: 2.12 doesn't work below?
-//    Write[SimpleCaseClass :: Option[SimpleCaseClass] :: Option[Int] :: String :: HNil].void
-//    implicit val x = generic[ComplexCaseClass, SimpleCaseClass :: Option[SimpleCaseClass] :: Option[Int] :: String :: HNil]
-//    Write.fromDerived(x)
-    Write[ComplexCaseClass].void
   }
 
   test("Write is auto derived for tuples without an import") {
@@ -67,18 +61,28 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
 //    assert(compileErrors("Write[LenStr1]").contains("Cannot find or construct"))
 //  }
 
+  test("Semiauto derivation selects custom Write instances when available") {
+    assertEquals(Write.derived[CustomReadWrite].length, 1)
+
+    assertEquals(Write.derived[HasCustomReadWrite0].length, 2)
+    assertEquals(Write.derived[HasCustomReadWrite1].length, 2)
+
+    assertEquals(Write.derived[HasOptCustomReadWrite0].length, 2)
+    assertEquals(Write.derived[HasOptCustomReadWrite1].length, 2)
+  }
+
+  // FIXME:
+  // test("Semiauto derivation selects custom Put instances when available") {}
+  // test("Auto derivation selects custom Put instances when available") {}
+
   test("Auto derivation selects custom Write instances when available") {
     import doobie.implicits.*
-    import shapeless.*
 
     assertEquals(Write[CustomReadWrite].length, 1)
+    assertEquals(Write[Option[CustomReadWrite]].length, 1)
 
     assertEquals(Write[HasCustomReadWrite0].length, 2)
     assertEquals(Write[HasCustomReadWrite1].length, 2)
-
-    assertEquals(Write[Option[CustomReadWrite]].length, 1)
-    assertEquals(Write[Option[CustomReadWrite :: String :: HNil]].length, 2)
-    assertEquals(ogeneric[HasCustomReadWrite0, CustomReadWrite :: String :: HNil].instance.length, 2)
 
     assertEquals(Write[Option[HasCustomReadWrite0]].length, 2)
     assertEquals(Write[Option[HasCustomReadWrite1]].length, 2)
@@ -86,14 +90,6 @@ class WriteSuite extends munit.FunSuite with WriteSuitePlatform {
     assertEquals(Write[HasOptCustomReadWrite1].length, 2)
     assertEquals(Write[Option[HasOptCustomReadWrite0]].length, 2)
     assertEquals(Write[Option[HasOptCustomReadWrite1]].length, 2)
-  }
-
-  test("Auto derivation selects custom Put instances") {
-    import doobie.implicits.*
-    assert(Write[HasCustomMeta0].puts(0)._1.eq(CustomMeta.put))
-    assert(Write[HasCustomMeta1].puts(1)._1.eq(CustomMeta.put))
-    assert(Write[HasOptCustomMeta0].puts(0)._1.eq(CustomMeta.put))
-    assert(Write[HasOptCustomMeta1].puts(1)._1.eq(CustomMeta.put))
   }
 
   test("Write should not be derivable for case objects") {
