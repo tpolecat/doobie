@@ -46,40 +46,26 @@ And find the missing instance and construct it as needed. Refer to Chapter 12
 of the book of doobie for more information.
 """)
  */
-sealed abstract class Write[A](
-    val puts: List[(Put[?], NullabilityKnown)],
-    val toList: A => List[Any],
-    val unsafeSet: (PreparedStatement, Int, A) => Unit,
-    val unsafeUpdate: (ResultSet, Int, A) => Unit
-) {
+sealed trait Write[A] {
+  def puts: List[(Put[?], NullabilityKnown)]
+  def toList(a: A): List[Any]
+  def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit
+  def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit
+  def toOpt: Write[Option[A]]
+  def length: Int
 
-  lazy val length = puts.length
-
-  def set(n: Int, a: A): PreparedStatementIO[Unit] =
+  final def set(n: Int, a: A): PreparedStatementIO[Unit] =
     IFPS.raw(unsafeSet(_, n, a))
 
-  def update(n: Int, a: A): ResultSetIO[Unit] =
+  final def update(n: Int, a: A): ResultSetIO[Unit] =
     IFRS.raw(unsafeUpdate(_, n, a))
 
-  def contramap[B](f: B => A): Write[B] =
-    new Write[B](
-      puts,
-      b => toList(f(b)),
-      (ps, n, a) => unsafeSet(ps, n, f(a)),
-      (rs, n, a) => unsafeUpdate(rs, n, f(a))
-    ) {}
+  def contramap[B](f: B => A): Write[B]
 
-  def product[B](fb: Write[B]): Write[(A, B)] =
-    new Write[(A, B)](
-      puts ++ fb.puts,
-      { case (a, b) => toList(a) ++ fb.toList(b) },
-      { case (ps, n, (a, b)) => unsafeSet(ps, n, a); fb.unsafeSet(ps, n + length, b) },
-      { case (rs, n, (a, b)) => unsafeUpdate(rs, n, a); fb.unsafeUpdate(rs, n + length, b) }
-    ) {}
+  final def product[B](fb: Write[B]): Write[(A, B)] = {
+    new Write.Composite[(A, B)](List(this, fb), tuple => List(tuple._1, tuple._2))
+  }
 
-  /** Given a value of type `A` and an appropriately parameterized SQL string we can construct a `Fragment`. If `sql` is
-    * unspecified a comma-separated list of `length` placeholders will be used.
-    */
   def toFragment(a: A, sql: String = List.fill(length)("?").mkString(",")): Fragment = {
     val elems: List[Elem] = (puts zip toList(a)).map {
       case ((p: Put[a], NoNulls), a)  => Elem.Arg(a.asInstanceOf[a], p)
@@ -87,76 +73,114 @@ sealed abstract class Write[A](
     }
     Fragment(sql, elems, None)
   }
-
 }
 
-object Write extends WriteInstances {
-
-  def apply[A](
-      puts: List[(Put[?], NullabilityKnown)],
-      toList: A => List[Any],
-      unsafeSet: (PreparedStatement, Int, A) => Unit,
-      unsafeUpdate: (ResultSet, Int, A) => Unit
-  ): Write[A] = new Write(puts, toList, unsafeSet, unsafeUpdate) {}
-
+object Write {
   def apply[A](implicit A: Write[A]): Write[A] = A
 
-  def derived[A](implicit ev: Derived[MkWrite[A]]): Write[A] = ev.instance
+  def derived[A](implicit ev: Mkk[A]): Write[A] = ev.instance
 
   trait Auto extends MkWritePlatform {}
 
   implicit val WriteContravariantSemigroupal: ContravariantSemigroupal[Write] =
     new ContravariantSemigroupal[Write] {
-      def contramap[A, B](fa: Write[A])(f: B => A) = fa.contramap(f)
-      def product[A, B](fa: Write[A], fb: Write[B]) = fa.product(fb)
+      def contramap[A, B](fa: Write[A])(f: B => A): Write[B] = fa.contramap(f)
+      def product[A, B](fa: Write[A], fb: Write[B]): Write[(A, B)] = fa.product(fb)
     }
 
   private def doNothing[P, A](p: P, i: Int, a: A): Unit = {
     void(p, i, a)
   }
 
-  private def empty[A](a: A): List[Any] = {
-    void(a)
-    List.empty
-  }
-
   implicit val unitComposite: Write[Unit] =
-    Write[Unit](Nil, empty[Unit](_), doNothing[PreparedStatement, Unit](_, _, _), doNothing[ResultSet, Unit](_, _, _))
+    Write.Composite[Unit](Nil, _ => List.empty)
 
   implicit val optionUnit: Write[Option[Unit]] =
-    Write[Option[Unit]](
-      Nil,
-      empty[Option[Unit]](_),
-      doNothing[PreparedStatement, Option[Unit]](_, _, _),
-      doNothing[ResultSet, Option[Unit]](_, _, _))
+    Write.Composite[Option[Unit]](Nil, _ => List.empty)
 
-  implicit def fromPut[A](implicit P: Put[A]): Write[A] =
-    new Write[A](
-      List((P, NoNulls)),
-      a => List(a),
-      (ps, n, a) => P.unsafeSetNonNullable(ps, n, a),
-      (rs, n, a) => P.unsafeUpdateNonNullable(rs, n, a)
-    ) {}
+  implicit def fromPut[A](implicit put: Put[A]): Write[A] =
+    Write.Single(put)
 
-  implicit def fromPutOption[A](implicit P: Put[A]): Write[Option[A]] =
-    new Write[Option[A]](
-      List((P, Nullable)),
-      a => List(a),
-      (ps, n, a) => P.unsafeSetNullable(ps, n, a),
-      (rs, n, a) => P.unsafeUpdateNullable(rs, n, a)
-    ) {}
+  implicit def fromPutOption[A](implicit put: Put[A]): Write[Option[A]] =
+    Write.OptSingle(put)
 
+  case class Single[A](put: Put[A]) extends Write[A] {
+    override val length: Int = 1
+
+    override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit =
+      put.unsafeSetNonNullable(ps, startIdx, a)
+
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit =
+      put.unsafeUpdateNonNullable(rs, startIdx, a)
+
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = List(put -> Nullability.NoNulls)
+
+    override def toList(a: A): List[Any] = List(a)
+
+    override def toOpt: Write[Option[A]] = OptSingle(put)
+
+    override def contramap[B](f: B => A): Write[B] = Composite[B](List(this), b => List(f(b)))
+  }
+
+  case class OptSingle[A](put: Put[A]) extends Write[Option[A]] {
+    override val length: Int = 1
+
+    override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: Option[A]): Unit =
+      put.unsafeSetNullable(ps, startIdx, a)
+
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: Option[A]): Unit =
+      put.unsafeUpdateNullable(rs, startIdx, a)
+
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = List(put -> Nullability.Nullable)
+
+    override def toList(a: Option[A]): List[Any] = List(a)
+
+    override def toOpt: Write[Option[Option[A]]] = Composite[Option[Option[A]]](List(this), x => List(x.flatten))
+
+    override def contramap[B](f: B => Option[A]): Write[B] = Composite[B](List(this), b => List(f(b)))
+  }
+
+  case class Composite[A](writes: List[Write[?]], deconstruct: A => List[Any]) extends Write[A] {
+    override lazy val length: Int = writes.map(_.length).sum
+
+    // Make the types match up with deconstruct
+    private val anyWrites: List[Write[Any]] = writes.asInstanceOf[List[Write[Any]]]
+
+    override def unsafeSet(ps: PreparedStatement, startIdx: Int, a: A): Unit = {
+      val parts = deconstruct(a)
+      var idx = startIdx
+      anyWrites.zip(parts).foreach { case (w, p) =>
+        w.unsafeSet(ps, idx, p)
+        idx += w.length
+      }
+    }
+
+    override def unsafeUpdate(rs: ResultSet, startIdx: Int, a: A): Unit = {
+      val parts = deconstruct(a)
+      var idx = startIdx
+      anyWrites.zip(parts).foreach { case (w, p) =>
+        w.unsafeUpdate(rs, idx, p)
+        idx += w.length
+      }
+    }
+
+    override lazy val puts: List[(Put[?], NullabilityKnown)] = writes.flatMap(_.puts)
+
+    override def toList(a: A): List[Any] =
+      anyWrites.zip(deconstruct(a)).flatMap { case (w, p) => w.toList(p) }
+
+    override def toOpt: Write[Option[A]] = Composite[Option[A]](
+      writes.map(_.toOpt),
+      {
+        case Some(a) => deconstruct(a).map(Some(_))
+        case None    => List.fill(writes.length)(None) // All Nones
+      }
+    )
+
+    def contramap[B](f: B => A): Write[B] = {
+      Composite[B](writes, f.andThen(deconstruct))
+    }
+  }
 }
 
-trait WriteInstances extends WritePlatform
-
-final class MkWrite[A](
-    override val puts: List[(Put[?], NullabilityKnown)],
-    override val toList: A => List[Any],
-    override val unsafeSet: (PreparedStatement, Int, A) => Unit,
-    override val unsafeUpdate: (ResultSet, Int, A) => Unit
-) extends Write[A](puts, toList, unsafeSet, unsafeUpdate)
-object MkWrite extends MkWritePlatform {
-  def lift[A](w: Write[A]): MkWrite[A] =
-    new MkWrite[A](w.puts, w.toList, w.unsafeSet, w.unsafeUpdate)
-}
+final class Mkk[A](val instance: Write[A]) extends AnyVal
