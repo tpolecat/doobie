@@ -300,6 +300,6 @@ object pgconnection { module =>
   implicit def SemigroupPGConnectionIO[A : Semigroup]: Semigroup[PGConnectionIO[A]] = new Semigroup[PGConnectionIO[A]] {
     override def combine(x: PGConnectionIO[A], y: PGConnectionIO[A]): PGConnectionIO[A] =
       Applicative[PGConnectionIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

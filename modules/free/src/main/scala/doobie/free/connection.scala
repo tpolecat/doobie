@@ -493,6 +493,6 @@ object connection { module =>
   implicit def SemigroupConnectionIO[A : Semigroup]: Semigroup[ConnectionIO[A]] = new Semigroup[ConnectionIO[A]] {
     override def combine(x: ConnectionIO[A], y: ConnectionIO[A]): ConnectionIO[A] =
       Applicative[ConnectionIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

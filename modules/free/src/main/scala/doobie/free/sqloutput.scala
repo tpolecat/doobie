@@ -334,6 +334,6 @@ object sqloutput { module =>
   implicit def SemigroupSQLOutputIO[A : Semigroup]: Semigroup[SQLOutputIO[A]] = new Semigroup[SQLOutputIO[A]] {
     override def combine(x: SQLOutputIO[A], y: SQLOutputIO[A]): SQLOutputIO[A] =
       Applicative[SQLOutputIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

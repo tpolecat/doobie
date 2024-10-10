@@ -284,6 +284,6 @@ object largeobject { module =>
   implicit def SemigroupLargeObjectIO[A : Semigroup]: Semigroup[LargeObjectIO[A]] = new Semigroup[LargeObjectIO[A]] {
     override def combine(x: LargeObjectIO[A], y: LargeObjectIO[A]): LargeObjectIO[A] =
       Applicative[LargeObjectIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

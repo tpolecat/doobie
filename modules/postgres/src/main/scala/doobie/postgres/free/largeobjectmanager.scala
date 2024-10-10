@@ -227,6 +227,6 @@ object largeobjectmanager { module =>
   implicit def SemigroupLargeObjectManagerIO[A : Semigroup]: Semigroup[LargeObjectManagerIO[A]] = new Semigroup[LargeObjectManagerIO[A]] {
     override def combine(x: LargeObjectManagerIO[A], y: LargeObjectManagerIO[A]): LargeObjectManagerIO[A] =
       Applicative[LargeObjectManagerIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

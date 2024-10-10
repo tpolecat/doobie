@@ -1076,6 +1076,6 @@ object databasemetadata { module =>
   implicit def SemigroupDatabaseMetaDataIO[A : Semigroup]: Semigroup[DatabaseMetaDataIO[A]] = new Semigroup[DatabaseMetaDataIO[A]] {
     override def combine(x: DatabaseMetaDataIO[A], y: DatabaseMetaDataIO[A]): DatabaseMetaDataIO[A] =
       Applicative[DatabaseMetaDataIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

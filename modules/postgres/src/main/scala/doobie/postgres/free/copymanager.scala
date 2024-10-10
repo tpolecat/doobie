@@ -235,6 +235,6 @@ object copymanager { module =>
   implicit def SemigroupCopyManagerIO[A : Semigroup]: Semigroup[CopyManagerIO[A]] = new Semigroup[CopyManagerIO[A]] {
     override def combine(x: CopyManagerIO[A], y: CopyManagerIO[A]): CopyManagerIO[A] =
       Applicative[CopyManagerIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

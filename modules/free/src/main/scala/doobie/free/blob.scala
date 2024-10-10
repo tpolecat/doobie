@@ -233,6 +233,6 @@ object blob { module =>
   implicit def SemigroupBlobIO[A : Semigroup]: Semigroup[BlobIO[A]] = new Semigroup[BlobIO[A]] {
     override def combine(x: BlobIO[A], y: BlobIO[A]): BlobIO[A] =
       Applicative[BlobIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

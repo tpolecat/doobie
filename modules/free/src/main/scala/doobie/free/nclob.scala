@@ -247,6 +247,6 @@ object nclob { module =>
   implicit def SemigroupNClobIO[A : Semigroup]: Semigroup[NClobIO[A]] = new Semigroup[NClobIO[A]] {
     override def combine(x: NClobIO[A], y: NClobIO[A]): NClobIO[A] =
       Applicative[NClobIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

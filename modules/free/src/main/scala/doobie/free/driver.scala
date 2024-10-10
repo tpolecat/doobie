@@ -216,6 +216,6 @@ object driver { module =>
   implicit def SemigroupDriverIO[A : Semigroup]: Semigroup[DriverIO[A]] = new Semigroup[DriverIO[A]] {
     override def combine(x: DriverIO[A], y: DriverIO[A]): DriverIO[A] =
       Applicative[DriverIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

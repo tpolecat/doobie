@@ -197,6 +197,6 @@ object ref { module =>
   implicit def SemigroupRefIO[A : Semigroup]: Semigroup[RefIO[A]] = new Semigroup[RefIO[A]] {
     override def combine(x: RefIO[A], y: RefIO[A]): RefIO[A] =
       Applicative[RefIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

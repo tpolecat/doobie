@@ -1152,6 +1152,6 @@ object resultset { module =>
   implicit def SemigroupResultSetIO[A : Semigroup]: Semigroup[ResultSetIO[A]] = new Semigroup[ResultSetIO[A]] {
     override def combine(x: ResultSetIO[A], y: ResultSetIO[A]): ResultSetIO[A] =
       Applicative[ResultSetIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

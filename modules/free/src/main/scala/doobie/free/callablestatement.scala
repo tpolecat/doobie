@@ -1364,6 +1364,6 @@ object callablestatement { module =>
   implicit def SemigroupCallableStatementIO[A : Semigroup]: Semigroup[CallableStatementIO[A]] = new Semigroup[CallableStatementIO[A]] {
     override def combine(x: CallableStatementIO[A], y: CallableStatementIO[A]): CallableStatementIO[A] =
       Applicative[CallableStatementIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 

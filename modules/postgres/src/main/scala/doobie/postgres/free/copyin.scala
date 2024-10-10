@@ -227,6 +227,6 @@ object copyin { module =>
   implicit def SemigroupCopyInIO[A : Semigroup]: Semigroup[CopyInIO[A]] = new Semigroup[CopyInIO[A]] {
     override def combine(x: CopyInIO[A], y: CopyInIO[A]): CopyInIO[A] =
       Applicative[CopyInIO].product(x, y).map { case (x, y) => Semigroup[A].combine(x, y) }
-  }  
+  }
 }
 
