@@ -14,12 +14,19 @@ import org.typelevel.doobie.hi.connection as IHC
 
 class ConnectionIOOps[A](ma: ConnectionIO[A]) {
   def transact[M[_]: MonadCancelThrow](xa: Transactor[M]): M[A] = xa.trans.apply(ma)
+
+  def transactRaw[M[_]: MonadCancelThrow](xa: Transactor[M]): M[A] = xa.rawTrans.apply(ma)
 }
 
 class OptionTConnectionIOOps[A](ma: OptionT[ConnectionIO, A]) {
   def transact[M[_]: MonadCancelThrow](xa: Transactor[M]): OptionT[M, A] =
     OptionT(
       xa.trans.apply(ma.orElseF(IHC.rollback.as(None)).value)
+    )
+
+  def transactRaw[M[_]: MonadCancelThrow](xa: Transactor[M]): OptionT[M, A] =
+    OptionT(
+      xa.rawTrans.apply(ma.orElseF(IHC.rollback.as(None)).value)
     )
 }
 
@@ -28,11 +35,19 @@ class EitherTConnectionIOOps[E, A](ma: EitherT[ConnectionIO, E, A]) {
     EitherT(
       xa.trans.apply(ma.leftSemiflatMap(IHC.rollback.as(_)).value)
     )
+
+  def transactRaw[M[_]: MonadCancelThrow](xa: Transactor[M]): EitherT[M, E, A] =
+    EitherT(
+      xa.rawTrans.apply(ma.leftSemiflatMap(IHC.rollback.as(_)).value)
+    )
 }
 
 class KleisliConnectionIOOps[A, B](ma: Kleisli[ConnectionIO, A, B]) {
   def transact[M[_]: MonadCancelThrow](xa: Transactor[M]): Kleisli[M, A, B] =
     ma.mapK(xa.trans)
+
+  def transactRaw[M[_]: MonadCancelThrow](xa: Transactor[M]): Kleisli[M, A, B] =
+    ma.mapK(xa.rawTrans)
 }
 
 trait ToConnectionIOOps {

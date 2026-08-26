@@ -26,8 +26,17 @@ class ConnectionIOSuite extends munit.CatsEffectSuite {
     prg.transact(xa).assertEquals(List(1, 2, 3, 4, 5, 6))
   }
 
+  test("Semigroup ConnectionIO raw") {
+    val prg = Applicative[ConnectionIO].pure(List(1, 2, 3)) `combine` Applicative[ConnectionIO].pure(List(4, 5, 6))
+    prg.transactRaw(xa).assertEquals(List(1, 2, 3, 4, 5, 6))
+  }
+
   test("Monoid ConnectionIO") {
     Monoid[ConnectionIO[List[Int]]].empty.transact(xa).assertEquals(Nil)
+  }
+
+  test("Monoid ConnectionIO raw") {
+    Monoid[ConnectionIO[List[Int]]].empty.transactRaw(xa).assertEquals(Nil)
   }
 
 }
