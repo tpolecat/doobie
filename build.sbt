@@ -26,7 +26,7 @@ lazy val shapelessVersion = "2.3.13"
 lazy val silencerVersion = "1.7.1"
 lazy val specs2Version = "4.23.0"
 lazy val scala212Version = "2.12.21"
-lazy val scala213Version = "2.13.18"
+lazy val scala213Version = "3.9.0"
 lazy val scala3Version = "3.3.8"
 lazy val allScalaVersions = List(scala212Version, scala213Version, scala3Version)
 lazy val doobieGitRemote =
@@ -163,7 +163,7 @@ lazy val compilerFlags = Seq(
       case "2.13" =>
         Seq(
           "-Xsource:3-cross",
-          // See https://github.com/scala/bug/issues/13128. Should no longer be need in 2.13.18 since change was reverted
+          // See https://github.com/scala/bug/issues/13128. Should no longer be need in 3.9.0 since change was reverted
           "-Wconf:cat=lint-infer-any&msg=kind-polymorphic:s"
         )
       case "2.12" =>
