@@ -41,7 +41,7 @@ object PostgresCopyInCsv extends IOApp.Simple {
   val byteStream = Stream.emit(csv).through(utf8.encode).covary[IO]
 
   // Create a temorary table to hold the input data
-  val createTable: ConnectionIO[Int] = sql"CREATE TEMP TABLE favorite_foods(name TEXT, food TEXT)".update.run
+  val createTable: ConnectionIO[Long] = sql"CREATE TEMP TABLE favorite_foods(name TEXT, food TEXT)".update.run
 
   def copyIn(is: InputStream): ConnectionIO[Long] = {
     // construct a CopyManagerIO with the postgres extensions

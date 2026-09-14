@@ -86,10 +86,10 @@ object FirstExample extends IOApp.Simple {
     def coffeesLessThan(price: Double): Stream[ConnectionIO, (String, String)] =
       Queries.coffeesLessThan(price).stream
 
-    def insertSuppliers(ss: List[Supplier]): ConnectionIO[Int] =
+    def insertSuppliers(ss: List[Supplier]): ConnectionIO[Long] =
       Queries.insertSupplier.updateMany(ss) // bulk insert (!)
 
-    def insertCoffees(cs: List[Coffee]): ConnectionIO[Int] =
+    def insertCoffees(cs: List[Coffee]): ConnectionIO[Long] =
       Queries.insertCoffee.updateMany(cs)
 
     def allCoffees: Stream[ConnectionIO, Coffee] =

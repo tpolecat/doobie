@@ -27,8 +27,8 @@ object Orm extends IOApp {
     def insert(a: A): ConnectionIO[Key]
     def find(k: Key): ConnectionIO[Option[A]]
     def findAll: Stream[ConnectionIO, A]
-    def update(k: Key, a: A): ConnectionIO[Int]
-    def delete(k: Key): ConnectionIO[Int]
+    def update(k: Key, a: A): ConnectionIO[Long]
+    def delete(k: Key): ConnectionIO[Long]
   }
   object Dao {
 
@@ -74,14 +74,14 @@ object Orm extends IOApp {
                 FROM $table
               """).stream
 
-            def update(k: Key, a: A): ConnectionIO[Int] =
+            def update(k: Key, a: A): ConnectionIO[Long] =
               Update[(A, Key)](s"""
                 UPDATE $table
                 SET ${cols.map(_ + " = ?").mkString(", ")}
                 WHERE $keyCol = ?
               """).run((a, k))
 
-            def delete(k: Key): ConnectionIO[Int] = {
+            def delete(k: Key): ConnectionIO[Long] = {
               Update[Key](s"""
                 DELETE FROM $table
                 WHERE $keyCol = ?

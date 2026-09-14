@@ -28,7 +28,7 @@ class UpdateSuite extends CatsEffectSuite {
         1,
         pe => pe.copy(exec = IFPS.delay { didRun = true } *> pe.exec))
     } yield {
-      assertEquals(res, 1)
+      assertEquals(res, 1L)
     })
       .transact(xa)
       .flatMap { _ =>
@@ -44,7 +44,7 @@ class UpdateSuite extends CatsEffectSuite {
         List(2, 4, 6, 8),
         pe => pe.copy(exec = IFPS.delay { didRun = true } *> pe.exec))
     } yield {
-      assertEquals(res, 4)
+      assertEquals(res, 4L)
     })
       .transact(xa)
       .flatMap { _ =>
@@ -77,7 +77,7 @@ class UpdateSuite extends CatsEffectSuite {
       res <- Update[Int]("insert into t1 (a) values (?)").toUpdate0(1).runAlteringExecution(pe =>
         pe.copy(exec = IFPS.delay { didRun = true } *> pe.exec))
     } yield {
-      assertEquals(res, 1)
+      assertEquals(res, 1L)
     })
       .transact(xa)
       .flatMap { _ =>

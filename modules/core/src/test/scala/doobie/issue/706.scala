@@ -27,13 +27,13 @@ class `706` extends munit.ScalaCheckSuite {
   val setup: ConnectionIO[Unit] =
     sql"CREATE TABLE IF NOT EXISTS test (test_value INTEGER)".update.run.void
 
-  def insert[F[_]: Foldable, A: Write](as: F[A]): ConnectionIO[Int] =
+  def insert[F[_]: Foldable, A: Write](as: F[A]): ConnectionIO[Long] =
     Update[A]("INSERT INTO test VALUES (?)").updateMany(as)
 
   test("updateMany should work correctly for valid inputs") {
     forAll { (ns: List[Int]) =>
       val prog = setup *> insert(ns)
-      assertEquals(prog.transact(xa).unsafeRunSync(), ns.length)
+      assertEquals(prog.transact(xa).unsafeRunSync(), ns.length.toLong)
     }
   }
 

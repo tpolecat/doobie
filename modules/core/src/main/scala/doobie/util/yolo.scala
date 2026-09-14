@@ -5,7 +5,7 @@
 package org.typelevel.doobie.util
 
 import cats.effect.kernel.Async
-import cats.instances.int.*
+import cats.instances.long.*
 import cats.instances.string.*
 import cats.syntax.show.*
 import org.typelevel.doobie.free.connection.{ConnectionIO, delay}

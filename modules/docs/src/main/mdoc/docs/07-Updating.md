@@ -42,7 +42,7 @@ implicit val mdocColors: org.typelevel.doobie.util.Colors = org.typelevel.doobie
 
 It is uncommon to define database structures at runtime, but **doobie** handles it just fine and treats such operations like any other kind of update. And it happens to be useful here!
 
-Let's create a new table, which we will use for the examples to follow. This looks a lot like our prior usage of the `sql` interpolator, but this time we're using `update` rather than `query`. The `.run` method gives a `ConnectionIO[Int]` that yields the total number of rows modified, and the YOLO-mode `.quick` gives a `IO[Unit]` that prints out the row count.
+Let's create a new table, which we will use for the examples to follow. This looks a lot like our prior usage of the `sql` interpolator, but this time we're using `update` rather than `query`. The `.run` method gives a `ConnectionIO[Long]` that yields the total number of rows modified, and the YOLO-mode `.quick` gives a `IO[Unit]` that prints out the row count.
 
 ```scala mdoc:silent
 val drop =
@@ -196,7 +196,7 @@ By using an `Update` directly we can apply *many* sets of arguments to the same 
 ```scala mdoc:silent
 type PersonInfo = (String, Option[Short])
 
-def insertMany(ps: List[PersonInfo]): ConnectionIO[Int] = {
+def insertMany(ps: List[PersonInfo]): ConnectionIO[Long] = {
   val sql = "insert into person (name, age) values (?, ?)"
   Update[PersonInfo](sql).updateMany(ps)
 }

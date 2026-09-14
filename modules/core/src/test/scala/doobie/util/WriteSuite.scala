@@ -221,7 +221,7 @@ class WriteSuite extends munit.CatsEffectSuite with WriteSuitePlatform {
     implicit val wwscc: Write[WrappedSimpleCaseClass] =
       wscc.contramap(_.sc) // Testing contramap doesn't break typechecking
 
-    val createTable: ConnectionIO[Int] = sql"create temp table tab(c1 int, c2 varchar not null, c3 varchar)".update.run
+    val createTable: ConnectionIO[Long] = sql"create temp table tab(c1 int, c2 varchar not null, c3 varchar)".update.run
 
     val insertSimpleSql = "INSERT INTO tab VALUES (?,?,?)"
     val insertComplexSql = "INSERT INTO tab VALUES (?,?,?,?,?,?,?,?)"
@@ -275,7 +275,7 @@ class WriteSuite extends munit.CatsEffectSuite with WriteSuitePlatform {
   ): IO[Unit] =
     Query[A, Tup]("SELECT ?, ?, ?").unique(in).transact(xa).assertEquals(expectedOut)
 
-  private def testNullPut(input: (String, Option[String])): IO[Int] = {
+  private def testNullPut(input: (String, Option[String])): IO[Long] = {
     import org.typelevel.doobie.implicits.*
 
     (for {

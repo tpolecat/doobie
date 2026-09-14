@@ -22,7 +22,7 @@ import org.postgresql.util.PGobject
 Your first evidence that you need a new type mapping will likely be a type error. There are two common cases. The first case appears when you try to use an unmapped type as a statement parameter.
 
 ```scala mdoc:fail
-def nope(msg: String, ex: Exception): ConnectionIO[Int] =
+def nope(msg: String, ex: Exception): ConnectionIO[Long] =
   sql"INSERT INTO log (message, detail) VALUES ($msg, $ex)".update.run
 ```
 
